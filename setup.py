@@ -31,4 +31,9 @@ setuptools.setup(
             'sqlalchemy>=1.3.5',
         ],
         include_package_data=True,
+        entry_points={
+            'console_scripts': [
+                'download-efl-games = efl.data.main:console_download_games',
+            ],
+        }
 )
