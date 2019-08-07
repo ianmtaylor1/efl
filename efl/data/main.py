@@ -1,5 +1,5 @@
-import .model
-import .footballdata
+from . import orm
+from . import footballdata
 
 import pandas
 import sqlalchemy
@@ -29,17 +29,17 @@ games = pandas.concat(gameslist, ignore_index=True)
 # Create engine/connection/session
 engine = sqlalchemy.create_engine(dbfile)
 dbcon = engine.connect()
-model.Base.metadata.create_all(dbcon)  # create tables
-session = model.Session(bind=dbcon)
+orm.Base.metadata.create_all(dbcon)  # create tables
+session = orm.Session(bind=dbcon)
 
 # SEASON ######################################################################
 print("\nChecking for existence of season...")
 
-season = session.query(model.Season).filter(model.Season.start == year).one_or_none()
+season = session.query(orm.Season).filter(orm.Season.start == year).one_or_none()
 if season is None:
     print("Creating new season ({}-{})".format(year, year+1))
-    season = model.Season(start=year, end=year+1, 
-                          name="{}-{}".format(year, year+1))
+    season = orm.Season(start=year, end=year+1, 
+                        name="{}-{}".format(year, year+1))
     session.add(season)
     session.commit()
 
@@ -53,21 +53,21 @@ def prompt_missing_team(name):
     while team is None:
         choice = input("Enter a teamid or 'c' to create new: ")
         if choice == "c":
-            team = model.Team(shortname=name)
+            team = orm.Team(shortname=name)
         else:
-            team = session.query(model.Team).filter(model.Team.id == choice).one_or_none()
-    stn = model.SourceTeamName(datasource='footballdata', name=name)
+            team = session.query(orm.Team).filter(orm.Team.id == choice).one_or_none()
+    stn = orm.SourceTeamName(datasource='footballdata', name=name)
     stn.team = team
     return stn
 
 # Check for team entries - create dict called "teams" to link team names
-# to model.Team class instance.
+# to orm.Team class instance.
 teamnames = list(set(games['HomeTeam']).union(set(games['AwayTeam'])))
 teams = {}
 for t in teamnames:
-    stn = session.query(model.SourceTeamName).filter(
-            sqlalchemy.and_(model.SourceTeamName.name == t, 
-                            model.SourceTeamName.datasource == 'footballdata')
+    stn = session.query(orm.SourceTeamName).filter(
+            sqlalchemy.and_(orm.SourceTeamName.name == t, 
+                            orm.SourceTeamName.datasource == 'footballdata')
             ).one_or_none()
     if stn is None:
         stn = prompt_missing_team(t)
@@ -79,13 +79,13 @@ for t in teamnames:
 print("\nChecking for existence of leagues...")
 
 # Check for league entries - create dict called "leagues" to link league names
-# to model.League class instances
+# to orm.League class instances
 leaguenames = list(set(games['League']))
 leagues = {}
 for l in leaguenames:
-    sln = session.query(model.SourceLeagueName).filter(
-            sqlalchemy.and_(model.SourceLeagueName.name == l,
-                            model.SourceLeagueName.datasource == 'footballdata')
+    sln = session.query(orm.SourceLeagueName).filter(
+            sqlalchemy.and_(orm.SourceLeagueName.name == l,
+                            orm.SourceLeagueName.datasource == 'footballdata')
             ).one_or_none()
     if sln is None:
         raise Exception("Need to create league '{}'".format(l))
@@ -100,13 +100,13 @@ hometeamleaguenames = set([(games.loc[i, "HomeTeam"], games.loc[i, "League"]) fo
 awayteamleaguenames = set([(games.loc[i, "AwayTeam"], games.loc[i, "League"]) for i in games.index])
 teamleaguenames = list(hometeamleaguenames.union(awayteamleaguenames))
 for t,l in teamleaguenames:
-    tl = session.query(model.TeamLeague).filter(
-            sqlalchemy.and_(model.TeamLeague.teamid == teams[t].id,
-                            model.TeamLeague.seasonid == season.id)
+    tl = session.query(orm.TeamLeague).filter(
+            sqlalchemy.and_(orm.TeamLeague.teamid == teams[t].id,
+                            orm.TeamLeague.seasonid == season.id)
             ).one_or_none()
     if tl is None:
         print("Adding '{}' to '{}' for season {}".format(teams[t].shortname, leagues[l].shortname, season.name))
-        tl = model.TeamLeague(teamid=teams[t].id, seasonid=season.id, leagueid=leagues[l].id)
+        tl = orm.TeamLeague(teamid=teams[t].id, seasonid=season.id, leagueid=leagues[l].id)
         session.add(tl)
         session.commit()
     if tl.leagueid != leagues[l].id:
@@ -117,15 +117,15 @@ for t,l in teamleaguenames:
 print("\nChecking for the existence of games...")
 
 for i in games.index:
-    game = session.query(model.Game).filter(
-            sqlalchemy.and_(model.Game.date == games.loc[i,'Date'],
-                            model.Game.hometeamid == teams[games.loc[i,'HomeTeam']].id,
-                            model.Game.awayteamid == teams[games.loc[i,'AwayTeam']].id)
+    game = session.query(orm.Game).filter(
+            sqlalchemy.and_(orm.Game.date == games.loc[i,'Date'],
+                            orm.Game.hometeamid == teams[games.loc[i,'HomeTeam']].id,
+                            orm.Game.awayteamid == teams[games.loc[i,'AwayTeam']].id)
             ).one_or_none()
     if game is None:
         print("Adding {} vs {}".format(teams[games.loc[i,"HomeTeam"]].shortname, 
                 teams[games.loc[i,"AwayTeam"]].shortname))
-        game = model.Game(date=games.loc[i,"Date"])
+        game = orm.Game(date=games.loc[i,"Date"])
         game.hometeam = teams[games.loc[i,"HomeTeam"]]
         game.awayteam = teams[games.loc[i,"AwayTeam"]]
         game.season = season
@@ -137,9 +137,9 @@ for i in games.index:
         # BUG FIX: int(...) below fixes weird error where integers get stored
         # in sqlite as BLOBs. Pandas problem, not reading in CSV as integer?
         # Idk it works now though.
-        result = model.GameResult(homepoints=int(games.loc[i,"HomePoints"]),
-                                  awaypoints=int(games.loc[i,"AwayPoints"]),
-                                  overtimes=0)
+        result = orm.GameResult(homepoints=int(games.loc[i,"HomePoints"]),
+                                awaypoints=int(games.loc[i,"AwayPoints"]),
+                                overtimes=0)
         game.result = result
 
 session.commit()
