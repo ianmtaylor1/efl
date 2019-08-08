@@ -1,5 +1,6 @@
 from . import orm
 from . import footballdata
+from .. import cache
 
 import pandas
 import sqlalchemy
@@ -24,12 +25,12 @@ def _prompt_missing_team(session, name):
     return stn
 
 # Function to fetch and save 
-def fetch_and_save(league, year, dbfile):
+def fetch_and_save(league, year, dbengine):
     # Get the list of games from the provider
     games = footballdata.get_games(league, year)
     
     # Create engine/connection/session
-    engine = sqlalchemy.create_engine(dbfile)
+    engine = sqlalchemy.create_engine(dbengine)
     dbcon = engine.connect()
     orm.Base.metadata.create_all(dbcon)  # create tables
     session = orm.Session(bind=dbcon)
@@ -143,32 +144,9 @@ def console_download_games():
             help="The season to download (e.g. 2018 for 18-19 season).")
     parser.add_argument("-l", type=int, choices=[1,2,3,4], required=True,
             help="The league to download: 1=Premier, 2=Championship, 3=League1, 4=League2")
-    parser.add_argument("-f", type=str, default="efl.sqlite3",
-            help="SQLite file for saving data", )
     # Parse args
     args = parser.parse_args()
     # Run the interactive data getting function
-    fetch_and_save(args.l, args.y, "sqlite:///{}".format(args.f))
-
-
-
-#dbfile = 'sqlite:///efl.sqlite3'
-# Which season do we want?
-# Future update: take command line arguments?
-#year = None
-#while year is None:
-#    try:
-#        year = int(input("Please enter a season by starting year : "))
-#    except:
-#        year = None
-
-# Get season games (all leagues)
-#gameslist = []
-#for league in [1,2,3,4]:
-#    gameslist.append(footballdata.get_games(league, year))
-#games = pandas.concat(gameslist, ignore_index=True)
-
-
-
+    fetch_and_save(args.l, args.y, config.dbengine)
 
 

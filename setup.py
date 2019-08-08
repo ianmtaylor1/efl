@@ -25,6 +25,7 @@ setuptools.setup(
         ],
         install_requires=[
             'appdirs>=1.4.3',
+            'configparser>=3.7.4',
             'pandas>=0.25.0',
             'pystan>=2.19.0.0',
             'requests>=2.22.0',
