@@ -1,6 +1,6 @@
 from . import orm
 from . import footballdata
-from .. import cache
+from .. import config
 
 import pandas
 import sqlalchemy

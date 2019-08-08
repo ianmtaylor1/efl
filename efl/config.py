@@ -12,6 +12,7 @@ The objects exposed by this module are:
 import configparser
 import appdirs
 from os import path
+import os
 
 # DEFAULTS
 
@@ -53,4 +54,9 @@ def parse(file_):
 ######## INITIALIZATION CODE: PARSE THE DEFAULT CONFIG FILE ##########
 parse(_default_conffile)
 
-
+os.makedirs(appdirs.user_config_dir(appname=_appname, appauthor=_appauthor), 
+        exist_ok=True)
+os.makedirs(appdirs.user_cache_dir(appname=_appname, appauthor=_appauthor), 
+        exist_ok=True)
+os.makedirs(appdirs.user_data_dir(appname=_appname, appauthor=_appauthor), 
+        exist_ok=True)
