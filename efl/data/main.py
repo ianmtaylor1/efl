@@ -1,6 +1,8 @@
+"""Functions intended to be used mainly by entry_points for processing data."""
+
 from . import orm
 from . import footballdata
-from .. import config
+from . import engine
 
 import pandas
 import sqlalchemy
@@ -24,13 +26,14 @@ def _prompt_missing_team(session, name):
     stn.team = team
     return stn
 
-# Function to fetch and save 
-def fetch_and_save(league, year, dbengine):
+
+def fetch_and_save(league, year):
+    """Download and games for a given league and year, and save them to the
+    EFL games database."""
     # Get the list of games from the provider
     games = footballdata.get_games(league, year)
     
     # Create engine/connection/session
-    engine = sqlalchemy.create_engine(dbengine)
     dbcon = engine.connect()
     orm.Base.metadata.create_all(dbcon)  # create tables
     session = orm.Session(bind=dbcon)
@@ -144,9 +147,15 @@ def console_download_games():
             help="The season to download (e.g. 2018 for 18-19 season).")
     parser.add_argument("-l", type=int, choices=[1,2,3,4], required=True,
             help="The league to download: 1=Premier, 2=Championship, 3=League1, 4=League2")
+    parser.add_argument("--config", "-c", type=str,
+            help="Configuration file to override defaults.")
     # Parse args
     args = parser.parse_args()
+    # Read the optionally supplied configuration file
+    if args.config is not None:
+        from .. import config
+        config.parse(args.config)
     # Run the interactive data getting function
-    fetch_and_save(args.l, args.y, config.dbengine)
+    fetch_and_save(args.l, args.y)
 
 

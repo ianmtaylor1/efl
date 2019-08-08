@@ -1,3 +1,5 @@
+"""Module containing the object relational model for the EFL games database."""
+
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.types import Integer, String, Date, Boolean
