@@ -12,20 +12,31 @@ _engine = None
 # The url of that engine
 _url = None
 
-def connect():
-    """Issue a connection to the current database engine. If the configured
-    url has changed, recreate the engine."""
+# Base session maker for the module
+_Sess = sqlalchemy.orm.sessionmaker()
+
+def _get():
+    """Handles the logic of checking if the configured db url has changed,
+    and if so, recreating the engine."""
     global _url, _engine
     if config.dbengine != _url:
         if _engine is not None:
             _engine.dispose()
         _engine = sqlalchemy.create_engine(config.dbengine)
         _url = config.dbengine
-    return(_engine.connect())
+    return _engine
+
+def connect():
+    """Issue a connection to the current database engine. If the configured
+    url has changed, recreate the engine."""
+    return _get().connect()
 
 def dispose():
     """Disposes the engine's connection pool and gets a new one. Intended to
     be used only if the process using this module fork()s. More info:
     https://docs.sqlalchemy.org/en/13/core/connections.html#engine-disposal"""
-    if _engine is not None:
-        _engine.dispose()
+    _get().dispose()
+
+def Session():
+    """Create a sqlalchemy session to the currently configured engine."""
+    return _Sess(bind=_get())

@@ -34,7 +34,7 @@ setuptools.setup(
         include_package_data=True,
         entry_points={
             'console_scripts': [
-                'download-efl-games = efl.data.main:console_download_games',
+                'download-efl-games = efl.data.download:console_download_games',
             ],
         }
 )

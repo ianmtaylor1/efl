@@ -4,7 +4,6 @@
 
 from . import engine
 from . import orm
-import sqlalchemy as sa
 
 class EFLGames(object):
     """Class representing a read-only view of a subset of EFL games."""

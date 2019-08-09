@@ -2,7 +2,7 @@
 
 from . import orm
 from . import footballdata
-from . import engine
+from . import db
 
 import pandas
 import sqlalchemy
@@ -33,10 +33,9 @@ def fetch_and_save(league, year):
     # Get the list of games from the provider
     games = footballdata.get_games(league, year)
     
-    # Create engine/connection/session
-    dbcon = engine.connect()
-    orm.Base.metadata.create_all(dbcon)  # create tables
-    session = orm.Session(bind=dbcon)
+    # Create session and tables
+    orm.Base.metadata.create_all(db.connect())  # create tables
+    session = db.Session()
     
     # SEASON ############################################################
     print("\nChecking for existence of season...")

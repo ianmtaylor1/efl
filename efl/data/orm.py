@@ -4,10 +4,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.types import Integer, String, Date, Boolean
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import sessionmaker
+
 
 Base = declarative_base()
-Session = sessionmaker()
+
 
 class Team(Base):
     __tablename__ = 'team'
