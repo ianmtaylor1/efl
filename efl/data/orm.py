@@ -21,8 +21,8 @@ class Team(Base):
     awaygames = relationship("Game", foreign_keys="Game.awayteamid", back_populates="awayteam")
     
     def __repr__(self):
-        return "<Team(shortname='{}', longname='{}', mascot='{}')>".format(
-                self.shortname, self.longname, self.mascot)
+        return "<Team(shortname='{}', longname='{}', location='{}')>".format(
+                self.shortname, self.longname, self.location)
 
 
 class League(Base):

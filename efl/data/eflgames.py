@@ -1,5 +1,7 @@
 """This module contains classes and functions for accessing game data."""
 
+# TODO: SESSION SCOPE!!
+
 from . import engine
 from . import orm
 import sqlalchemy as sa
@@ -11,9 +13,9 @@ class EFLGames(object):
             startdate=None, enddate=None):
         """Initialize the object. Any supplied filters are applied jointly,
         with 'and'. startdate and enddate are inclusive."""
-        session = orm.Session(bind=engine.connect())
+        self.session = orm.Session(bind=engine.connect())
         # Build the game query
-        gamequery = session.query(orm.Game)
+        gamequery = self.session.query(orm.Game)
         if (seasonid is not None) or (leagueid is not None):
             print("WARNING: League and season filter not implemented.")
         if startdate is not None:
@@ -26,7 +28,6 @@ class EFLGames(object):
                 [g.hometeam for g in self.games]
                 + [g.awayteam for g in self.games]
                 ))
-        session.close()
     
     def addteam(self, teamid, exist_ok=True):
         """Adds a team to this object. Useful for when a team is in the league
