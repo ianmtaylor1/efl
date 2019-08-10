@@ -6,6 +6,7 @@ created."""
 from .. import config
 
 import sqlalchemy
+import sqlalchemy.orm as saorm
 
 # The currently active engine
 _engine = None
@@ -13,7 +14,7 @@ _engine = None
 _url = None
 
 # Base session maker for the module
-_Sess = sqlalchemy.orm.sessionmaker()
+_Sess = saorm.sessionmaker()
 
 def _get():
     """Handles the logic of checking if the configured db url has changed,

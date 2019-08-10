@@ -1,6 +1,5 @@
 """This module contains classes and functions for accessing game data."""
 
-# TODO: SESSION SCOPE!!
 
 from . import engine
 from . import orm
@@ -8,13 +7,12 @@ from . import orm
 class EFLGames(object):
     """Class representing a read-only view of a subset of EFL games."""
 
-    def __init__(self, seasonid=None, leagueid=None, 
+    def __init__(self, session, seasonid=None, leagueid=None, 
             startdate=None, enddate=None):
         """Initialize the object. Any supplied filters are applied jointly,
         with 'and'. startdate and enddate are inclusive."""
-        self.session = orm.Session(bind=engine.connect())
         # Build the game query
-        gamequery = self.session.query(orm.Game)
+        gamequery = session.query(orm.Game)
         if (seasonid is not None) or (leagueid is not None):
             print("WARNING: League and season filter not implemented.")
         if startdate is not None:

@@ -4,11 +4,7 @@ from . import orm
 from . import footballdata
 from . import db
 
-import pandas
 import sqlalchemy
-import os
-import sys
-import datetime
 import argparse
 
 
