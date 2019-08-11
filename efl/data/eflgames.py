@@ -1,78 +1,70 @@
 """This module contains classes and functions for accessing game data."""
 
-
-from . import engine
 from . import orm
+
+from sqlalchemy.orm import aliased
+from sqlalchemy import and_
 
 class EFLGames(object):
     """Class representing a read-only view of a subset of EFL games."""
 
-    def __init__(self, session, seasonid=None, leagueid=None, 
-            startdate=None, enddate=None):
-        """Initialize the object. Any supplied filters are applied jointly,
-        with 'and'. startdate and enddate are inclusive."""
+    def __init__(self, session, seasonid, leagueid, asof_date=None): 
+        """Initialize the object. Pull games in the given season and league.
+        asof_date allows for a date to be set, after which games are assumed to
+        not have results. (Good for running models historically.)"""
+        # Build the team query
+        teamquery = session.query(orm.TeamLeague)\
+                .filter(orm.TeamLeague.seasonid == seasonid)\
+                .filter(orm.TeamLeague.leagueid == leagueid)
         # Build the game query
-        gamequery = session.query(orm.Game)
-        if (seasonid is not None) or (leagueid is not None):
-            print("WARNING: League and season filter not implemented.")
-        if startdate is not None:
-            gamequery = gamequery.filter(orm.Game.date >= startdate)
-        if enddate is not None:
-            gamequery = gamequery.filter(orm.Game.date <= enddate)
+        htl = aliased(orm.TeamLeague)
+        atl = aliased(orm.TeamLeague)
+        gamequery = session.query(orm.Game)\
+                .join(htl, and_(htl.teamid == orm.Game.hometeamid,
+                                htl.seasonid == orm.Game.seasonid))\
+                .join(atl, and_(atl.teamid == orm.Game.awayteamid,
+                                atl.seasonid == orm.Game.seasonid))\
+                .filter(htl.leagueid == leagueid)\
+                .filter(atl.leagueid == leagueid)\
+                .filter(orm.Game.seasonid == seasonid)
         # Get the data
         self.games = gamequery.all()
-        self.teams = list(set(
-                [g.hometeam for g in self.games]
-                + [g.awayteam for g in self.games]
-                ))
-    
-    def addteam(self, teamid, exist_ok=True):
-        """Adds a team to this object. Useful for when a team is in the league
-        but hasn't played any games yet in the season. If exist_ok is false, 
-        this method will raise an exception."""
-        session = orm.Session(bind=engine.connect())
-        team = session.query(orm.Team)\
-                .filter(orm.Team.id == teamid)\
-                .one_or_none()
-        if team is None:
-            raise Exception('Team ID {} does not exist.'.format(teamid))
-        if (not exist_ok) and team in self.teams:
-            raise Exception('Team ID {} already in data.'.format(teamid))
-        self.teams = list(set(self.teams + [team]))
+        self.teams = [tl.team for tl in teamquery.all()]
+        if asof_date is None:
+            self.asof_date = max(g.date for g in self.games if g.result is not None)
+        else:
+            self.asof_date = asof_date
 
 
-def seasonid(start_year):
+def seasonid(session, start_year):
     """Return a unique seasonid from the database based on the season's start
     year."""
-    session = orm.Session(bind=engine.connect())
     season = session.query(orm.Season)\
             .filter(orm.Season.start == start_year)\
             .one_or_none()
     if season is None:
-        return(None)
+        return None
     else:
-        return(season.id)
+        return season.id
 
-def leagueid(short_name):
+def leagueid(session, short_name):
     """Return a unique leagueid from the database based on the league's short
     name."""
-    session = orm.Session(bind=engine.connect())
     league = session.query(orm.League)\
             .filter(orm.League.shortname == short_name)\
             .one_or_none()
     if league is None:
-        return(None)
+        return None
     else:
-        return(league.id)
+        return league.id 
     
-def teamid(short_name):
+def teamid(session, short_name):
     """Return a unique teamid from the database based on the team's short
     name."""
-    session = orm.Session(bind=engine.connect())
     team = session.query(orm.Team)\
             .filter(orm.Team.shortname == short_name)\
             .one_or_none()
     if team is None:
-        return(None)
+        return None
     else:
-        return(team.id)
+        return team.id
