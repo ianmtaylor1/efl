@@ -6,20 +6,35 @@ from sqlalchemy.orm import aliased
 from sqlalchemy import and_
 
 class EFLGames(object):
-    """Class representing a read-only view of a subset of EFL games."""
-
-    def __init__(self, session, seasonid, leagueid, asof_date=None): 
-        """Initialize the object. Pull games in the given season and league.
+    """Class representing a read-only view of a subset of EFL games, for 
+    model building.
+    
+    Each instance has three objects:
+        fit - games to be used for fitting the model. Should all have results.
+            (Results will also be predicted from the posterior for these games.)
+        predict - games not used for fitting, but for which we want
+            predictions of the result.
+        teams - A list of teams to be accounted for in the model. May contain
+            more teams than are actually represented in the games."""
+    
+    def __init__(self, games_fit, games_predict, teams):
+        self.fit = games_fit
+        self.predict = games_predict
+        self.teams = teams
+    
+    @classmethod
+    def from_season(cls, dbsession, seasonid, leagueid, asof_date=None): 
+        """Build a data set from a given season and league.
         asof_date allows for a date to be set, after which games are assumed to
         not have results. (Good for running models historically.)"""
         # Build the team query
-        teamquery = session.query(orm.TeamLeague)\
+        teamquery = dbsession.query(orm.TeamLeague)\
                 .filter(orm.TeamLeague.seasonid == seasonid)\
                 .filter(orm.TeamLeague.leagueid == leagueid)
         # Build the game query
         htl = aliased(orm.TeamLeague)
         atl = aliased(orm.TeamLeague)
-        gamequery = session.query(orm.Game)\
+        gamequery = dbsession.query(orm.Game)\
                 .join(htl, and_(htl.teamid == orm.Game.hometeamid,
                                 htl.seasonid == orm.Game.seasonid))\
                 .join(atl, and_(atl.teamid == orm.Game.awayteamid,
@@ -28,12 +43,14 @@ class EFLGames(object):
                 .filter(atl.leagueid == leagueid)\
                 .filter(orm.Game.seasonid == seasonid)
         # Get the data
-        self.games = gamequery.all()
-        self.teams = [tl.team for tl in teamquery.all()]
+        games = gamequery.all()
+        teams = [tl.team for tl in teamquery.all()]
         if asof_date is None:
-            self.asof_date = max(g.date for g in self.games if g.result is not None)
-        else:
-            self.asof_date = asof_date
+            asof_date = max(g.date for g in games if g.result is not None)
+        # Create and return the object
+        games_fit = [g for g in games if (g.date <= asof_date) and (g.result is not None)]
+        games_predict = [g for g in games if (g.date > asof_date) or (g.result is None)]
+        return cls(games_fit, games_predict, teams)
 
 
 def seasonid(session, start_year):
