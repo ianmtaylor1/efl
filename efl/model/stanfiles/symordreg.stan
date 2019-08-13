@@ -27,9 +27,9 @@ generated quantities {
     int<lower=1,upper=3> Y_pred[N];
     int<lower=1,upper=3> Y_new_pred[N_new];
     for (i in 1:N) {
-        Y_pred[i] = ordered_logistic_rng(X[i] * beta, [ -theta, theta]');
+        Y_pred[i] = ordered_logistic_rng(X[i] * beta, [ -theta, theta ]');
     };
     for (i in 1:N_new) {
-        Y_new_pred[i] = ordered_logistic_rng(X_new[i] * beta, [ -theta, theta]');
+        Y_new_pred[i] = ordered_logistic_rng(X_new[i] * beta, [ -theta, theta ]');
     };
 }
