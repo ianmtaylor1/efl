@@ -8,7 +8,6 @@ Module contains code to build and sample from EFL models.
 from . import cache
 
 import numpy
-import pystan
 
 class _EFLModel(object):
     """Base class for EFL models. Mostly handles wrapping of the StanFit
@@ -16,9 +15,10 @@ class _EFLModel(object):
     
     This class provides/creates:
         1. An __init__ method that builds and fits the model
-        2. Instance attributes: _model and _stanfit
-        3. Instance attributes: _modeldata (equal to whatever was passed to
-                __init__). May be used in _stan_inits function
+        2. Instance attribute: _model 
+        3. Instance attribute: stanfit
+        3. Instance attribute: _modeldata (equal to whatever was passed to
+                __init__). Useful for _stan_inits function
     
     Subclasses of EFLModel should:
         1. have a class-level attribute called _modelfile
@@ -43,7 +43,7 @@ class _EFLModel(object):
         # Store the data that was passed as an instance attribute
         self._modeldata = modeldata
         # Fit the model
-        self._stanfit = self._model.sampling(
+        self.stanfit = self._model.sampling(
                 data=self._modeldata, init=self._stan_inits,
                 chains=chains, iter=iter, warmup=warmup, thin=thin, 
                 n_jobs=n_jobs)
@@ -55,53 +55,6 @@ class _EFLModel(object):
         raise NotImplementedError(
                 "_inits_from_optim not implemented in {}".format(type(self))
                 )
-    
-    ######## Read only property passed through to _stanfit
-    ######## Required to trick stansummary into using this object.
-    @property
-    def sim(self):
-        return self._stanfit.sim
-    
-    ######## Read only property passed through to _stanfit
-    ######## Required to trick stansummary into using this object.
-    @property
-    def mode(self):
-        return self._stanfit.mode
-    
-    ######## Read only property passed through to _stanfit
-    ######## Required to trick stansummary into using this object.
-    @property
-    def date(self):
-        return self._stanfit.date
-    
-    def summary(self, pars=None, probs=None):
-        """Return a summary in the same format as the pystan fit summary.
-        Maps parameter names to the ones defined by the model, instead of
-        the default stan ones."""
-        if pars is None:
-            pars = self._efl2stan.keys()
-        # Map the desired parameters to their Stan equivalents
-        stanpars = [self._efl2stan.get(p, p) for p in pars]
-        # Get the Stan summary
-        summ = self._stanfit.summary(pars=stanpars, probs=probs)
-        # Remap the parameter names to their EFL equivalents
-        summ['summary_rownames'] = [self._stan2efl.get(p, p) for p in summ['summary_rownames']]
-        summ['c_summary_rownames'] = [self._stan2efl.get(p, p) for p in summ['c_summary_rownames']]
-        return summ
-    
-    def stansummary(self, **kwargs):
-        """Make a Stan Summary for this object. See: pystan.stansummary.
-        Arguments: keyword arguments identical to pystan.stansummary()
-        
-        Note: This works by implementing the following methods/attributes:
-            * summary() (with remapped parameter names)
-            * sim
-            * mode
-            * date
-        If pystan.stansummary is changed to use different attributes, more
-        changes will be needed to this base class.
-        """
-        return pystan.stansummary(self, **kwargs)
 
 
 class _Stan_symordreg(_EFLModel):
@@ -141,7 +94,7 @@ class EFLSymOrdReg(_Stan_symordreg):
         # Call the superclass to fit the model
         super().__init__(modeldata, **kwargs)
         # Create parameter mappings.
-        self._efl2stan = {'DrawThreshold':'theta', 'HomeAdvantage':'beta[1]'}
+        self._efl2stan = {'DrawBnd':'theta', 'HomeField':'beta[1]'}
         for ti in range(1, len(eflgames.teams)):
             self._efl2stan[eflgames.teams[ti].shortname] = 'beta[{}]'.format(ti+1)
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
