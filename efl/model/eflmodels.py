@@ -8,88 +8,143 @@ Module contains code to build and sample from EFL models.
 from . import cache
 
 import numpy
+import pystan
 
 class _EFLModel(object):
     """Base class for EFL models. Mostly handles wrapping of the StanFit
     object, since inheritance is hard.
     
+    This class provides/creates:
+        1. An __init__ method that builds and fits the model
+        2. Instance attributes: _model and _stanfit
+        3. Instance attributes: _modeldata (equal to whatever was passed to
+                __init__). May be used in _stan_inits function
+    
     Subclasses of EFLModel should:
-        1. have a class-level attribute called _modelname
-        2. Implement _inits_from_prior and _inits_from_optim"""
+        1. have a class-level attribute called _modelfile
+        2. Have an instance attribute called model_name
+        2. Implement _stan_inits method for generating initial values 
+                from chain_id
+        3. Have object-level attributes _efl2stan and _stan2efl for parameter
+                name mapping between Stan output and EFL-relevant names.
+    """
     
-    # Name of the model (used for cache). Set in child classes.
-    _modelname = None
-    
-    def __init__(self, modeldata, modelprior, 
+    def __init__(self, modeldata,
                  chains=4, iter=10000, warmup=None, thin=1, n_jobs=1):
         """Initialize the base properties of this model.
+        Parameters:
+            modeldata - Data that is passed to sampling(data=modeldata). Is
+                also stored as self._modeldata for use in other methods.
+            chains, iter, warmup, thin, n_jobs - same as pystan options.
+                Passed to sampling()
         """
         # Get model from compiled model cache
-        self._model = cache.get_model(self._modelname)
-        # Create inits: one from optimization, rest sampled from prior
-        inits = [self._inits_from_optim(modeldata, modelprior)]
-        #inits = []
-        for c in range(len(inits),chains):
-            inits.append(self._inits_from_prior(modelprior))
+        self._model = cache.get_model(self._modelfile)
+        # Store the data that was passed as an instance attribute
+        self._modeldata = modeldata
         # Fit the model
         self._stanfit = self._model.sampling(
-                data={**modeldata, **modelprior}, init=inits,
+                data=self._modeldata, init=self._stan_inits,
                 chains=chains, iter=iter, warmup=warmup, thin=thin, 
                 n_jobs=n_jobs)
     
-    def _inits_from_optim(self, modeldata, modelprior):
-        """Produce initial values for MCMC by optimizing the posterior.
-        (posterior mode)"""
+    def _stan_inits(self, chain_id=None):
+        """Produce initial values for MCMC. Should return a dict with keys
+        equal to Stan model parameters, and values equal to their initial
+        values."""
         raise NotImplementedError(
                 "_inits_from_optim not implemented in {}".format(type(self))
                 )
     
-    def _inits_from_prior(self, modelprior):
-        """Produce initial values for MCMC by sampling from prior."""
-        raise NotImplementedError(
-                "_inits_from_prior not implemented in {}".format(type(self))
-                )
+    ######## Read only property passed through to _stanfit
+    ######## Required to trick stansummary into using this object.
+    @property
+    def sim(self):
+        return self._stanfit.sim
+    
+    ######## Read only property passed through to _stanfit
+    ######## Required to trick stansummary into using this object.
+    @property
+    def mode(self):
+        return self._stanfit.mode
+    
+    ######## Read only property passed through to _stanfit
+    ######## Required to trick stansummary into using this object.
+    @property
+    def date(self):
+        return self._stanfit.date
+    
+    def summary(self, pars=None, probs=None):
+        """Return a summary in the same format as the pystan fit summary.
+        Maps parameter names to the ones defined by the model, instead of
+        the default stan ones."""
+        if pars is None:
+            pars = self._efl2stan.keys()
+        # Map the desired parameters to their Stan equivalents
+        stanpars = [self._efl2stan.get(p, p) for p in pars]
+        # Get the Stan summary
+        summ = self._stanfit.summary(pars=stanpars, probs=probs)
+        # Remap the parameter names to their EFL equivalents
+        summ['summary_rownames'] = [self._stan2efl.get(p, p) for p in summ['summary_rownames']]
+        summ['c_summary_rownames'] = [self._stan2efl.get(p, p) for p in summ['c_summary_rownames']]
+        return summ
+    
+    def stansummary(self, **kwargs):
+        """Make a Stan Summary for this object. See: pystan.stansummary.
+        Arguments: keyword arguments identical to pystan.stansummary()
+        
+        Note: This works by implementing the following methods/attributes:
+            * summary() (with remapped parameter names)
+            * sim
+            * mode
+            * date
+        If pystan.stansummary is changed to use different attributes, more
+        changes will be needed to this base class.
+        """
+        return pystan.stansummary(self, **kwargs)
 
 
 class _Stan_symordreg(_EFLModel):
     """Base class of all EFL models which use the symordreg.stan model."""
     
-    _modelname = 'symordreg'
+    _modelfile = 'symordreg'
     
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
     
-    def _inits_from_optim(self, modeldata, modelprior):
-        """Optimize the posterior to create initial values."""
-        starting = [{'beta':modelprior['beta_prior_mean'],
-                    'theta':modelprior['theta_prior_loc']}]
-        opt = self._model.optimizing(data={**modeldata, **modelprior},
-                                     init=starting)
-        return {'beta':opt['beta'], 'theta':opt['theta']}
     
-    def _inits_from_prior(self, modelprior):
+    def _stan_inits(self, chain_id=None):
         """Draw from a multivariate normal distribution and a logistic
         distribution to produce prior values for beta and theta."""
         beta = numpy.random.multivariate_normal(
-                modelprior['beta_prior_mean'], 
-                modelprior['beta_prior_var'])
+                self._modeldata['beta_prior_mean'], 
+                self._modeldata['beta_prior_var'])
         theta = abs(numpy.random.logistic(
-                modelprior['theta_prior_loc'], 
-                modelprior['theta_prior_scale']))
+                self._modeldata['theta_prior_loc'], 
+                self._modeldata['theta_prior_scale']))
         return {'beta':beta, 'theta':theta}
 
 
 class EFLSymOrdReg(_Stan_symordreg):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
     
+    model_name = 'EFLSymOrdReg'
+    
     def __init__(self, eflgames, **kwargs):
         modeldata = self._get_model_data(eflgames)
+        # TODO: get prior from previous fit or another way
         P = modeldata['P']
-        modelprior = {'beta_prior_mean':numpy.zeros(P),
-                      'beta_prior_var':numpy.identity(P) * (P**2),
-                      'theta_prior_loc':0,
-                      'theta_prior_scale':1}
-        super().__init__(modeldata, modelprior, **kwargs)
+        modeldata['beta_prior_mean'] = numpy.zeros(P)
+        modeldata['beta_prior_var'] = numpy.identity(P) * (P**2)
+        modeldata['theta_prior_loc'] = 0
+        modeldata['theta_prior_scale'] = 1
+        # Call the superclass to fit the model
+        super().__init__(modeldata, **kwargs)
+        # Create parameter mappings.
+        self._efl2stan = {'DrawThreshold':'theta', 'HomeAdvantage':'beta[1]'}
+        for ti in range(1, len(eflgames.teams)):
+            self._efl2stan[eflgames.teams[ti].shortname] = 'beta[{}]'.format(ti+1)
+        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         
     @staticmethod
     def _get_model_data(games):
