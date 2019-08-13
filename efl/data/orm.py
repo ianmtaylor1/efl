@@ -80,16 +80,16 @@ class GameResult(Base):
     __tablename__ = 'gameresult'
     
     id = Column(Integer, ForeignKey('game.id'), primary_key=True)
-    homepoints = Column(Integer, CheckConstraint('homepoints >= 0'), nullable=False)
-    awaypoints = Column(Integer, CheckConstraint('awaypoints >= 0'), nullable=False)
+    homegoals = Column(Integer, CheckConstraint('homegoals >= 0'), nullable=False)
+    awaygoals = Column(Integer, CheckConstraint('awaygoals >= 0'), nullable=False)
     overtimes = Column(Integer, CheckConstraint('overtimes >= 0'))
     comments = Column(String)
     
     game = relationship("Game", back_populates="result")
     
     def __repr__(self):
-        return "<GameResult(homepoints='{}', awaypoints='{}', overtimes='{}', comments='{}')>".format(
-                self.homepoints, self.awaypoints, self.overtimes, self.comments)
+        return "<GameResult(homegoals='{}', awaygoals='{}', overtimes='{}', comments='{}')>".format(
+                self.homegoals, self.awaygoals, self.overtimes, self.comments)
 
 
 class TeamLeague(Base):

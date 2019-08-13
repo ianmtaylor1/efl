@@ -125,8 +125,8 @@ def fetch_and_save(league, year):
             # BUG FIX: int(...) below fixes weird error where integers get stored
             # in sqlite as BLOBs. Pandas problem, not reading in CSV as integer?
             # Idk it works now though.
-            result = orm.GameResult(homepoints=int(games.loc[i,"HomePoints"]),
-                                    awaypoints=int(games.loc[i,"AwayPoints"]),
+            result = orm.GameResult(homegoals=int(games.loc[i,"HomePoints"]),
+                                    awaygoals=int(games.loc[i,"AwayPoints"]),
                                     overtimes=0)
             game.result = result
     

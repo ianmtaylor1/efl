@@ -107,8 +107,8 @@ class EFLSymOrdReg(_Stan_symordreg):
         N_new = len(games.predict)
         P = len(games.teams)
         Y = numpy.array([2 for g in games.fit], dtype=numpy.int_)
-        Y[[(g.result.homepoints > g.result.awaypoints) for g in games.fit]] = 3
-        Y[[(g.result.homepoints < g.result.awaypoints) for g in games.fit]] = 1
+        Y[[(g.result.homegoals > g.result.awaygoals) for g in games.fit]] = 3
+        Y[[(g.result.homegoals < g.result.awaygoals) for g in games.fit]] = 1
         X = numpy.zeros(shape=[N,P])
         X[:,0] = 1 # Homefield
         X_new = numpy.zeros(shape=[N_new,P])
