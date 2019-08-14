@@ -53,7 +53,20 @@ class _EFLModel(object):
         equal to Stan model parameters, and values equal to their initial
         values."""
         raise NotImplementedError(
-                "_inits_from_optim not implemented in {}".format(type(self))
+                "_stan_inits not implemented in {}".format(type(self))
+                )
+    
+    def predictions(self, gameids=None):
+        """Predict the outcome of the supplied game(s).
+        Parameters:
+            gameids - iterable, "fit", "predict", or "all". Default: all
+                If iterable, contains gameids to predict.
+        Returns:
+            pandas.DataFrame with predictions. It will have the columns:
+                gameid, homegoals, awaygoals, result, frequency
+        """
+        raise NotImplementedError(
+                "predict not implemented in {}".format(type(self))
                 )
 
 
@@ -88,7 +101,7 @@ class EFLSymOrdReg(_Stan_symordreg):
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
-        modeldata['beta_prior_var'] = numpy.identity(P) * (P**2)
+        modeldata['beta_prior_var'] = numpy.identity(P) * ((P/2)**2)
         modeldata['theta_prior_loc'] = 0
         modeldata['theta_prior_scale'] = 1
         # Call the superclass to fit the model
