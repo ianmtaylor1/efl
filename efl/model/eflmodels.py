@@ -19,6 +19,11 @@ class _EFLModel(object):
         3. Instance attribute: stanfit
         4. Instance attribute: _modeldata (equal to whatever was passed to
                 __init__). Useful for _stan_inits function
+        5. Method: summary - wraps self.stanfit.stansummary(), and replaces 
+                uninformative paramater names with more informative ones
+                from _stan2efl
+        6. Method: to_dataframe - wraps self.stanfit.to_dataframe(), and
+                replaces parameter names same as summary().
     
     Subclasses of EFLModel should:
         1. have a class-level attribute called _modelfile
@@ -26,6 +31,9 @@ class _EFLModel(object):
                 from chain_id
         3. Have object-level attributes _efl2stan and _stan2efl for parameter
                 name mapping between Stan output and EFL-relevant names.
+        4. Provide readable attributes fitgameids and predictgameids which
+                are lists of all game id's used to fit, and predicted by this
+                model (respectively).
     """
     
     def __init__(self, modeldata,
@@ -123,7 +131,6 @@ class _Stan_symordreg(_EFLModel):
 
 class EFLSymOrdReg(_Stan_symordreg):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
-    
     
     def __init__(self, eflgames, **kwargs):
         modeldata, self._reference = self._get_model_data(eflgames)
