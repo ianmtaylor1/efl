@@ -151,7 +151,7 @@ class EFLSymOrdReg(_Stan_symordreg):
     @staticmethod
     def _get_model_data(games):
         """Take an EFLGames instance and transform it into a dict appropriate for
-        the symordreg Stan model."""
+        the symordreg Stan model. Also returns the name """
         N = len(games.fit)
         N_new = len(games.predict)
         P = len(games.teams)
