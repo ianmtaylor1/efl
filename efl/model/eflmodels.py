@@ -185,6 +185,12 @@ class EFLSymOrdReg(_EFLModel):
         for i,t in enumerate(eflgames.teams[1:], start=1):
             self._efl2stan[t.shortname] = 'beta[{}]'.format(i+1)
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
+        # Create mappings from gameids to post. pred. sampled quantities
+        self._predictqtys = {}
+        for i,g in enumerate(eflgames.fit):
+            self._predictqtys[g.id] = 'Y_pred[{}]'.format(i+1)
+        for i,g in enumerate(eflgames.predict):
+            self._predictqtys[g.id] = 'Y_new_pred[{}]'.format(i+1)
     
     @staticmethod
     def _get_model_data(games):
@@ -222,7 +228,17 @@ class EFLSymOrdReg(_EFLModel):
     def _predict(self, gameid):
         """Predict the result for the game 'gameid' from this model's fitted 
         data."""
-        return None
+        # Find the quantity we need to look at
+        qtyname = self._predictqtys[gameid]
+        # Pull that quantity
+        samples = self.stanfit.to_dataframe(pars=[qtyname], permuted=False,
+                                            diagnostics=False)
+        # Map to a result
+        samples['result'] = samples[qtyname].apply(
+                lambda x: ['A','D','H'][int(x)-1])
+        # Drop quantity and return
+        return samples.drop(qtyname, axis=1)
+
     
     def summary(self, pars=None, **kwargs):
         """Decorate the default summary. If pars is left as default, or
