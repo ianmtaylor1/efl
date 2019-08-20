@@ -8,6 +8,8 @@ Module contains code to build and sample from EFL models.
 from . import cache
 
 import numpy
+import pandas
+import itertools
 
 class _EFLModel(object):
     """Base class for EFL models. Mostly handles wrapping of the StanFit
@@ -34,6 +36,7 @@ class _EFLModel(object):
         4. Provide readable attributes fitgameids and predictgameids which
                 are lists of all game id's used to fit, and predicted by this
                 model (respectively).
+        5. Provide a method _predict() for predicting a single game outcome.
     """
     
     def __init__(self, modeldata,
@@ -51,9 +54,10 @@ class _EFLModel(object):
         self._modeldata = modeldata
         # Fit the model
         self.stanfit = self._model.sampling(
-                data=self._modeldata, init=self._stan_inits,
-                chains=chains, iter=iter, warmup=warmup, thin=thin, 
-                n_jobs=n_jobs)
+            data=self._modeldata, init=self._stan_inits,
+            chains=chains, iter=iter, warmup=warmup, thin=thin, n_jobs=n_jobs)
+    
+    # Stubs for methods that should be implemented by subclasses
     
     def _stan_inits(self, chain_id=None):
         """Produce initial values for MCMC. Should return a dict with keys
@@ -62,6 +66,21 @@ class _EFLModel(object):
         raise NotImplementedError(
                 "_stan_inits not implemented in {}".format(type(self))
                 )
+    
+    def _predict(self, gameid, **kwargs):
+        """Predicts the outcome of a single game. Returns a pandas.DataFrame
+        with (at least) the columns:
+            chain - chain number of the sample
+            draw - draw number within the chain
+            homegoals - home goals, if predicted by model (NA otherwise)
+            awaygoals - away goals, if predicted by model (NA otherwise)
+            result - match result ('H','A','D')
+        """
+        raise NotImplementedError(
+                "_predict not implemented in {}".format(type(self))
+                )
+    
+    # Methods provided by this base class
     
     def summary(self, pars=None, **kwargs):
         """A wrapper around the stansummary method on the included stanfit
@@ -107,6 +126,33 @@ class _EFLModel(object):
         # Translate the column names to useful parameter names
         df.columns = [self._stan2efl.get(c, c) for c in df.columns]
         return df
+    
+    def predict(self, gameids="all", **kwargs):
+        """Predicts the outcome of a group of games. 
+        Parameters:
+            gameids - either a keyword ('fit', 'predict', 'all') or an
+                iterable of game ids to predict
+            **kwargs - any extra keyword arguments for specific subclasses to
+                implement
+        Returns a pandas.DataFrame with (at least) the columns:
+            gameid - id of the game which is being predicted
+            chain - chain number of the sample
+            draw - draw number within the chain
+            homegoals - home goals, if predicted by model (NA otherwise)
+            awaygoals - away goals, if predicted by model (NA otherwise)
+            result - match result ('H','A','D')
+        """
+        # Sort out keyword arguments
+        if (gameids == "all") or (gameids is None):
+            gameids = itertools.chain(self.fitgameids, self.predictgameids)
+        elif gameids == "fit":
+            gameids = self.fitgameids
+        elif gameids == "predict":
+            gameids = self.predictgameids
+        # Predict each game, assign gameid, and concatenate
+        return pandas.concat(
+            (self._predict(g, **kwargs).assign(gameid=g) for g in gameids),
+            ignore_index=True)
 
 
 class EFLSymOrdReg(_EFLModel):
