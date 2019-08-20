@@ -26,6 +26,9 @@ class _EFLModel(object):
                 from _stan2efl
         6. Method: to_dataframe - wraps self.stanfit.to_dataframe(), and
                 replaces parameter names same as summary().
+        7. Readable attributes fitgameids and predictgameids which are lists
+                of all game id's used to fit, and predicted by this
+                model (respectively).
     
     Subclasses of EFLModel should:
         1. have a class-level attribute called _modelfile
@@ -33,18 +36,17 @@ class _EFLModel(object):
                 from chain_id
         3. Have object-level attributes _efl2stan and _stan2efl for parameter
                 name mapping between Stan output and EFL-relevant names.
-        4. Provide readable attributes fitgameids and predictgameids which
-                are lists of all game id's used to fit, and predicted by this
-                model (respectively).
-        5. Provide a method _predict() for predicting a single game outcome.
+        4. Provide a method _predict() for predicting a single game outcome.
     """
     
-    def __init__(self, modeldata,
+    def __init__(self, modeldata, fitgameids, predictgameids,
                  chains=4, iter=10000, warmup=None, thin=1, n_jobs=1):
         """Initialize the base properties of this model.
         Parameters:
             modeldata - Data that is passed to sampling(data=modeldata). Is
                 also stored as self._modeldata for use in other methods.
+            fitgameids, predictgameids - lists of game ids which were used to
+                fit the model, or which are predicted by the model.
             chains, iter, warmup, thin, n_jobs - same as pystan options.
                 Passed to sampling()
         """
@@ -52,6 +54,9 @@ class _EFLModel(object):
         self._model = cache.get_model(self._modelfile)
         # Store the data that was passed as an instance attribute
         self._modeldata = modeldata
+        # Save the fit and predict game id's
+        self.fitgameids = fitgameids
+        self.predictgameids = predictgameids
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
@@ -170,17 +175,22 @@ class EFLSymOrdReg(_EFLModel):
         modeldata['theta_prior_loc'] = 0
         modeldata['theta_prior_scale'] = 1
         # Call the superclass to fit the model
-        super().__init__(modeldata, **kwargs)
+        super().__init__(
+                modeldata,
+                [g.id for g in eflgames.fit], # fitgameids
+                [g.id for g in eflgames.predict], # predictgameids
+                **kwargs)
         # Create parameter mappings.
-        self._efl2stan = {'DrawBnd':'theta', 'HomeField':'beta[1]'}
-        for ti in range(1, len(eflgames.teams)):
-            self._efl2stan[eflgames.teams[ti].shortname] = 'beta[{}]'.format(ti+1)
+        self._efl2stan = {'DrawBoundary':'theta', 'HomeField':'beta[1]'}
+        for i,t in enumerate(eflgames.teams[1:], start=1):
+            self._efl2stan[t.shortname] = 'beta[{}]'.format(i+1)
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
     
     @staticmethod
     def _get_model_data(games):
-        """Take an EFLGames instance and transform it into a dict appropriate for
-        the symordreg Stan model. Also returns the name """
+        """Take an EFLGames instance and transform it into a dict appropriate
+        for the symordreg Stan model. Also returns the name of the reference
+        team."""
         N = len(games.fit)
         N_new = len(games.predict)
         P = len(games.teams)
@@ -191,11 +201,11 @@ class EFLSymOrdReg(_EFLModel):
         X[:,0] = 1 # Homefield
         X_new = numpy.zeros(shape=[N_new,P])
         X_new[:,0] = 1 # Homefield
-        for ti in range(1,len(games.teams)):
-            X[[g.hometeamid == games.teams[ti].id for g in games.fit], ti] = 1
-            X[[g.awayteamid == games.teams[ti].id for g in games.fit], ti] = -1
-            X_new[[g.hometeamid == games.teams[ti].id for g in games.predict], ti] = 1
-            X_new[[g.awayteamid == games.teams[ti].id for g in games.predict], ti] = -1
+        for i,t in enumerate(games.teams[1:], start=1):
+            X[[g.hometeamid == t.id for g in games.fit], i] = 1
+            X[[g.awayteamid == t.id for g in games.fit], i] = -1
+            X_new[[g.hometeamid == t.id for g in games.predict], i] = 1
+            X_new[[g.awayteamid == t.id for g in games.predict], i] = -1
         return {'N':N, 'N_new':N_new, 'P':P, 'Y':Y, 'X':X, 'X_new':X_new}, games.teams[0].shortname
     
     def _stan_inits(self, chain_id=None):
@@ -208,6 +218,11 @@ class EFLSymOrdReg(_EFLModel):
                 self._modeldata['theta_prior_loc'], 
                 self._modeldata['theta_prior_scale']))
         return {'beta':beta, 'theta':theta}
+    
+    def _predict(self, gameid):
+        """Predict the result for the game 'gameid' from this model's fitted 
+        data."""
+        return None
     
     def summary(self, pars=None, **kwargs):
         """Decorate the default summary. If pars is left as default, or
