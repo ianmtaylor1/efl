@@ -109,28 +109,11 @@ class _EFLModel(object):
         return df
 
 
-class _Stan_symordreg(_EFLModel):
-    """Base class of all EFL models which use the symordreg.stan model."""
-    
-    _modelfile = 'symordreg'
-    
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-    
-    def _stan_inits(self, chain_id=None):
-        """Draw from a multivariate normal distribution and a logistic
-        distribution to produce prior values for beta and theta."""
-        beta = numpy.random.multivariate_normal(
-                self._modeldata['beta_prior_mean'], 
-                self._modeldata['beta_prior_var'])
-        theta = abs(numpy.random.logistic(
-                self._modeldata['theta_prior_loc'], 
-                self._modeldata['theta_prior_scale']))
-        return {'beta':beta, 'theta':theta}
-
-
-class EFLSymOrdReg(_Stan_symordreg):
+class EFLSymOrdReg(_EFLModel):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
+    
+    # Which Stan model file to use
+    _modelfile = 'symordreg'
     
     def __init__(self, eflgames, **kwargs):
         modeldata, self._reference = self._get_model_data(eflgames)
@@ -168,6 +151,17 @@ class EFLSymOrdReg(_Stan_symordreg):
             X_new[[g.hometeamid == games.teams[ti].id for g in games.predict], ti] = 1
             X_new[[g.awayteamid == games.teams[ti].id for g in games.predict], ti] = -1
         return {'N':N, 'N_new':N_new, 'P':P, 'Y':Y, 'X':X, 'X_new':X_new}, games.teams[0].shortname
+    
+    def _stan_inits(self, chain_id=None):
+        """Draw from a multivariate normal distribution and a logistic
+        distribution to produce prior values for beta and theta."""
+        beta = numpy.random.multivariate_normal(
+                self._modeldata['beta_prior_mean'], 
+                self._modeldata['beta_prior_var'])
+        theta = abs(numpy.random.logistic(
+                self._modeldata['theta_prior_loc'], 
+                self._modeldata['theta_prior_scale']))
+        return {'beta':beta, 'theta':theta}
     
     def summary(self, pars=None, **kwargs):
         """Decorate the default summary. If pars is left as default, or
