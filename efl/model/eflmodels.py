@@ -238,7 +238,6 @@ class EFLSymOrdReg(_EFLModel):
                 lambda x: ['A','D','H'][int(x)-1])
         # Drop quantity and return
         return samples.drop(qtyname, axis=1)
-
     
     def summary(self, pars=None, **kwargs):
         """Decorate the default summary. If pars is left as default, or
@@ -274,3 +273,130 @@ class EFLSymOrdReg(_EFLModel):
             lastpar = max(i for i in range(len(ispar)) if ispar[i])
             df.insert(lastpar + 1, column=self._reference, value=0)
         return df
+
+
+class EFLPoisRegNumberphile(_EFLModel):
+    """Poisson Regression model based on Numberphile video with Tony Padilla
+    https://www.numberphile.com/videos/a-million-simulated-seasons
+    """
+    
+    _modelfile = 'poisreg'
+    
+    def __init__(self, eflgames, **kwargs):
+        modeldata, self._reference = self._get_model_data(eflgames)
+        # TODO: get prior from previous fit or another way
+        P = modeldata['P']
+        modeldata['beta_prior_mean'] = numpy.zeros(P)
+        modeldata['beta_prior_var'] = numpy.identity(P) * ((P/2)**2)
+        # Call the superclass to fit the model
+        super().__init__(
+                modeldata,
+                [g.id for g in eflgames.fit], # fitgameids
+                [g.id for g in eflgames.predict], # predictgameids
+                **kwargs)
+        # Create parameter mappings.
+        self._efl2stan = {'HomePoints':'beta[1]', 'AwayPoints':'beta[2]'}
+        for i,t in enumerate(eflgames.teams[1:], start=1):
+            self._efl2stan[t.shortname+' HO'] = 'beta[{}]'.format((4*i)-1)
+            self._efl2stan[t.shortname+' HD'] = 'beta[{}]'.format((4*i+1)-1)
+            self._efl2stan[t.shortname+' AO'] = 'beta[{}]'.format((4*i+2)-1)
+            self._efl2stan[t.shortname+' AD'] = 'beta[{}]'.format((4*i+3)-1)
+        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
+        # Create mappings from gameids to post. pred. sampled quantities
+        self._predictqtys = {}
+        for i,g in enumerate(eflgames.fit):
+            self._predictqtys[g.id] = ('Y_pred[{}]'.format(2*i+1),
+                                       'Y_pred[{}]'.format(2*i+2))
+        for i,g in enumerate(eflgames.predict):
+            self._predictqtys[g.id] = ('Y_new_pred[{}]'.format(2*i+1),
+                                       'Y_new_pred[{}]'.format(2*i+2))
+    
+    @staticmethod
+    def _get_model_data(games):
+        """Take an EFLGames instance and transform it into a dict appropriate
+        for the poisreg Stan model. Also returns the name of the reference
+        team."""
+        N = len(games.fit) * 2
+        N_new = len(games.predict) * 2
+        P = len(games.teams) * 4 - 2
+        Y = numpy.zeros(N)
+        for i,g in enumerate(games.fit):
+            Y[2*i] = g.result.homegoals
+            Y[2*i+1] = g.result.awaygoals
+        # X - fill entries by team
+        X = numpy.zeros(shape=[N,P])
+        X[range(0,N,2),0] = 1 # HomePoints
+        X[range(1,N,2),1] = 1 # AwayPoints
+        for i,t in enumerate(games.teams[1:], start=1):
+            ishome = numpy.array([g.hometeamid == t.id for g in games.fit])
+            isaway = numpy.array([g.awayteamid == t.id for g in games.fit])
+            X[2*ishome,     (4*i) - 2]     = 1  # Home Offense
+            X[2*ishome + 1, (4*i + 1) - 2] = -1 # Home Defense
+            X[2*isaway,     (4*i + 2) - 2] = 1  # Away Offense
+            X[2*isaway + 1, (4*i + 3) - 2] = -1 # Away Defense
+        # X_new - fill entries by team
+        X_new = numpy.zeros(shape=[N_new,P])
+        X_new[range(0,N,2),0] = 1 # HomePoints
+        X_new[range(1,N,2),0] = 1 # AwayPoints
+        for i,t in enumerate(games.teams[1:], start=1):
+            ishome = numpy.array([g.hometeamid == t.id for g in games.predict])
+            isaway = numpy.array([g.awayteamid == t.id for g in games.predict])
+            X_new[2*ishome,     (4*i) - 2]     = 1  # Home Offense
+            X_new[2*ishome + 1, (4*i + 1) - 2] = -1 # Home Defense
+            X_new[2*isaway,     (4*i + 2) - 2] = 1  # Away Offense
+            X_new[2*isaway + 1, (4*i + 3) - 2] = -1 # Away Defense
+        return {'N':N, 'N_new':N_new, 'P':P, 'Y':Y, 'X':X, 'X_new':X_new}, games.teams[0].shortname
+    
+    def _stan_inits(self, chain_id=None):
+        """Draw from a multivariate normal distribution to produce prior
+        values for beta."""
+        beta = numpy.random.multivariate_normal(
+                self._modeldata['beta_prior_mean'], 
+                self._modeldata['beta_prior_var'])
+        return {'beta':beta}
+    
+    def _predict(self, gameid):
+        """Predict the result for the game 'gameid' from this model's fitted 
+        data."""
+        # Find the quantity we need to look at
+        hg, ag = self._predictqtys[gameid]
+        # Pull that quantity
+        samples = self.stanfit.to_dataframe(pars=[hg, ag], permuted=False,
+                                            diagnostics=False)
+        # Map to a result
+        samples['homegoals'] = samples[hg]
+        samples['awaygoals'] = samples[ag]
+        samples['result'] = 'D'
+        samples.loc[(samples['homegoals']>samples['awaygoals']),'result'] = 'H'
+        samples.loc[(samples['homegoals']<samples['awaygoals']),'result'] = 'A'
+        # Drop quantity and return
+        return samples.drop([hg, ag], axis=1)
+
+
+class EFLPoisRegSimple(_EFLModel):
+    """Poisson Regression model based on Numberphile video with Tony Padilla
+    https://www.numberphile.com/videos/a-million-simulated-seasons
+    **But simplified, by assuming equal homefield advantage for all teams.
+    """
+    
+    _modelfile = 'poisreg'
+    
+    def __init__(self, eflgames, **kwargs):
+        raise NotImplementedError(
+                "EFLPoisRegSimple.__init__ not implemented"
+                )
+        
+    def _stan_inits(self, chain_id=None):
+        """Draw from a multivariate normal distribution to produce prior
+        values for beta."""
+        beta = numpy.random.multivariate_normal(
+                self._modeldata['beta_prior_mean'], 
+                self._modeldata['beta_prior_var'])
+        return {'beta':beta}
+    
+    def _predict(self, gameid):
+        """Predict the result for the game 'gameid' from this model's fitted 
+        data."""
+        raise NotImplementedError(
+                "EFLPoisRegSimple._predict not implemented"
+                )
