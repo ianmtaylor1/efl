@@ -336,8 +336,8 @@ class EFLPoisRegNumberphile(_EFLModel):
             X[2*isaway + 1, (4*i + 3) - 2] = -1 # Away Defense
         # X_new - fill entries by team
         X_new = numpy.zeros(shape=[N_new,P])
-        X_new[range(0,N,2),0] = 1 # HomePoints
-        X_new[range(1,N,2),0] = 1 # AwayPoints
+        X_new[range(0,N_new,2),0] = 1 # HomePoints
+        X_new[range(1,N_new,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
             ishome = numpy.array([g.hometeamid == t.id for g in games.predict])
             isaway = numpy.array([g.awayteamid == t.id for g in games.predict])
@@ -433,8 +433,8 @@ class EFLPoisRegSimple(_EFLModel):
             X[2*isaway + 1, (2*i)]     = 1  # Offense in the awaygoals row
         # X_new - fill entries by team
         X_new = numpy.zeros(shape=[N_new,P])
-        X_new[range(0,N,2),0] = 1 # HomePoints
-        X_new[range(1,N,2),0] = 1 # AwayPoints
+        X_new[range(0,N_new,2),0] = 1 # HomePoints
+        X_new[range(1,N_new,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
             ishome = numpy.array([g.hometeamid == t.id for g in games.predict])
             isaway = numpy.array([g.awayteamid == t.id for g in games.predict])
