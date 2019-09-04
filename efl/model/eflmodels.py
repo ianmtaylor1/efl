@@ -319,7 +319,7 @@ class EFLPoisRegNumberphile(_EFLModel):
         N = len(games.fit) * 2
         N_new = len(games.predict) * 2
         P = len(games.teams) * 4 - 2
-        Y = numpy.zeros(N)
+        Y = numpy.zeros(N, dtype=numpy.int_)
         for i,g in enumerate(games.fit):
             Y[2*i] = g.result.homegoals
             Y[2*i+1] = g.result.awaygoals
@@ -328,23 +328,23 @@ class EFLPoisRegNumberphile(_EFLModel):
         X[range(0,N,2),0] = 1 # HomePoints
         X[range(1,N,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
-            ishome = numpy.array([g.hometeamid == t.id for g in games.fit])
-            isaway = numpy.array([g.awayteamid == t.id for g in games.fit])
+            ishome = numpy.array([j for j,g in enumerate(games.fit) if g.hometeamid == t.id], dtype=numpy.int_)
+            isaway = numpy.array([j for j,g in enumerate(games.fit) if g.awayteamid == t.id], dtype=numpy.int_)
             X[2*ishome,     (4*i) - 2]     = 1  # Home Offense
             X[2*ishome + 1, (4*i + 1) - 2] = -1 # Home Defense
-            X[2*isaway,     (4*i + 2) - 2] = 1  # Away Offense
-            X[2*isaway + 1, (4*i + 3) - 2] = -1 # Away Defense
+            X[2*isaway + 1, (4*i + 2) - 2] = 1  # Away Offense
+            X[2*isaway,     (4*i + 3) - 2] = -1 # Away Defense
         # X_new - fill entries by team
         X_new = numpy.zeros(shape=[N_new,P])
         X_new[range(0,N_new,2),0] = 1 # HomePoints
         X_new[range(1,N_new,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
-            ishome = numpy.array([g.hometeamid == t.id for g in games.predict])
-            isaway = numpy.array([g.awayteamid == t.id for g in games.predict])
+            ishome = numpy.array([j for j,g in enumerate(games.predict) if g.hometeamid == t.id], dtype=numpy.int_)
+            isaway = numpy.array([j for j,g in enumerate(games.predict) if g.awayteamid == t.id], dtype=numpy.int_)
             X_new[2*ishome,     (4*i) - 2]     = 1  # Home Offense
             X_new[2*ishome + 1, (4*i + 1) - 2] = -1 # Home Defense
-            X_new[2*isaway,     (4*i + 2) - 2] = 1  # Away Offense
-            X_new[2*isaway + 1, (4*i + 3) - 2] = -1 # Away Defense
+            X_new[2*isaway + 1, (4*i + 2) - 2] = 1  # Away Offense
+            X_new[2*isaway,     (4*i + 3) - 2] = -1 # Away Defense
         return {'N':N, 'N_new':N_new, 'P':P, 'Y':Y, 'X':X, 'X_new':X_new}, games.teams[0].shortname
     
     def _stan_inits(self, chain_id=None):
@@ -416,7 +416,7 @@ class EFLPoisRegSimple(_EFLModel):
         N = len(games.fit) * 2
         N_new = len(games.predict) * 2
         P = len(games.teams) * 2
-        Y = numpy.zeros(N)
+        Y = numpy.zeros(N, dtype=numpy.int_)
         for i,g in enumerate(games.fit):
             Y[2*i] = g.result.homegoals
             Y[2*i+1] = g.result.awaygoals
@@ -425,8 +425,8 @@ class EFLPoisRegSimple(_EFLModel):
         X[range(0,N,2),0] = 1 # HomePoints
         X[range(1,N,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
-            ishome = numpy.array([g.hometeamid == t.id for g in games.fit])
-            isaway = numpy.array([g.awayteamid == t.id for g in games.fit])
+            ishome = numpy.array([j for j,g in enumerate(games.fit) if g.hometeamid == t.id], dtype=numpy.int_)
+            isaway = numpy.array([j for j,g in enumerate(games.fit) if g.awayteamid == t.id], dtype=numpy.int_)
             X[2*ishome,     (2*i)]     = 1  # Offense in the homegoals row
             X[2*ishome + 1, (2*i + 1)] = -1 # Defense in the awaygoals row
             X[2*isaway,     (2*i + 1)] = -1 # Defense in the homegoals row
@@ -436,8 +436,8 @@ class EFLPoisRegSimple(_EFLModel):
         X_new[range(0,N_new,2),0] = 1 # HomePoints
         X_new[range(1,N_new,2),1] = 1 # AwayPoints
         for i,t in enumerate(games.teams[1:], start=1):
-            ishome = numpy.array([g.hometeamid == t.id for g in games.predict])
-            isaway = numpy.array([g.awayteamid == t.id for g in games.predict])
+            ishome = numpy.array([j for j,g in enumerate(games.predict) if g.hometeamid == t.id], dtype=numpy.int_)
+            isaway = numpy.array([j for j,g in enumerate(games.predict) if g.awayteamid == t.id], dtype=numpy.int_)
             X_new[2*ishome,     (2*i)]     = 1  # Offense in the homegoals row
             X_new[2*ishome + 1, (2*i + 1)] = -1 # Defense in the awaygoals row
             X_new[2*isaway,     (2*i + 1)] = -1 # Defense in the homegoals row
