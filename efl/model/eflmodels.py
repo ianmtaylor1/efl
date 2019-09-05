@@ -206,7 +206,7 @@ class _EFL_WithReference(_EFLModel):
         if len(addref) > 0:
             newline = '** Reference:'
             for ref in addref:
-                newline += '\n   {} = 0'.format(ref)
+                newline += '\n{} = 0'.format(ref)
             lines = sts.split("\n")
             # What is the last line that contains the name of a parameter?
             haspar = [any((p in ln) for p in self.parameters) for ln in lines]
