@@ -225,10 +225,11 @@ class _EFL_WithReference(_EFLModel):
         else:
             addref = list(set(pars) & set(self._references))
         df = super().to_dataframe(pars, **kwargs)
-        ispar = [(c in self.parameters) for c in df.columns]
-        lastpar = max(i for i in range(len(ispar)) if ispar[i])
-        for ref in addref:
-            df.insert(lastpar + 1, column=ref, value=0)
+        if len(addref) > 0:
+            ispar = [(c in self.parameters) for c in df.columns]
+            lastpar = max(i for i in range(len(ispar)) if ispar[i])
+            for ref in addref:
+                df.insert(lastpar + 1, column=ref, value=0)
         return df
 
 
