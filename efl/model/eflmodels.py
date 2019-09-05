@@ -185,9 +185,9 @@ class _EFLModel(object):
 
 
 class _EFL_WithReference(_EFLModel):
-    """Mixin class for models which have 'reference's or 'holdout's, parameters
-    which are set equal to zero. Wraps the summary and to_dataframe methods
-    to include the reference parameters."""
+    """Mix in class for models which have 'reference's or 'holdout's,
+    parameters which are set equal to zero. Wraps the summary and to_dataframe
+    methods to include the reference parameters."""
     
     def __init__(self, references=[], **kwargs):
         """References = list of parameters which are references."""
