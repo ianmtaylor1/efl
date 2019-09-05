@@ -11,6 +11,12 @@ import numpy
 import pandas
 import itertools
 
+
+#######################################
+## BASE MODEL #########################
+#######################################
+
+
 class _EFLModel(object):
     """Base class for EFL models. Mostly handles wrapping of the StanFit
     object, since inheritance is hard.
@@ -173,11 +179,69 @@ class _EFLModel(object):
             ignore_index=True)
 
 
-class EFLSymOrdReg(_EFLModel):
+#######################################
+## HELPER MODELS ######################
+#######################################
+
+
+class _EFL_WithReference(_EFLModel):
+    """Mixin class for models which have 'reference's or 'holdout's, parameters
+    which are set equal to zero. Wraps the summary and to_dataframe methods
+    to include the reference parameters."""
+    
+    def __init__(self, references=[], **kwargs):
+        """References = list of parameters which are references."""
+        self._references = list(references)
+        super().__init__(**kwargs)
+    
+    def summary(self, pars=None, **kwargs):
+        """Decorate the default summary. If pars is left as default, or
+        includes the reference team, the reference is printed below all other 
+        parameters."""
+        if pars is None:
+            addref = self._references
+        else:
+            addref = list(set(pars) & set(self._references))
+        sts = super().summary(pars, **kwargs)
+        if len(addref) > 0:
+            newline = '** Reference:'
+            for ref in addref:
+                newline += '\n   {} = 0'.format(ref)
+            lines = sts.split("\n")
+            # What is the last line that contains the name of a parameter?
+            haspar = [any((p in ln) for p in self.parameters) for ln in lines]
+            lastpar = max(i for i in range(len(haspar)) if haspar[i])
+            # Inser the holdout right after that.
+            lines.insert(lastpar + 1, newline)
+            sts = "\n".join(lines)
+        return sts
+    
+    def to_dataframe(self, pars=None, **kwargs):
+        """Decorate the default to_dataframe. If pars is left as default, or
+        includes the reference team, the reference is added as a column of
+        all zeros."""
+        if pars is None:
+            addref = self._references
+        else:
+            addref = list(set(pars) & set(self._references))
+        df = super().to_dataframe(pars, **kwargs)
+        ispar = [(c in self.parameters) for c in df.columns]
+        lastpar = max(i for i in range(len(ispar)) if ispar[i])
+        for ref in addref:
+            df.insert(lastpar + 1, column=ref, value=0)
+        return df
+
+
+#######################################
+## END-USER MODELS ####################
+#######################################
+
+
+class EFLSymOrdReg(_EFL_WithReference, _EFLModel):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
     
     def __init__(self, eflgames, **kwargs):
-        modeldata, self._reference = self._get_model_data(eflgames)
+        modeldata, reference = self._get_model_data(eflgames)
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
@@ -195,6 +259,7 @@ class EFLSymOrdReg(_EFLModel):
                 fitgameids     = [g.id for g in eflgames.fit],
                 predictgameids = [g.id for g in eflgames.predict],
                 efl2stan       = efl2stan,
+                references     = [reference],
                 **kwargs)
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
@@ -249,50 +314,16 @@ class EFLSymOrdReg(_EFLModel):
                 lambda x: ['A','D','H'][int(x)-1])
         # Drop quantity and return
         return samples.drop(qtyname, axis=1)
-    
-    def summary(self, pars=None, **kwargs):
-        """Decorate the default summary. If pars is left as default, or
-        includes the reference team, the reference is printed below all other 
-        parameters."""
-        if (pars is None) or (self._reference in pars):
-            addref = True
-        else:
-            addref = False
-        sts = super().summary(pars, **kwargs)
-        if addref:
-            newline = '**Reference: {} = 0'.format(self._reference)
-            lines = sts.split("\n")
-            # What is the last line that contains the name of a parameter?
-            haspar = [any((p in ln) for p in self._efl2stan.keys()) for ln in lines]
-            lastpar = max(i for i in range(len(haspar)) if haspar[i])
-            # Inser the holdout right after that.
-            lines.insert(lastpar + 1, newline)
-            sts = "\n".join(lines)
-        return sts
-    
-    def to_dataframe(self, pars=None, **kwargs):
-        """Decorate the default to_dataframe. If pars is left as default, or
-        includes the reference team, the reference is added as a column of
-        all zeros."""
-        if (pars is None) or (self._reference in pars):
-            addref = True
-        else:
-            addref = False
-        df = super().to_dataframe(pars, **kwargs)
-        if addref:
-            ispar = [(c in self._efl2stan.keys()) for c in df.columns]
-            lastpar = max(i for i in range(len(ispar)) if ispar[i])
-            df.insert(lastpar + 1, column=self._reference, value=0)
-        return df
 
 
-class EFLPoisRegNumberphile(_EFLModel):
+class EFLPoisRegNumberphile(_EFL_WithReference, _EFLModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     """
     
     def __init__(self, eflgames, **kwargs):
-        modeldata, self._reference = self._get_model_data(eflgames)
+        modeldata, ref = self._get_model_data(eflgames)
+        references = [ref+' HO', ref+' HD', ref+' AO', ref+' AD']
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
@@ -311,6 +342,7 @@ class EFLPoisRegNumberphile(_EFLModel):
                 fitgameids     = [g.id for g in eflgames.fit],
                 predictgameids = [g.id for g in eflgames.predict],
                 efl2stan       = efl2stan,
+                references     = references,
                 **kwargs)
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
@@ -383,14 +415,15 @@ class EFLPoisRegNumberphile(_EFLModel):
         return samples.drop([hg, ag], axis=1)
 
 
-class EFLPoisRegSimple(_EFLModel):
+class EFLPoisRegSimple(_EFL_WithReference, _EFLModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     **But simplified, by assuming equal homefield advantage for all teams.
     """
     
     def __init__(self, eflgames, **kwargs):
-        modeldata, self._reference = self._get_model_data(eflgames)
+        modeldata, ref = self._get_model_data(eflgames)
+        references = [ref+' O', ref+' D']
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
@@ -407,6 +440,7 @@ class EFLPoisRegSimple(_EFLModel):
                 fitgameids     = [g.id for g in eflgames.fit],
                 predictgameids = [g.id for g in eflgames.predict],
                 efl2stan       = efl2stan,
+                references     = references,
                 **kwargs)
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
