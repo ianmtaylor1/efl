@@ -29,34 +29,43 @@ class _EFLModel(object):
         7. Readable attributes fitgameids and predictgameids which are lists
                 of all game id's used to fit, and predicted by this
                 model (respectively).
+        8. A readable attribute parameters, which is a list of all efl (human-
+                readable) parameters available in the model.
     
     Subclasses of EFLModel should:
-        1. have a class-level attribute called _modelfile
-        2. Implement _stan_inits method for generating initial values 
+        1. Implement _stan_inits method for generating initial values 
                 from chain_id
-        3. Have object-level attributes _efl2stan and _stan2efl for parameter
-                name mapping between Stan output and EFL-relevant names.
-        4. Provide a method _predict() for predicting a single game outcome.
+        2. Provide a method _predict() for predicting a single game outcome.
     """
     
-    def __init__(self, modeldata, fitgameids, predictgameids,
+    def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
+                 efl2stan,
                  chains=4, iter=10000, warmup=None, thin=1, n_jobs=1):
         """Initialize the base properties of this model.
         Parameters:
+            modelfile - the filename of the stan model to use. Used in the
+                cache module to fetch precompiled models.
             modeldata - Data that is passed to sampling(data=modeldata). Is
                 also stored as self._modeldata for use in other methods.
             fitgameids, predictgameids - lists of game ids which were used to
                 fit the model, or which are predicted by the model.
+            efl2stan - a dict with keys that are human-readable model
+                parameters, and values that are the corresponding Stan
+                parameters. Should contain every parameter available to be
+                returned by "summary" or "to_dataframe".
             chains, iter, warmup, thin, n_jobs - same as pystan options.
                 Passed to sampling()
         """
         # Get model from compiled model cache
-        self._model = cache.get_model(self._modelfile)
+        self._model = cache.get_model(modelfile)
         # Store the data that was passed as an instance attribute
         self._modeldata = modeldata
         # Save the fit and predict game id's
         self.fitgameids = fitgameids
         self.predictgameids = predictgameids
+        # Create parameter mappings
+        self._efl2stan = efl2stan
+        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
@@ -85,7 +94,11 @@ class _EFLModel(object):
                 "_predict not implemented in {}".format(type(self))
                 )
     
-    # Methods provided by this base class
+    # Methods and properties provided by this base class
+    
+    @property
+    def parameters(self):
+        return self._efl2stan.keys()
     
     def summary(self, pars=None, **kwargs):
         """A wrapper around the stansummary method on the included stanfit
@@ -163,9 +176,6 @@ class _EFLModel(object):
 class EFLSymOrdReg(_EFLModel):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
     
-    # Which Stan model file to use
-    _modelfile = 'symordreg'
-    
     def __init__(self, eflgames, **kwargs):
         modeldata, self._reference = self._get_model_data(eflgames)
         # TODO: get prior from previous fit or another way
@@ -174,17 +184,18 @@ class EFLSymOrdReg(_EFLModel):
         modeldata['beta_prior_var'] = numpy.identity(P) * ((P/2)**2)
         modeldata['theta_prior_loc'] = 0
         modeldata['theta_prior_scale'] = 1
+        # Create parameter mappings.
+        efl2stan = {'DrawBoundary':'theta', 'HomeField':'beta[1]'}
+        for i,t in enumerate(eflgames.teams[1:], start=1):
+            efl2stan[t.shortname] = 'beta[{}]'.format(i+1)
         # Call the superclass to fit the model
         super().__init__(
-                modeldata,
-                [g.id for g in eflgames.fit], # fitgameids
-                [g.id for g in eflgames.predict], # predictgameids
+                modelfile      = 'symordreg',
+                modeldata      = modeldata,
+                fitgameids     = [g.id for g in eflgames.fit],
+                predictgameids = [g.id for g in eflgames.predict],
+                efl2stan       = efl2stan,
                 **kwargs)
-        # Create parameter mappings.
-        self._efl2stan = {'DrawBoundary':'theta', 'HomeField':'beta[1]'}
-        for i,t in enumerate(eflgames.teams[1:], start=1):
-            self._efl2stan[t.shortname] = 'beta[{}]'.format(i+1)
-        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
         for i,g in enumerate(eflgames.fit):
@@ -280,28 +291,27 @@ class EFLPoisRegNumberphile(_EFLModel):
     https://www.numberphile.com/videos/a-million-simulated-seasons
     """
     
-    _modelfile = 'poisreg'
-    
     def __init__(self, eflgames, **kwargs):
         modeldata, self._reference = self._get_model_data(eflgames)
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
         modeldata['beta_prior_var'] = numpy.identity(P) * 2
+        # Create parameter mappings.
+        efl2stan = {'HomePoints':'beta[1]', 'AwayPoints':'beta[2]'}
+        for i,t in enumerate(eflgames.teams[1:], start=1):
+            efl2stan[t.shortname+' HO'] = 'beta[{}]'.format((4*i)-1)
+            efl2stan[t.shortname+' HD'] = 'beta[{}]'.format((4*i+1)-1)
+            efl2stan[t.shortname+' AO'] = 'beta[{}]'.format((4*i+2)-1)
+            efl2stan[t.shortname+' AD'] = 'beta[{}]'.format((4*i+3)-1)
         # Call the superclass to fit the model
         super().__init__(
-                modeldata,
-                [g.id for g in eflgames.fit], # fitgameids
-                [g.id for g in eflgames.predict], # predictgameids
+                modelfile      = 'poisreg',
+                modeldata      = modeldata,
+                fitgameids     = [g.id for g in eflgames.fit],
+                predictgameids = [g.id for g in eflgames.predict],
+                efl2stan       = efl2stan,
                 **kwargs)
-        # Create parameter mappings.
-        self._efl2stan = {'HomePoints':'beta[1]', 'AwayPoints':'beta[2]'}
-        for i,t in enumerate(eflgames.teams[1:], start=1):
-            self._efl2stan[t.shortname+' HO'] = 'beta[{}]'.format((4*i)-1)
-            self._efl2stan[t.shortname+' HD'] = 'beta[{}]'.format((4*i+1)-1)
-            self._efl2stan[t.shortname+' AO'] = 'beta[{}]'.format((4*i+2)-1)
-            self._efl2stan[t.shortname+' AD'] = 'beta[{}]'.format((4*i+3)-1)
-        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
         for i,g in enumerate(eflgames.fit):
@@ -379,26 +389,25 @@ class EFLPoisRegSimple(_EFLModel):
     **But simplified, by assuming equal homefield advantage for all teams.
     """
     
-    _modelfile = 'poisreg'
-    
     def __init__(self, eflgames, **kwargs):
         modeldata, self._reference = self._get_model_data(eflgames)
         # TODO: get prior from previous fit or another way
         P = modeldata['P']
         modeldata['beta_prior_mean'] = numpy.zeros(P)
         modeldata['beta_prior_var'] = numpy.identity(P) * 2
+        # Create parameter mappings.
+        efl2stan = {'HomePoints':'beta[1]', 'AwayPoints':'beta[2]'}
+        for i,t in enumerate(eflgames.teams[1:], start=1):
+            efl2stan[t.shortname+' O'] = 'beta[{}]'.format((2*i)+1)
+            efl2stan[t.shortname+' D'] = 'beta[{}]'.format((2*i+1)+1)
         # Call the superclass to fit the model
         super().__init__(
-                modeldata,
-                [g.id for g in eflgames.fit], # fitgameids
-                [g.id for g in eflgames.predict], # predictgameids
+                modelfile      = 'poisreg',
+                modeldata      = modeldata,
+                fitgameids     = [g.id for g in eflgames.fit],
+                predictgameids = [g.id for g in eflgames.predict],
+                efl2stan       = efl2stan,
                 **kwargs)
-        # Create parameter mappings.
-        self._efl2stan = {'HomePoints':'beta[1]', 'AwayPoints':'beta[2]'}
-        for i,t in enumerate(eflgames.teams[1:], start=1):
-            self._efl2stan[t.shortname+' O'] = 'beta[{}]'.format((2*i)+1)
-            self._efl2stan[t.shortname+' D'] = 'beta[{}]'.format((2*i+1)+1)
-        self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         # Create mappings from gameids to post. pred. sampled quantities
         self._predictqtys = {}
         for i,g in enumerate(eflgames.fit):
