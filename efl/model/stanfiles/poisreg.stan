@@ -10,11 +10,15 @@ data {
     vector[P] beta_prior_mean;
     cov_matrix[P] beta_prior_var;
 }
+transformed data {
+    cholesky_factor_cov[P] beta_prior_var_chol;
+    beta_prior_var_chol = cholesky_decompose(beta_prior_var);
+}
 parameters {
     vector[P] beta;
 }
 model {
-    beta ~ multi_normal(beta_prior_mean, beta_prior_var);
+    beta ~ multi_normal_cholesky(beta_prior_mean, beta_prior_var_chol);
     if (N > 0) {
         Y ~ poisson_log(X * beta);
     };

@@ -12,13 +12,17 @@ data {
     real theta_prior_loc;
     real<lower=0> theta_prior_scale;
 }
+transformed data {
+    cholesky_factor_cov[P] beta_prior_var_chol;
+    beta_prior_var_chol = cholesky_decompose(beta_prior_var);
+}
 parameters {
     vector[P] beta;
     real<lower=0> theta;
 }
 model {
     theta ~ logistic(theta_prior_loc, theta_prior_scale);
-    beta ~ multi_normal(beta_prior_mean, beta_prior_var);
+    beta ~ multi_normal_cholesky(beta_prior_mean, beta_prior_var_chol);
     if (N > 0) {
         Y ~ ordered_logistic(X * beta, [ -theta, theta ]');
     };
