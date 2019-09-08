@@ -119,7 +119,7 @@ class _EFLModel(object):
         sts = self.stanfit.stansummary(pars=stspars, **kwargs)
         # Translate summary to useful parameter names
         addlength = max(len(p) for p in self._stan2efl.values()) \
-                    - max(len(p) for p in self._stan2efl.keys())
+                    - max(len(p) for p in self._stan2efl.keys()) + 1
         for (stanpar, eflpar) in self._stan2efl.items():
             spaces = addlength - (len(eflpar) - len(stanpar))
             if spaces >= 0: # Need to net insert spaces
