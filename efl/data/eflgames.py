@@ -4,6 +4,8 @@ from . import orm
 
 from sqlalchemy.orm import aliased
 from sqlalchemy import and_
+import pandas
+import numpy
 
 class EFLGames(object):
     """Class representing a read-only view of a subset of EFL games, for 
@@ -21,6 +23,8 @@ class EFLGames(object):
         self.fit = games_fit
         self.predict = games_predict
         self.teams = teams
+    
+    # Class methods for creating instances
     
     @classmethod
     def from_season(cls, dbsession, seasonid, leagueid, asof_date=None): 
@@ -51,7 +55,83 @@ class EFLGames(object):
         games_fit = [g for g in games if (g.date <= asof_date) and (g.result is not None)]
         games_predict = [g for g in games if (g.date > asof_date) or (g.result is None)]
         return cls(games_fit, games_predict, teams)
-
+    
+    @classmethod
+    def from_ids(cls, dbsession, fit_ids=[], predict_ids=[]):
+        """Build a dataset from a list of game ids."""
+        # Fit list
+        if len(fit_ids) > 0:
+            fitgames = dbsession.query(orm.Game)\
+                    .filter(orm.Game.id in fit_ids)\
+                    .all()
+        else:
+            fitgames = []
+        # Predict list
+        if len(predict_ids) > 0:
+            predictgames = dbsession.query(orm.Game)\
+                    .filter(orm.Game.id in predict_ids)\
+                    .all()
+        else:
+            predictgames = []
+        # Take all teams from all games
+        teams = list(set(g.hometeam for g in fitgames) 
+                     | set(g.awayteam for g in fitgames)
+                     | set(g.hometeam for g in predictgames)
+                     | set(g.awayteam for g in predictgames))
+        # Build the object and return it
+        return cls(fitgames, predictgames, teams)
+    
+    # Instance methods
+    
+    def to_dataframe(self, fit=True, predict=False):
+        """Returns these games in a pandas.DataFrame with the following
+        columns:
+            gameid - id of the game
+            hometeam - unique short name of home team
+            awayteam - unique short name of away team
+            homegoals - home goals, if available (NA otherwise)
+            awaygoals - away goals, if available (NA otherwise)
+            result - match result ('H','A','D') if available (NA otherwise)
+        If fit is true, the games in 'fit' will be included. If predict is
+        true, the games in 'predict' will be included with results, if
+        available.
+        """
+        if (not (fit or predict)):
+            raise Exception("Either fit or predict or both must be true")
+        if fit:
+            # We can assume all games in fit have results
+            fitdf = pandas.DataFrame({
+                    'gameid':    [g.id for g in self.fit],
+                    'hometeam':  [g.hometeam.shortname for g in self.fit],
+                    'awayteam':  [g.awayteam.shortname for g in self.fit],
+                    'homegoals': [g.result.homegoals for g in self.fit],
+                    'awaygoals': [g.result.awaygoals for g in self.fit]
+                    })
+        else:
+            fitdf = None
+        if predict:
+            # Function to convert a game to a dictionary of items for the df
+            def gametodict(g):
+                d = {'gameid':g.id,
+                     'hometeam':g.hometeam.shortname,
+                     'awayteam':g.awayteam.shortname}
+                if g.result is None:
+                    d['homegoals'] = numpy.NaN
+                    d['awaygoals'] = numpy.NaN
+                else:
+                    d['homegoals'] = g.result.homegoals
+                    d['awaygoals'] = g.result.awaygoals
+                return d
+            predictdf = pandas.DataFrame([gametodict(g) for g in self.predict])
+        else:
+            predictdf = None
+        # Combine and fill in result
+        df = pandas.concat([fitdf,predictdf])
+        df['result'] = numpy.NaN
+        df.loc[df['homegoals'] < df['awaygoals'], 'result'] = 'A'
+        df.loc[df['homegoals'] > df['awaygoals'], 'result'] = 'H'
+        df.loc[df['homegoals'] == df['awaygoals'], 'result'] = 'D'
+        return df
 
 def seasonid(session, start_year):
     """Return a unique seasonid from the database based on the season's start

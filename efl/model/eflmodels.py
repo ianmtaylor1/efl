@@ -313,6 +313,8 @@ class EFLSymOrdReg(_EFL_WithReference, _EFLModel):
         # Map to a result
         samples['result'] = samples[qtyname].apply(
                 lambda x: ['A','D','H'][int(x)-1])
+        samples['homegoals'] = numpy.NaN
+        samples['awaygoals'] = numpy.NaN
         # Drop quantity and return
         return samples.drop(qtyname, axis=1)
 
