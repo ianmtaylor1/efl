@@ -36,10 +36,14 @@ class EFL_PPC(object):
         predictive samples."""
         return numpy.mean(self.ppd <= self.obs)
     
-    def plot(self, title=''):
+    def plot(self, title=None):
         """Display the posterior predictive samples as a histogram, with a red
         line indicating the observed value."""
         plt.hist(self.ppd, density=True)
         plt.axvline(self.obs, color="red")
+        plt.ylabel("Frequency")
+        plt.xlabel(self.name)
+        if title is not None:
+            plt.title(title)
         plt.show()
 
