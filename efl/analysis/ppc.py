@@ -6,7 +6,6 @@ Contains code for running posterior predictive checks of models.
 
 import numpy
 import matplotlib.pyplot as plt
-import pandas
 
 class EFL_PPC(object):
     """Class that represents a posterior predictive check of an EFL Model."""
