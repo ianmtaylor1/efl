@@ -29,6 +29,7 @@ setuptools.setup(
             'pandas>=0.25.0',
             'pystan>=2.19.0.0',
             'requests>=2.22.0',
+            'scipy>=1.3.1',
             'sqlalchemy>=1.3.5',
         ],
         include_package_data=True,
