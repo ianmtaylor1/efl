@@ -6,9 +6,10 @@ Contains code for running posterior predictive checks of models.
 
 import numpy
 import matplotlib.pyplot as plt
+import pandas
 
 class EFL_PPC(object):
-    """Model that represents a posterior predictive check of an EFL Model."""
+    """Class that represents a posterior predictive check of an EFL Model."""
     
     def __init__(self, model, observed, statfun, name=None):
         """Parameters:
@@ -25,7 +26,10 @@ class EFL_PPC(object):
         self.name = name
         # Convert to data frames (fitted games only)
         obs_df = observed.to_dataframe()
-        pred_df = model.predict("fit")
+        pred_df = model.predict("fit").merge(
+                obs_df[['gameid','hometeam','awayteam']],
+                on = 'gameid',
+                validate = 'm:1') # predict is missing team names, add them
         # Compute the statistic for each set of simulated games
         self.ppd = numpy.array([statfun(g) for _,g in pred_df.groupby(['chain','draw'])])
         # Compute the statistic for the observed games
