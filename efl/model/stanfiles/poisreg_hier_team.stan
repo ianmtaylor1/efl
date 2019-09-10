@@ -119,7 +119,7 @@ model {
     if (nGames > 0) {
         homegoals ~ poisson_log(X_home * beta + log_goals);
         awaygoals ~ poisson_log(X_away * beta + log_goals);
-    };
+    }
 }
 generated quantities {
     int<lower=0> homegoals_pred[nGames];
@@ -130,9 +130,9 @@ generated quantities {
     if (nGames > 0) {
         homegoals_pred = poisson_log_rng(X_home * beta + log_goals);
         awaygoals_pred = poisson_log_rng(X_away * beta + log_goals);
-    };
+    }
     if (nGames_new > 0) {
         homegoals_new_pred = poisson_log_rng(X_home_new * beta + log_goals);
         awaygoals_new_pred = poisson_log_rng(X_away_new * beta + log_goals);
-    };
+    }
 }
