@@ -17,7 +17,7 @@ data {
     // Prior parameters of the latent team parameters
     // The last team is a reference, its latent parameter == 0
     vector[nTeams-1] teams_prior_mean;
-    cov_matrix[nTeams-1] teams_prior_sd;
+    cov_matrix[nTeams-1] teams_prior_var;
     
     // Prior parameters for the covariance matrix linking team offense/defense
     // sub-parameters to the latent team parameter
@@ -111,8 +111,8 @@ model {
     // Reference (nTeams^th) team
     beta_means[2*nTeams-1]   = [home, 0]';
     beta_means[2*nTeams]     = [home, 0]';
-    beta_stacked[2*nTeams-1] = beta[(4*t-3):(4*t-2)];
-    beta_stacked[2*nTeams]   = beta[(4*t-1):(4*t)];
+    beta_stacked[2*nTeams-1] = beta[(4*nTeams-3):(4*nTeams-2)];
+    beta_stacked[2*nTeams]   = beta[(4*nTeams-1):(4*nTeams)];
     // Vectorized sampling statement
     beta_stacked ~ multi_normal(beta_means, teamvar);
     
