@@ -46,21 +46,21 @@ transformed data {
     teams_prior_var_chol = cholesky_decompose(teams_prior_var);
     
     // Create X matrices and fill with appropriate indicators
-    X_home = rep_matrix(0, nGames, 4*nTeams)
-    X_away = rep_matrix(0, nGames, 4*nTeams)
+    X_home = rep_matrix(0, nGames, 4*nTeams);
+    X_away = rep_matrix(0, nGames, 4*nTeams);
     for (r in 1:nGames) {
-        X_home[r,4*hometeamidx[r]-3] = 1  // Home Offense for homegoals
-        X_home[r,4*awayteamidx[r]-0] = -1 // Away Defense for homegoals
-        X_away[r,4*awayteamidx[r]-2] = 1  // Away Offense for awaygoals
-        X_away[r,4*hometeamidx[r]-1] = -1 // Home Defense for awaygoals
+        X_home[r,4*hometeamidx[r]-3] = 1;  // Home Offense for homegoals
+        X_home[r,4*awayteamidx[r]-0] = -1; // Away Defense for homegoals
+        X_away[r,4*awayteamidx[r]-2] = 1;  // Away Offense for awaygoals
+        X_away[r,4*hometeamidx[r]-1] = -1; // Home Defense for awaygoals
     }
-    X_home_new = rep_matrix(0, nGames_new, 4*nTeams)
-    X_away_new = rep_matrix(0, nGames_new, 4*nTeams)
+    X_home_new = rep_matrix(0, nGames_new, 4*nTeams);
+    X_away_new = rep_matrix(0, nGames_new, 4*nTeams);
     for (r in 1:nGames_new) {
-        X_home_new[r,4*hometeamidx[r]-3] = 1  // Home Offense for homegoals
-        X_home_new[r,4*awayteamidx[r]-0] = -1 // Away Defense for homegoals
-        X_away_new[r,4*awayteamidx[r]-2] = 1  // Away Offense for awaygoals
-        X_away_new[r,4*hometeamidx[r]-1] = -1 // Home Defense for awaygoals
+        X_home_new[r,4*hometeamidx[r]-3] = 1;  // Home Offense for homegoals
+        X_home_new[r,4*awayteamidx[r]-0] = -1; // Away Defense for homegoals
+        X_away_new[r,4*awayteamidx[r]-2] = 1;  // Away Offense for awaygoals
+        X_away_new[r,4*hometeamidx[r]-1] = -1; // Home Defense for awaygoals
     }
 }
 parameters {
@@ -82,7 +82,8 @@ parameters {
     vector[4*nTeams] beta;
 }
 model {
-    // Arrays of vectors for vectorizing hierarchical distribution of beta
+    // Local Variables: Arrays of vectors for vectorizing hierarchical
+    // distribution of beta
     vector[2] beta_stacked[2*nTeams];
     vector[2] beta_means[2*nTeams];
     
@@ -107,7 +108,7 @@ model {
         beta_stacked[2*t-1] = beta[(4*t-3):(4*t-2)];
         beta_stacked[2*t]   = beta[(4*t-1):(4*t)];
     }
-    // Reference team
+    // Reference (nTeams^th) team
     beta_means[2*nTeams-1]   = [home, 0]';
     beta_means[2*nTeams]     = [home, 0]';
     beta_stacked[2*nTeams-1] = beta[(4*t-3):(4*t-2)];
