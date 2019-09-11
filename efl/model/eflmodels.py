@@ -39,7 +39,7 @@ class _EFLModel(object):
                 readable) parameters available in the model.
     
     Subclasses of EFLModel should:
-        1. Implement _stan_inits method for generating initial values 
+        1. Implement _stan_inits() method for generating initial values 
                 from chain_id
         2. Provide a method _predict() for predicting a single game outcome.
     """
@@ -231,6 +231,14 @@ class _EFL_WithReference(_EFLModel):
             for ref in addref:
                 df.insert(lastpar + 1, column=ref, value=0)
         return df
+
+
+class _EFL_GoalModel(_EFLModel):
+    pass
+
+
+class _EFL_ResultModel(_EFLModel):
+    pass
 
 
 #######################################
@@ -514,3 +522,81 @@ class EFLPoisRegSimple(_EFL_WithReference, _EFLModel):
         samples.loc[(samples['homegoals']<samples['awaygoals']),'result'] = 'A'
         # Drop quantity and return
         return samples.drop([hg, ag], axis=1)
+
+
+class EFLPoisRegHier(_EFL_WithReference, _EFLModel):
+    """Class for a poisson regression model where the team's 'sub-parameters'
+    e.g. home offense, away defense, etc. are hierarchically determined by a
+    latent team strength parameter."""
+    
+    def __init__(self,eflgames, **kwargs):
+        modeldata = self._get_model_data(eflgames)
+        reference = eflgames.teams[-1].shortname
+        # TODO: get prior from previous fit or another way
+        nT = modeldata['nTeams']
+        modeldata['teams_prior_mean'] = numpy.zeros(nT-1)
+        modeldata['teams_prior_var'] = numpy.identity(nT-1)*2
+        modeldata['teamvar_prior_nu'] = 3
+        modeldata['teamvar_prior_Sigma'] = numpy.identity(2)/6
+        modeldata['log_goals_prior_mean'] = 0
+        modeldata['log_goals_prior_sd'] = numpy.sqrt(2)
+        modeldata['home_prior_mean'] = 0
+        modeldata['home_prior_sd'] = 1
+        # Parameter mappings
+        efl2stan = {'Log Goals':'log_goals', 'Homefield':'home'}
+        for i,t in enumerate(eflgames.teams[:-1]):
+            efl2stan[t.shortname] = 'teams[{}]'.format(i+1)
+        for i,t in enumerate(eflgames.teams):
+            efl2stan[t.shortname+' HO'] = 'beta[{}]'.format(4*i+1)
+            efl2stan[t.shortname+' AO'] = 'beta[{}]'.format(4*i+2)
+            efl2stan[t.shortname+' HD'] = 'beta[{}]'.format(4*i+3)
+            efl2stan[t.shortname+' AD'] = 'beta[{}]'.format(4*i+4)
+        efl2stan['HomeTeamVar'] = 'teamvar[1,1]'
+        efl2stan['AwayTeamVar'] = 'teamvar[2,2]'
+        efl2stan['TeamODCov'] = 'teamvar[1,2]'
+        super().__init__(
+                modelfile      = 'poisreg_hier_team',
+                modeldata      = modeldata,
+                fitgameids     = [g.id for g in eflgames.fit],
+                predictgameids = [g.id for g in eflgames.predict],
+                efl2stan       = efl2stan,
+                references     = [reference],
+                **kwargs)
+        # TODO: predict quantities
+    
+    @staticmethod
+    def _get_model_data(games):
+        """Take an EFLGames instance and transform it into a dict appropriate
+        for the poisreg_hier_team Stan model."""
+        # Number of games and teams
+        nGames = len(games.fit)
+        nGames_new = len(games.predict)
+        nTeams = len(games.teams)
+        # Team indexes for each game
+        teamidxmap = {t.id:(i+1) for i,t in enumerate(games.teams)}
+        hometeamidx = numpy.array(
+                [teamidxmap[g.hometeamid] for g in games.fit], 
+                dtype=numpy.int_)
+        awayteamidx = numpy.array(
+                [teamidxmap[g.awayteamid] for g in games.fit], 
+                dtype=numpy.int_)
+        hometeamidx_new = numpy.array(
+                [teamidxmap[g.hometeamid] for g in games.predict], 
+                dtype=numpy.int_)
+        awayteamidx_new = numpy.array(
+                [teamidxmap[g.awayteamid] for g in games.predict], 
+                dtype=numpy.int_)
+        # Game goals
+        homegoals = numpy.array(
+                [g.result.homegoals for g in games.fit],
+                dtype=numpy.int_)
+        awaygoals = numpy.array(
+                [g.result.awaygoals for g in games.fit],
+                dtype=numpy.int_)
+        # Return the model data
+        return {'nGames':nGames, 'nGames_new':nGames_new, 'nTeams':nTeams,
+                'hometeamidx':hometeamidx, 'awayteamidx':awayteamidx,
+                'homegoals':homegoals, 'awaygoals':awaygoals,
+                'hometeamidx_new':hometeamidx_new, 
+                'awayteamidx_new':awayteamidx_new}
+        
