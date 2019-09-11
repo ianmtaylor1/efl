@@ -16,8 +16,8 @@ data {
     
     // Prior parameters of the latent team parameters
     // The last team is a reference, its latent parameter == 0
-    vector[nTeams-1] teams_prior_mean;
-    cov_matrix[nTeams-1] teams_prior_var;
+    vector[nTeams] teams_prior_mean;
+    cov_matrix[nTeams] teams_prior_var;
     
     // Prior parameters for the covariance matrix linking team offense/defense
     // sub-parameters to the latent team parameter
@@ -33,39 +33,15 @@ data {
     real<lower=0> home_prior_sd;
 }
 transformed data {
-    // X matrices have one row for each game, and have columns grouped 4 per
-    // team, ordered (HomeOff, AwayOff, HomeDef, AwayDef)
-    matrix[nGames, 4*nTeams] X_home;
-    matrix[nGames, 4*nTeams] X_away;
-    matrix[nGames_new, 4*nTeams] X_home_new;
-    matrix[nGames_new, 4*nTeams] X_away_new;
     // Cholesky decomp of the prior variance of the latent team strengths
-    cholesky_factor_cov[nTeams-1] teams_prior_var_chol;
+    cholesky_factor_cov[nTeams] teams_prior_var_chol;
     
     // Precompute cholesky decomposition of the teams prior variance
     teams_prior_var_chol = cholesky_decompose(teams_prior_var);
-    
-    // Create X matrices and fill with appropriate indicators
-    X_home = rep_matrix(0, nGames, 4*nTeams);
-    X_away = rep_matrix(0, nGames, 4*nTeams);
-    for (r in 1:nGames) {
-        X_home[r,4*hometeamidx[r]-3] = 1;  // Home Offense for homegoals
-        X_home[r,4*awayteamidx[r]-0] = -1; // Away Defense for homegoals
-        X_away[r,4*awayteamidx[r]-2] = 1;  // Away Offense for awaygoals
-        X_away[r,4*hometeamidx[r]-1] = -1; // Home Defense for awaygoals
-    }
-    X_home_new = rep_matrix(0, nGames_new, 4*nTeams);
-    X_away_new = rep_matrix(0, nGames_new, 4*nTeams);
-    for (r in 1:nGames_new) {
-        X_home_new[r,4*hometeamidx[r]-3] = 1;  // Home Offense for homegoals
-        X_home_new[r,4*awayteamidx[r]-0] = -1; // Away Defense for homegoals
-        X_away_new[r,4*awayteamidx[r]-2] = 1;  // Away Offense for awaygoals
-        X_away_new[r,4*hometeamidx[r]-1] = -1; // Home Defense for awaygoals
-    }
 }
 parameters {
     // Latent "team strength" with a holdout
-    vector[nTeams-1] teams;
+    vector[nTeams-1] teams_raw;
     
     // Baseline goals parameter, log scale
     real log_goals;
@@ -79,7 +55,13 @@ parameters {
     
     // Home/away offense/defense parameters, hierarchically defined from
     // latent team strength, log_goals, home, and teamvar
-    vector[4*nTeams] beta;
+    vector[nTeams] homeoff;
+    vector[nTeams] homedef;
+    vector[nTeams] awayoff;
+    vector[nTeams] awaydef;
+}
+transformed parameters {
+    vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw))
 }
 model {
     // Local Variables: Arrays of vectors for vectorizing hierarchical
@@ -101,25 +83,19 @@ model {
     
     // Hierarchical distribution of beta
     // Build arrays of 2-vectors for vectorization
-    // First, the first nTeams-1 teams
-    for (t in 1:(nTeams-1)) {
+    for (t in 1:nTeams) {
         beta_means[2*t-1]   = [teams[t]+home, teams[t]]';
         beta_means[2*t]     = [teams[t]+home, teams[t]]';
-        beta_stacked[2*t-1] = beta[(4*t-3):(4*t-2)];
-        beta_stacked[2*t]   = beta[(4*t-1):(4*t)];
+        beta_stacked[2*t-1] = [homeoff[t], awayoff[t]]';
+        beta_stacked[2*t]   = [homedef[t], awaydef[t]]';
     }
-    // Reference (nTeams^th) team
-    beta_means[2*nTeams-1]   = [home, 0]';
-    beta_means[2*nTeams]     = [home, 0]';
-    beta_stacked[2*nTeams-1] = beta[(4*nTeams-3):(4*nTeams-2)];
-    beta_stacked[2*nTeams]   = beta[(4*nTeams-1):(4*nTeams)];
     // Vectorized sampling statement
     beta_stacked ~ multi_normal(beta_means, teamvar);
     
     // Distribution of goals
     if (nGames > 0) {
-        homegoals ~ poisson_log(X_home * beta + log_goals);
-        awaygoals ~ poisson_log(X_away * beta + log_goals);
+        homegoals ~ poisson_log(homeoff[hometeamidx] - awaydef[awayteamidx] + log_goals);
+        awaygoals ~ poisson_log(awayoff[awayteamidx] - homedef[hometeamidx] + log_goals);
     }
 }
 generated quantities {
@@ -129,11 +105,11 @@ generated quantities {
     int<lower=0> awaygoals_new_pred[nGames_new];
     
     if (nGames > 0) {
-        homegoals_pred = poisson_log_rng(X_home * beta + log_goals);
-        awaygoals_pred = poisson_log_rng(X_away * beta + log_goals);
+        homegoals_pred = poisson_log_rng(homeoff[hometeamidx] - awaydef[awayteamidx] + log_goals);
+        awaygoals_pred = poisson_log_rng(awayoff[awayteamidx] - homedef[hometeamidx] + log_goals);
     }
     if (nGames_new > 0) {
-        homegoals_new_pred = poisson_log_rng(X_home_new * beta + log_goals);
-        awaygoals_new_pred = poisson_log_rng(X_away_new * beta + log_goals);
+        homegoals_new_pred = poisson_log_rng(homeoff[hometeamidx_new] - awaydef[awayteamidx_new] + log_goals);
+        awaygoals_new_pred = poisson_log_rng(awayoff[awayteamidx_new] - homedef[hometeamidx_new] + log_goals);
     }
 }

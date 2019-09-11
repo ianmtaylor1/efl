@@ -67,7 +67,7 @@ model {
     homedef ~ multi_normal_cholesky(homedef_prior_mean, homedef_prior_var_chol);
     awayoff ~ multi_normal_cholesky(awayoff_prior_mean, awayoff_prior_var_chol);
     awaydef ~ multi_normal_cholesky(awaydef_prior_mean, awaydef_prior_var_chol);
-    
+    // Model, goals follow poisson distribution
     if (nGames > 0) {
         homegoals ~ poisson_log(homeoff[hometeamidx] - awaydef[awayteamidx] + log_home_goals);
         awaygoals ~ poisson_log(awayoff[awayteamidx] - homedef[hometeamidx] + log_away_goals);

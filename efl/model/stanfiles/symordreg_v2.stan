@@ -39,9 +39,11 @@ transformed parameters {
     vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw));
 }
 model {
+    // Priors
     theta ~ logistic(theta_prior_loc, theta_prior_scale);
     home ~ normal(home_prior_mean, home_prior_sd);
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
+    // Model
     if (nGames > 0) {
         results ~ ordered_logistic(
                 teams[hometeamidx] - teams[awayteamidx] + home, 
