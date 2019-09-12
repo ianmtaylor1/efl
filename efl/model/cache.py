@@ -1,6 +1,5 @@
 import pystan
 import importlib.resources as resources
-import appdirs
 import os
 import pickle
 
@@ -24,7 +23,7 @@ def get_model(model_name):
         try:
             with open(cachefile, 'rb') as f:
                 model = pickle.load(f)
-        except pickle.UnpicklingError as e:
+        except pickle.UnpicklingError:
             os.remove(cachefile) # Bad file, remove
     # If cache file did not exist or is from an old model, recompile and cache
     if (model is None) or (model.model_code != modelcode):
