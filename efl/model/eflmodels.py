@@ -12,9 +12,9 @@ import pandas
 import itertools
 
 
-#######################################
-## BASE MODEL #########################
-#######################################
+###############################################################################
+## BASE MODEL #################################################################
+###############################################################################
 
 
 class _EFLModel(object):
@@ -179,9 +179,9 @@ class _EFLModel(object):
             ignore_index=True)
 
 
-#######################################
-## HELPER MODELS ######################
-#######################################
+###############################################################################
+## HELPER MODELS ##############################################################
+###############################################################################
 
 
 class _EFL_WithReference(_EFLModel):
@@ -234,16 +234,173 @@ class _EFL_WithReference(_EFLModel):
 
 
 class _EFL_GoalModel(_EFLModel):
-    pass
+    """Base class for models that predict home/away goals of games."""
+    
+    def __init__(self, eflgames, extramodeldata={}, **kwargs):
+        # Create game id's
+        fitgameids     = [g.id for g in eflgames.fit]
+        predictgameids = [g.id for g in eflgames.predict]
+        # Create the prediction quantity names
+        self._predictqtys = {}
+        for i,gid in enumerate(fitgameids):
+            self._predictqtys[gid] = ('homegoals_pred[{}]'.format(i+1),
+                                      'awaygoals_pred[{}]'.format(i+1))
+        for i,gid in enumerate(predictgameids):
+            self._predictqtys[gid] = ('homegoals_new_pred[{}]'.format(i+1),
+                                      'awaygoals_new_pred[{}]'.format(i+1))
+        # Get the standard model data format
+        stddata = self._get_model_data(eflgames)
+        # Call base model, passing along the fit and predict game ids
+        super().__init__(modeldata      = {**stddata, **extramodeldata},
+                         fitgameids     = fitgameids, 
+                         predictgameids = predictgameids,
+                         **kwargs)
+    
+    @staticmethod
+    def _get_model_data(eflgames):
+        """Take an EFLGames instance and transform it into a dict appropriate
+        for the standard input of Stan models that predict game goals. This
+        format guarantees:
+            * The observed and new games are indexed in the order they appear
+              in eflgames.fit and eflgames.predict, respectively.
+            * The teams are indexed in the order they appear in eflgames.teams
+        """
+        # Number of games and teams
+        nGames = len(eflgames.fit)
+        nGames_new = len(eflgames.predict)
+        nTeams = len(eflgames.teams)
+        # Team indexes for each game
+        teamidxmap = {t.id:(i+1) for i,t in enumerate(eflgames.teams)}
+        hometeamidx = numpy.array(
+                [teamidxmap[g.hometeamid] for g in eflgames.fit], 
+                dtype=numpy.int_)
+        awayteamidx = numpy.array(
+                [teamidxmap[g.awayteamid] for g in eflgames.fit], 
+                dtype=numpy.int_)
+        hometeamidx_new = numpy.array(
+                [teamidxmap[g.hometeamid] for g in eflgames.predict], 
+                dtype=numpy.int_)
+        awayteamidx_new = numpy.array(
+                [teamidxmap[g.awayteamid] for g in eflgames.predict], 
+                dtype=numpy.int_)
+        # Game goals
+        homegoals = numpy.array(
+                [g.result.homegoals for g in eflgames.fit],
+                dtype=numpy.int_)
+        awaygoals = numpy.array(
+                [g.result.awaygoals for g in eflgames.fit],
+                dtype=numpy.int_)
+        # Return the model data
+        return {'nGames':nGames, 'nGames_new':nGames_new, 'nTeams':nTeams,
+                'hometeamidx':hometeamidx, 'awayteamidx':awayteamidx,
+                'homegoals':homegoals, 'awaygoals':awaygoals,
+                'hometeamidx_new':hometeamidx_new, 
+                'awayteamidx_new':awayteamidx_new}
+    
+    def _predict(self, gameid):
+        """Predict the result for the game 'gameid' from this model's fitted 
+        data."""
+        # Find the quantity we need to look at
+        hg, ag = self._predictqtys[gameid]
+        # Pull that quantity
+        samples = self.stanfit.to_dataframe(pars=[hg, ag], permuted=False,
+                                            diagnostics=False)
+        # Map to a result
+        samples['homegoals'] = samples[hg]
+        samples['awaygoals'] = samples[ag]
+        samples['result'] = 'D'
+        samples.loc[(samples['homegoals']>samples['awaygoals']),'result'] = 'H'
+        samples.loc[(samples['homegoals']<samples['awaygoals']),'result'] = 'A'
+        # Drop quantity and return
+        return samples.drop([hg, ag], axis=1)
 
 
 class _EFL_ResultModel(_EFLModel):
-    pass
+    """Base class for models that predict just game results."""
+    
+    def __init__(self, eflgames, extramodeldata={}, **kwargs):
+        # Create game id's
+        fitgameids     = [g.id for g in eflgames.fit]
+        predictgameids = [g.id for g in eflgames.predict]
+        # Create the prediction quantity names
+        self._predictqtys = {}
+        for i,gid in enumerate(fitgameids):
+            self._predictqtys[gid] = 'result_pred[{}]'.format(i+1)
+        for i,gid in enumerate(predictgameids):
+            self._predictqtys[gid] = 'result_new_pred[{}]'.format(i+1)
+        # Get the standard model data format
+        stddata = self._get_model_data(eflgames)
+        # Call base model, passing along the fit and predict game ids
+        super().__init__(modeldata      = {**stddata, **extramodeldata},
+                         fitgameids     = fitgameids, 
+                         predictgameids = predictgameids,
+                         **kwargs)
+    
+    @staticmethod
+    def _get_model_data(eflgames):
+        """Take an EFLGames instance and transform it into a dict appropriate
+        for the standard input of Stan models that predict game results. This
+        format guarantees:
+            * The observed and new games are indexed in the order they appear
+              in eflgames.fit and eflgames.predict, respectively.
+            * The teams are indexed in the order they appear in eflgames.teams
+        """
+        # Number of games and teams
+        nGames = len(eflgames.fit)
+        nGames_new = len(eflgames.predict)
+        nTeams = len(eflgames.teams)
+        # Team indexes for each game
+        teamidxmap = {t.id:(i+1) for i,t in enumerate(eflgames.teams)}
+        hometeamidx = numpy.array(
+                [teamidxmap[g.hometeamid] for g in eflgames.fit], 
+                dtype=numpy.int_)
+        awayteamidx = numpy.array(
+                [teamidxmap[g.awayteamid] for g in eflgames.fit], 
+                dtype=numpy.int_)
+        hometeamidx_new = numpy.array(
+                [teamidxmap[g.hometeamid] for g in eflgames.predict], 
+                dtype=numpy.int_)
+        awayteamidx_new = numpy.array(
+                [teamidxmap[g.awayteamid] for g in eflgames.predict], 
+                dtype=numpy.int_)
+        # Game results
+        def result_int(g): # Function to return the appropriate integers
+            if g.result.homegoals > g.result.awaygoals:
+                return 3 # Home win
+            elif g.result.homegoals < g.result.awaygoals:
+                return 1 # Home loss
+            else:
+                return 2 # Draw
+        result = numpy.array(
+                [result_int(g) for g in eflgames.fit],
+                dtype=numpy.int_)
+        # Return the model data
+        return {'nGames':nGames, 'nGames_new':nGames_new, 'nTeams':nTeams,
+                'hometeamidx':hometeamidx, 'awayteamidx':awayteamidx,
+                'result':result,
+                'hometeamidx_new':hometeamidx_new, 
+                'awayteamidx_new':awayteamidx_new}
+    
+    def _predict(self, gameid):
+        """Predict the result for the game 'gameid' from this model's fitted 
+        data."""
+        # Find the quantity we need to look at
+        qtyname = self._predictqtys[gameid]
+        # Pull that quantity
+        samples = self.stanfit.to_dataframe(pars=[qtyname], permuted=False,
+                                            diagnostics=False)
+        # Map to a result
+        samples['result'] = samples[qtyname].apply(
+                lambda x: ['A','D','H'][int(x)-1])
+        samples['homegoals'] = numpy.NaN
+        samples['awaygoals'] = numpy.NaN
+        # Drop quantity and return
+        return samples.drop(qtyname, axis=1)
 
 
-#######################################
-## END-USER MODELS ####################
-#######################################
+###############################################################################
+## END-USER MODELS ############################################################
+###############################################################################
 
 
 class EFLSymOrdReg(_EFL_WithReference, _EFLModel):
