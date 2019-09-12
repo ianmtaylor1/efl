@@ -19,10 +19,15 @@ data {
     vector[nTeams] teams_prior_mean;
     cov_matrix[nTeams] teams_prior_var;
     
-    // Prior parameters for the covariance matrix linking team offense/defense
-    // sub-parameters to the latent team parameter
-    real<lower=1> teamvar_prior_nu;
-    cov_matrix[2] teamvar_prior_Sigma;
+    // Prior parameters for the variance of the hierarchical team
+    // offense/defense home/away parameters, given the latent team strength
+    // and homefield advantage
+    real<lower=0> sigma2_prior_alpha;
+    real<lower=0> sigma2_prior_beta;
+    
+    // Prior parameters for the correlation
+    real<lower=0> rho_prior_alpha;
+    real<lower=0> rho_prior_beta;
     
     // Prior parameters for the log baseline goals parameter
     real log_goals_prior_mean;
@@ -49,9 +54,12 @@ parameters {
     // Homefield advantage, applied to home offense and home defense
     real home;
     
-    // Covariance of beta (two components at a time) 
-    // given teams, log_goals, home
-    cov_matrix[2] teamvar;
+    // Variance of how far the hierarchical team parameters can vary from the
+    // latent team strength
+    real<lower=0> sigma2;
+    
+    // Correlation between home/away offense and home/away defense
+    real<lower=-1,upper=1> rho;
     
     // Home/away offense/defense parameters, hierarchically defined from
     // latent team strength, log_goals, home, and teamvar
@@ -61,13 +69,16 @@ parameters {
     vector[nTeams] awaydef;
 }
 transformed parameters {
+    // Teams vector centered at zero
     vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw))
 }
 model {
     // Local Variables: Arrays of vectors for vectorizing hierarchical
     // distribution of beta
-    vector[2] beta_stacked[2*nTeams];
-    vector[2] beta_means[2*nTeams];
+    vector[4] beta_stacked[nTeams];
+    vector[4] beta_means[nTeams];
+    // sigma2 and rho assembled into a 4x4 covariance matrix
+    cov_matrix[4] teamvar;
     
     // Log goals distributed by normal prior
     log_goals ~ normal(log_goals_prior_mean, log_goals_prior_sd);
@@ -78,17 +89,24 @@ model {
     // Team strengths distributed by a MVN prior
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
     
-    // Hierarchical variance has Wishart prior
-    teamvar ~ wishart(teamvar_prior_nu, teamvar_prior_Sigma);
+    // Hierarchical variance has gamma prior
+    sigma2 ~ gamma(sigma2_prior_alpha, sigma2_prior_beta);
+    
+    // Offense and defense correlation has (shifted,scaled) beta prior
+    // Linear transformation, fine to do without jacobian
+    (rho + 1)/2 ~ beta(rho_prior_alpha, rho_prior_beta);
     
     // Hierarchical distribution of beta
     // Build arrays of 2-vectors for vectorization
     for (t in 1:nTeams) {
-        beta_means[2*t-1]   = [teams[t]+home, teams[t]]';
-        beta_means[2*t]     = [teams[t]+home, teams[t]]';
-        beta_stacked[2*t-1] = [homeoff[t], awayoff[t]]';
-        beta_stacked[2*t]   = [homedef[t], awaydef[t]]';
+        beta_means[t]   = [teams[t]+home, teams[t], teams[t]+home, teams[t]]';
+        beta_stacked[t] = [homeoff[t], awayoff[t], homedef[t], awaydef[t]]';
     }
+    // Build variance matrix
+    teamvar = [[sigma2     , rho*sigma2 , 0          , 0         ],
+               [rho*sigma2 , sigma2     , 0          , 0         ],
+               [0          , 0          , sigma2     , rho*sigma2],
+               [0          , 0          , rho*sigma2 , sigma2    ]];
     // Vectorized sampling statement
     beta_stacked ~ multi_normal(beta_means, teamvar);
     
