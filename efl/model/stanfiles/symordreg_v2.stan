@@ -6,7 +6,7 @@ data {
     // Describe the known games and their outcomes
     int<lower=1,upper=nTeams> hometeamidx[nGames];
     int<lower=1,upper=nTeams> awayteamidx[nGames];
-    int<lower=1,upper=3> results[nGames];
+    int<lower=1,upper=3> result[nGames];
     
     // Number of new games and description of new games
     int<lower=0> nGames_new;
@@ -45,23 +45,23 @@ model {
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
     // Model
     if (nGames > 0) {
-        results ~ ordered_logistic(
+        result ~ ordered_logistic(
                 teams[hometeamidx] - teams[awayteamidx] + home, 
                 [ -theta, theta ]'
                 );
     };
 }
 generated quantities {
-    int<lower=1,upper=3> results_pred[nGames];
-    int<lower=1,upper=3> results_new_pred[nGames_new];
+    int<lower=1,upper=3> result_pred[nGames];
+    int<lower=1,upper=3> result_new_pred[nGames_new];
     for (i in 1:nGames) {
-        results_pred[i] = ordered_logistic_rng(
+        result_pred[i] = ordered_logistic_rng(
                 teams[hometeamidx[i]] - teams[awayteamidx[i]] + home, 
                 [ -theta, theta ]'
                 );
     };
     for (i in 1:nGames_new) {
-        results_new_pred[i] = ordered_logistic_rng(
+        result_new_pred[i] = ordered_logistic_rng(
                 teams[hometeamidx_new[i]] - teams[awayteamidx_new[i]] + home, 
                 [ -theta, theta ]'
                 );
