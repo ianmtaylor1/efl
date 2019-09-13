@@ -26,8 +26,8 @@ data {
     real<lower=0> sigma2_prior_beta;
     
     // Prior parameters for the correlation
-    real<lower=0> rho_prior_alpha;
-    real<lower=0> rho_prior_beta;
+    real<lower=0> rho_prior_mu;
+    real<lower=0> rho_prior_kappa;
     
     // Prior parameters for the log baseline goals parameter
     real log_goals_prior_mean;
@@ -93,8 +93,8 @@ model {
     sigma2 ~ gamma(sigma2_prior_alpha, sigma2_prior_beta);
     
     // Offense and defense correlation has (shifted,scaled) beta prior
-    // Linear transformation, fine to do without jacobian
-    (rho + 1)/2 ~ beta(rho_prior_alpha, rho_prior_beta);
+    // Linear transformation, fine to do without Jacobian
+    (rho + 1)/2 ~ beta_proportion(rho_prior_mu, rho_prior_kappa);
     
     // Hierarchical distribution of beta
     // Build arrays of 2-vectors for vectorization
