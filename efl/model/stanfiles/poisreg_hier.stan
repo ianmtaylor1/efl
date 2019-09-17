@@ -19,16 +19,6 @@ data {
     vector[nTeams] teams_prior_mean;
     cov_matrix[nTeams] teams_prior_var;
     
-    // Prior parameters for the variance of the hierarchical team
-    // offense/defense home/away parameters, given the latent team strength
-    // and homefield advantage
-    real<lower=0> sigma2_prior_alpha;
-    real<lower=0> sigma2_prior_beta;
-    
-    // Prior parameters for the correlation
-    real<lower=0> rho_prior_mu;
-    real<lower=0> rho_prior_kappa;
-    
     // Prior parameters for the log baseline goals parameter
     real log_goals_prior_mean;
     real<lower=0> log_goals_prior_sd;
@@ -36,6 +26,20 @@ data {
     // Prior parameters for the homefield advantage parameter
     real home_prior_mean;
     real<lower=0> home_prior_sd;
+    
+    // Prior parameters for the variance of the hierarchical team
+    // offense/defense home/away parameters, given the latent team strength
+    // and homefield advantage
+    real<lower=0> sigma2_prior_alpha;
+    real<lower=0> sigma2_prior_beta;
+    
+    // Prior parameters for the variance of homefield advantage by team
+    real<lower=0> s2home_prior_alpha;
+    real<lower=0> s2home_prior_beta;
+    
+    // Prior parameters for the correlation
+    real<lower=0> rho_prior_mu;
+    real<lower=0> rho_prior_kappa;
 }
 transformed data {
     // Cholesky decomp of the prior variance of the latent team strengths
@@ -57,6 +61,9 @@ parameters {
     // Variance of how far the hierarchical team parameters can vary from the
     // latent team strength
     real<lower=0> sigma2;
+    
+    // Variance of the difference in homefield advantage between teams
+    real<lower=0> s2home;
     
     // Correlation between home/away offense and home/away defense
     real<lower=-1,upper=1> rho;
@@ -92,6 +99,9 @@ model {
     // Hierarchical variance has gamma prior
     sigma2 ~ gamma(sigma2_prior_alpha, sigma2_prior_beta);
     
+    // Homefield variance has gamma prior
+    s2home ~ gamma(s2home_prior_alpha, s2home_prior_beta);
+    
     // Offense and defense correlation has (shifted,scaled) beta prior
     // Linear transformation, fine to do without Jacobian
     (rho + 1)/2 ~ beta_proportion(rho_prior_mu, rho_prior_kappa);
@@ -103,10 +113,10 @@ model {
         beta_stacked[t] = [homeoff[t], awayoff[t], homedef[t], awaydef[t]]';
     }
     // Build variance matrix
-    teamvar = [[sigma2     , rho*sigma2 , 0          , 0         ],
-               [rho*sigma2 , sigma2     , 0          , 0         ],
-               [0          , 0          , sigma2     , rho*sigma2],
-               [0          , 0          , rho*sigma2 , sigma2    ]];
+    teamvar = [[sigma2+s2home , rho*sigma2 , s2home        , 0         ],
+               [rho*sigma2    , sigma2     , 0             , 0         ],
+               [s2home        , 0          , sigma2+s2home , rho*sigma2],
+               [0             , 0          , rho*sigma2    , sigma2    ]];
     // Vectorized sampling statement
     beta_stacked ~ multi_normal(beta_means, teamvar);
     
