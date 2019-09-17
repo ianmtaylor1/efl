@@ -127,11 +127,11 @@ class _EFLModel(object):
         for (stanpar, eflpar) in self._stan2efl.items():
             spaces = addlength - (len(eflpar) - len(stanpar))
             if spaces >= 0: # Need to net insert spaces
-                old = r'^{}'.format(re.escape(stanpar))
-                new = '{}{}'.format(eflpar, " "*spaces)
+                old = r'^{} '.format(re.escape(stanpar))
+                new = '{}{} '.format(eflpar, " "*spaces)
             else: # Need to net remove spaces
-                old = r'^{}{}'.format(re.escape(stanpar), " "*abs(spaces))
-                new = eflpar
+                old = r'^{}{} '.format(re.escape(stanpar), " "*abs(spaces))
+                new = eflpar+' '
             sts = re.sub(old, new, sts, flags=re.MULTILINE)
         # Also add spaces at the start of the header row
         if addlength > 0:
