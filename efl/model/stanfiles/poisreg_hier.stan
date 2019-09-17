@@ -77,7 +77,7 @@ parameters {
 }
 transformed parameters {
     // Teams vector centered at zero
-    vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw))
+    vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw));
 }
 model {
     // Local Variables: Arrays of vectors for vectorizing hierarchical
@@ -85,7 +85,7 @@ model {
     vector[4] beta_stacked[nTeams];
     vector[4] beta_means[nTeams];
     // sigma2 and rho assembled into a 4x4 covariance matrix
-    cov_matrix[4] teamvar;
+    matrix[4,4] teamvar;
     
     // Log goals distributed by normal prior
     log_goals ~ normal(log_goals_prior_mean, log_goals_prior_sd);
