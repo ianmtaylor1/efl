@@ -104,7 +104,7 @@ class _EFLModel(object):
     
     @property
     def parameters(self):
-        return self._efl2stan.keys()
+        return list(self._efl2stan.keys())
     
     def summary(self, pars=None, **kwargs):
         """A wrapper around the stansummary method on the included stanfit
@@ -403,7 +403,90 @@ class _EFL_ResultModel(_EFLModel):
 ###############################################################################
 
 
-class EFLSymOrdReg(_EFL_WithReference, _EFLModel):
+class EFLSymOrdReg(_EFL_ResultModel):
+    """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
+    
+    def __init__(self, eflgames, **kwargs):
+        # Create priors
+        P = len(eflgames.teams)
+        priors = {}
+        priors['teams_prior_mean']  = numpy.zeros(P)
+        priors['teams_prior_var']   = numpy.identity(P) * ((P/2)**2)
+        priors['home_prior_mean']   = 0
+        priors['home_prior_sd']     = 1.8138
+        priors['theta_prior_loc']   = 0
+        priors['theta_prior_scale'] = 1
+        # Create parameter mapping
+        efl2stan = {'DrawBoundary':'theta', 'HomeField':'home'}
+        for i,t in enumerate(eflgames.teams):
+            efl2stan[t.shortname] = 'teams[{}]'.format(i+1)
+        # Call super init
+        super().__init__(
+                modelfile      = 'symordreg_v2',
+                eflgames       = eflgames,
+                extramodeldata = priors,
+                efl2stan       = efl2stan,
+                **kwargs)
+    
+    def _stan_inits(self, chain_id=None):
+        """Draw from a multivariate normal distribution and a logistic
+        distribution to produce prior values for beta and theta."""
+        P = self._modeldata['teams_prior_mean'].shape[0]
+        teams_raw = numpy.random.multivariate_normal(
+                self._modeldata['teams_prior_mean'][:(P-1)], 
+                self._modeldata['teams_prior_var'][:(P-1),:(P-1)])
+        home = numpy.random.normal(
+                self._modeldata['home_prior_mean'],
+                self._modeldata['home_prior_sd'])
+        theta = abs(numpy.random.logistic(
+                self._modeldata['theta_prior_loc'], 
+                self._modeldata['theta_prior_scale']))
+        return {'teams_raw':teams_raw, 'home':home, 'theta':theta}
+
+
+class EFLPoisRegNumberphile(_EFL_GoalModel):
+    """Poisson Regression model based on Numberphile video with Tony Padilla
+    https://www.numberphile.com/videos/a-million-simulated-seasons
+    """
+    
+    def __init__(eflgames, **kwargs):
+        pass
+    
+    def _stan_inits(self, chain_id=None):
+        pass
+    
+
+class EFLPoisRegSimple(_EFL_GoalModel):
+    """Poisson Regression model based on Numberphile video with Tony Padilla
+    https://www.numberphile.com/videos/a-million-simulated-seasons
+    **But simplified, by assuming equal homefield advantage for all teams.
+    """
+    
+    def __init__(eflgames, **kwargs):
+        pass
+    
+    def _stan_inits(self, chain_id=None):
+        pass
+
+
+class EFLPoisRegHier(_EFL_GoalModel):
+    """Class for a poisson regression model where the team's 'sub-parameters'
+    e.g. home offense, away defense, etc. are hierarchically determined by a
+    latent team strength parameter."""
+    
+    def __init__(eflgames, **kwargs):
+        pass
+    
+    def _stan_inits(self, chain_id=None):
+        pass
+
+
+###############################################################################
+## OLD END-USER MODELS ########################################################
+###############################################################################
+
+
+class EFLSymOrdReg_Old(_EFL_WithReference, _EFLModel):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
     
     def __init__(self, eflgames, **kwargs):
@@ -484,7 +567,7 @@ class EFLSymOrdReg(_EFL_WithReference, _EFLModel):
         return samples.drop(qtyname, axis=1)
 
 
-class EFLPoisRegNumberphile(_EFL_WithReference, _EFLModel):
+class EFLPoisRegNumberphile_Old(_EFL_WithReference, _EFLModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     """
@@ -583,7 +666,7 @@ class EFLPoisRegNumberphile(_EFL_WithReference, _EFLModel):
         return samples.drop([hg, ag], axis=1)
 
 
-class EFLPoisRegSimple(_EFL_WithReference, _EFLModel):
+class EFLPoisRegSimple_Old(_EFL_WithReference, _EFLModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     **But simplified, by assuming equal homefield advantage for all teams.
@@ -681,7 +764,7 @@ class EFLPoisRegSimple(_EFL_WithReference, _EFLModel):
         return samples.drop([hg, ag], axis=1)
 
 
-class EFLPoisRegHier(_EFL_WithReference, _EFLModel):
+class EFLPoisRegHier_Old(_EFL_WithReference, _EFLModel):
     """Class for a poisson regression model where the team's 'sub-parameters'
     e.g. home offense, away defense, etc. are hierarchically determined by a
     latent team strength parameter."""
