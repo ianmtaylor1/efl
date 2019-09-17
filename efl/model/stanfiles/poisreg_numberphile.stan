@@ -56,7 +56,7 @@ transformed parameters {
     vector[nTeams] homeoff = append_row(homeoff_raw, -sum(homeoff_raw));
     vector[nTeams] homedef = append_row(homedef_raw, -sum(homedef_raw));
     vector[nTeams] awayoff = append_row(awayoff_raw, -sum(awayoff_raw));
-    vector[nTeams] awaydef = append_row(awatdef_raw, -sum(awaydef_raw));
+    vector[nTeams] awaydef = append_row(awaydef_raw, -sum(awaydef_raw));
 }
 model {
     // Prior contribution from home/away goals

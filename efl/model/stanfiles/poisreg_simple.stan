@@ -28,7 +28,7 @@ data {
 }
 transformed data {
     cholesky_factor_cov[nTeams] offense_prior_var_chol;
-    cholesky_factor_cov[nTeams] deffense_prior_var_chol;
+    cholesky_factor_cov[nTeams] defense_prior_var_chol;
     
     offense_prior_var_chol = cholesky_decompose(offense_prior_var);
     defense_prior_var_chol = cholesky_decompose(defense_prior_var);

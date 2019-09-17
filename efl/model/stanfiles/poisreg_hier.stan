@@ -37,9 +37,9 @@ data {
     real<lower=0> s2home_prior_alpha;
     real<lower=0> s2home_prior_beta;
     
-    // Prior parameters for the correlation
-    real<lower=0> rho_prior_mu;
-    real<lower=0> rho_prior_kappa;
+    // Prior parameters for the correlation between off/def subparameters
+    real<lower=0> rho_prior_alpha;
+    real<lower=0> rho_prior_beta;
 }
 transformed data {
     // Cholesky decomp of the prior variance of the latent team strengths
@@ -49,7 +49,7 @@ transformed data {
     teams_prior_var_chol = cholesky_decompose(teams_prior_var);
 }
 parameters {
-    // Latent "team strength" with a holdout
+    // First n-1 components of teams vector (n-1 degrees of freedom)
     vector[nTeams-1] teams_raw;
     
     // Baseline goals parameter, log scale
@@ -104,7 +104,7 @@ model {
     
     // Offense and defense correlation has (shifted,scaled) beta prior
     // Linear transformation, fine to do without Jacobian
-    (rho + 1)/2 ~ beta_proportion(rho_prior_mu, rho_prior_kappa);
+    (rho + 1)/2 ~ beta(rho_prior_alpha, rho_prior_beta);
     
     // Hierarchical distribution of beta
     // Build arrays of 2-vectors for vectorization
