@@ -31,4 +31,6 @@ $$s_i$$ for $$i=1,\dots,20$$.
 * 1 representing a homefield advantage, written $$h$$.
 * 1 determining the relative probability of a draw, written $$\theta$$.
 
+## This Model in Code
 
+This model is called efl.model.SymOrdReg in the Python package.
