@@ -1,4 +1,4 @@
 ---
-title: EFL Project Home Page
+title: EFL Modeling Project
 layout: main
 ---
