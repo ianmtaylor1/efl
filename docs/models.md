@@ -1,6 +1,7 @@
 ---
 title: EFL Model Details
 permalink: /models/
+layout: main
 ---
 
 # EFL Model Details
