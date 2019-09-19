@@ -8,7 +8,7 @@ This page contains descriptions of the different models implemented in this pack
 
 ## Result Models
 
-* Symmetric Ordinal Regression
+* [Symmetric Ordinal Regression](/models/symordreg.html)
 
 ## Goal Models
 
