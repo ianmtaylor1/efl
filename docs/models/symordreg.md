@@ -21,15 +21,37 @@ unequal strengths.
 
 ## Technical Definition and Notation
 
-This model is an ordinal regression model - or regression with an ordered
-outcome. Here the outcome is the game result, Win, Draw, or Loss, which
-are naturally ordered from better to worse.
+This model is an 
+[ordinal regression](https://en.wikipedia.org/wiki/Ordinal_regression) model - 
+or regression with an ordered outcome. Here the outcome is the game result,
+Win, Draw, or Loss, which are naturally ordered from better to worse.
 
 The model is defined by 22 parameters: 
 * 20 representing the strength of each of the 20 teams, written
 $$s_i$$ for $$i=1,\dots,20$$.
 * 1 representing a homefield advantage, written $$h$$.
 * 1 determining the relative probability of a draw, written $$\theta$$.
+
+To predict the outcome of a game, you would first calculate the team strength
+difference baseline, $$m$$. For example, if Wolves are playing Leicester City
+at home,
+
+$$m = h + s_{Wolves} - s_{Leicester}.$$
+
+Then, you would add noise, $$\varepsilon$$ to the baseline to account for the
+randomness of the result.
+
+$$y' = m + \varepsilon$$
+
+Here $$\varepsilon$$ is drawn from a 
+[Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution).
+Then $$y'$$ is used to determine the final result, $$y$$:
+
+$$y = \begin{cases}
+Loss & y' < -\theta \\
+Draw & -\theta \leq y' \leq \theta \\
+Win & y' > \theta
+\end{cases}$$
 
 ## This Model in Code
 
