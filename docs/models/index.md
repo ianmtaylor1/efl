@@ -13,7 +13,7 @@ This page contains descriptions of the different models implemented in this pack
 
 ## Goal Models
 
-* Numberphile Model
+* [Numberphile Model](numberphile.html)
 * Simplified Model
 * Hierarchical Model
 
