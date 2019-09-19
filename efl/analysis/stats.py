@@ -34,7 +34,21 @@ def _make_table(g):
             'HPts':3*hw + hd,
             'APts':3*aw + ad})
     return table
-    
+
+def _make_matrix(g):
+    """Take the data frame of games and transform it into a matrix representing
+    a directed multigraph of wins. E.g. if team 1 beat team 5 twice, then
+    M[1,5] = 2. Draws are not included in the matrix."""
+    teams = list(set(g['hometeam']) | set(g['hometeam']))
+    teamidx = {t:i for i,t in enumerate(teams)}
+    P = len(teams)
+    mat = numpy.zeros(shape=[P,P])
+    for i,row in g.iterrows():
+        if row['result'] == 'H':
+            mat[teamidx[row['hometeam']],teamidx[row['awayteam']]] += 1
+        elif row['result'] == 'A':
+            mat[teamidx[row['awayteam']],teamidx[row['hometeam']]] += 1
+    return mat
 
 def homewins(g):
     """Calculates the homefield advantage: what proportion of games in the
@@ -76,3 +90,16 @@ def maxhomeadv(g):
     games. Homefield advantage is defined as home points minus away points."""
     t = _make_table(g)
     return numpy.max(t['HPts'] - t['APts'])
+
+def numrecip(g):
+    """Calculates the number of reciprocal game pairs. (e.g. Team A beats
+    Team B, then Team B beats Team A.)"""
+    M = _make_matrix(g)
+    M2 = numpy.matmul(M, M)
+    return M2.diagonal().sum() / 2
+
+def numtriangles(g):
+    """Calculates the number of 'triangles' (e.g. A > B > C > A)"""
+    M = _make_matrix(g)
+    M3 = numpy.matmul(numpy.matmul(M, M), M)
+    return M3.diagonal().sum() / 3
