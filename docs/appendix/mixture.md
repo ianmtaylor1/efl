@@ -46,3 +46,11 @@ E[Y] &= E\left[\sum_{i=1}^k S_i X_i\right] \\
 &= \boldsymbol{p}^\top \boldsymbol{\mu}
 \end{align*}
 $$
+
+## Variance of a Mixture Distribution
+
+## Covariance of a Mixture Distribution
+
+### ...with an arbitrary random variable
+
+### ...with another mixture of the same variables $$X_i$$
