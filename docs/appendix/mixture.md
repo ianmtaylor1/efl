@@ -24,7 +24,20 @@ With that, we define
 
 $$Y = \boldsymbol{S}^\top \boldsymbol{X},$$
 
-where $$\boldsymbol{S} \sim multinomial(1; \boldsymbol{p})$$ is the random
-selection vector with a 1 in exactly one element, 0's everywhere else. The
-vector $$\boldsymbol{p} = (p_1,\dots,p_k)^\top$$ are the selection
-probabilities: $$p_i$$ is the probability that $$S_i = 1$$ and $$Y = X_i$$.
+where
+$$\boldsymbol{S} = (S_1,\dots,S_k)^\top \sim multinomial(1; \boldsymbol{p})$$
+is the random selection vector with a 1 in exactly one element and 0's
+everywhere else. The vector $$\boldsymbol{p} = (p_1,\dots,p_k)^\top$$ are the\
+selection probabilities: $$p_i$$ is the probability that $$S_i = 1$$ and 
+$$Y = X_i$$.
+
+It is important to note that $$\boldsymbol{X} \independent \boldsymbol{S}$$,
+i.e. which variable is selected is independent of the variables' values.
+
+## Mean of a Mixture Distribution
+
+$$
+\begin{align*}
+E[Y] &= E[
+\end{align*}
+$$
