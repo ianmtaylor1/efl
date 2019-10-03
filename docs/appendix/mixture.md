@@ -27,17 +27,22 @@ $$Y = \boldsymbol{S}^\top \boldsymbol{X},$$
 where
 $$\boldsymbol{S} = (S_1,\dots,S_k)^\top \sim multinomial(1; \boldsymbol{p})$$
 is the random selection vector with a 1 in exactly one element and 0's
-everywhere else. The vector $$\boldsymbol{p} = (p_1,\dots,p_k)^\top$$ are the\
+everywhere else. The vector $$\boldsymbol{p} = (p_1,\dots,p_k)^\top$$ are the
 selection probabilities: $$p_i$$ is the probability that $$S_i = 1$$ and 
 $$Y = X_i$$.
 
-It is important to note that $$\boldsymbol{X} \independent \boldsymbol{S}$$,
-i.e. which variable is selected is independent of the variables' values.
+It is important to note that $$\boldsymbol{X}$$ and $$\boldsymbol{S}$$ are
+independent ($$\boldsymbol{X} \perp \boldsymbol{S}$$), i.e. which variable is
+selected is independent of the variables' values.
 
 ## Mean of a Mixture Distribution
 
 $$
 \begin{align*}
-E[Y] &= E[
+E[Y] &= E\left[\sum_{i=1}^k S_i X_i\right] \\
+&= \sum_{i=1}^k E[S_i X_i] \\
+&= \sum_{i=1}^k E[S_i]E[X_i] & \text{due to independence} \\
+&= \sum_{i=1}^k p_i \mu_i \\
+&= \boldsymbol{p}^\top \boldsymbol{\mu}
 \end{align*}
 $$
