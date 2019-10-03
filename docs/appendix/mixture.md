@@ -49,6 +49,45 @@ $$
 
 ## Variance of a Mixture Distribution
 
+$$
+\begin{align*}
+Var(Y) &= E[Y^2] - E[Y]^2 \\
+&= E[Y^2] - (\boldsymbol{p}^\top \boldsymbol{\mu})^2
+\end{align*}
+$$
+
+Now consider the $$E[Y^2]$$ term:
+
+$$
+\begin{align*}
+E[Y]^2 &= E\left[\left(\sum_{i=1}^k S_i X_i\right)^2\right] \\
+&= E\left[\sum_{i=1}^k S_i^2 X_i^2\right].
+\end{align*}
+$$
+
+The last step is due to the fact that all of the "cross terms" will have a
+product $$S_i S_j$$, with $$i \neq j$$. These necessarily equal zero, since at
+least one of $$S_i$$ or $$S_j$$ equals zero. (Only one component of
+$$\boldsymbol{S}$$ equals 1.) Then,
+
+$$
+\begin{align*}
+E[Y^2] &= E\left[\sum_{i=1}^k S_i^2 X_i^2\right] \\
+&= \sum_{i=1}^k E[S_i^2 X_i^2] \\
+&= \sum_{i=1}^k E[S_i^2]E[X_i^2] \\
+&= \sum_{i=1}^k p_i(Var(X_i) + E[X_i]^2),
+\end{align*}
+$$
+
+since $$S_i^2 = S_i$$ and $$Var(X_i) = E[X_i^2] - E[X_i]^2$$. Finally,
+
+$$E[Y^2] = \sum_{i=1}^k p_i(\sigma_{ii} + \mu_i^2),$$
+
+so
+
+$$Var(Y) = \sum_{i=1}^k p_i(\sigma_{ii} + \mu_i^2) - 
+(\boldsymbol{p}\boldsymbol{\mu})^2$$
+
 ## Covariance of a Mixture Distribution
 
 ### ...with an arbitrary random variable
