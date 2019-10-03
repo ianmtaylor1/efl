@@ -49,10 +49,12 @@ $$
 
 ## Variance of a Mixture Distribution
 
+First, write
+
 $$
 \begin{align*}
 Var(Y) &= E[Y^2] - E[Y]^2 \\
-&= E[Y^2] - (\boldsymbol{p}^\top \boldsymbol{\mu})^2
+&= E[Y^2] - (\boldsymbol{p}^\top \boldsymbol{\mu})^2.
 \end{align*}
 $$
 
@@ -61,11 +63,11 @@ Now consider the $$E[Y^2]$$ term:
 $$
 \begin{align*}
 E[Y]^2 &= E\left[\left(\sum_{i=1}^k S_i X_i\right)^2\right] \\
-&= E\left[\sum_{i=1}^k S_i^2 X_i^2\right].
+&= E\left[\sum_{i=1}^k S_i^2 X_i^2\right],
 \end{align*}
 $$
 
-The last step is due to the fact that all of the "cross terms" will have a
+since all of the "cross terms" will have a
 product $$S_i S_j$$, with $$i \neq j$$. These necessarily equal zero, since at
 least one of $$S_i$$ or $$S_j$$ equals zero. (Only one component of
 $$\boldsymbol{S}$$ equals 1.) Then,
@@ -74,7 +76,7 @@ $$
 \begin{align*}
 E[Y^2] &= E\left[\sum_{i=1}^k S_i^2 X_i^2\right] \\
 &= \sum_{i=1}^k E[S_i^2 X_i^2] \\
-&= \sum_{i=1}^k E[S_i^2]E[X_i^2] \\
+&= \sum_{i=1}^k E[S_i^2]E[X_i^2] & \text{due to independence} \\
 &= \sum_{i=1}^k p_i(Var(X_i) + E[X_i]^2),
 \end{align*}
 $$
@@ -86,10 +88,28 @@ $$E[Y^2] = \sum_{i=1}^k p_i(\sigma_{ii} + \mu_i^2),$$
 so
 
 $$Var(Y) = \sum_{i=1}^k p_i(\sigma_{ii} + \mu_i^2) - 
-(\boldsymbol{p}\boldsymbol{\mu})^2$$
+(\boldsymbol{p}^\top \boldsymbol{\mu})^2$$
 
 ## Covariance of a Mixture Distribution
 
 ### ...with an arbitrary random variable
 
+Define a random variable $$Z$$ such that $$Z \perp \boldsymbol{S}$$ but $$Z$$ may be correlated with $$\boldsymbol{X}$$.
+
+Covariance TBD.
+
 ### ...with another mixture of the same variables $$X_i$$
+
+Consder two mixture random variables 
+$$Y_1 = \boldsymbol{S}_1^\top \boldsymbol{X}$$ and
+$$Y_2 = \boldsymbol{S}_2^\top \boldsymbol{X}$$. As before, 
+$$\boldsymbol{S}_1 \perp \boldsymbol{X}$$ and
+$$\boldsymbol{S}_2 \perp \boldsymbol{X}$$. Also assume
+$$\boldsymbol{S}_1 \perp \boldsymbol{S}_2$$.
+
+The situation described is that $$Y_1$$ and $$Y_2$$ are independent _mixtures_
+of the same random variables $$X_1,\dots,X_k$$. The selections are independent,
+but there is a non-zero probability that $$Y_1 = Y_2$$, since if 
+$$\boldsymbol{S}_1 = \boldsymbol{S}_2$$ both will select the same $$X_i$$.
+
+Covariance TBD.
