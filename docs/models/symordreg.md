@@ -56,3 +56,7 @@ Win & y' > \theta
 ## This Model in Code
 
 This model is called efl.model.SymOrdReg in the Python package.
+
+## Priors
+
+See [mixture distributions](../appendix/mixture.html)
