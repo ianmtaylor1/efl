@@ -141,4 +141,21 @@ class EFLSymOrdReg_Prior(object):
             relegated_out - list of team names who were relegated out of this
                 league into a lower league between the season of 'fit' and now
         """
+        # Get the posterior samples from the fit
+        df = fit.to_dataframe(diagnostics=False)
+        # Determine homefield advantage priors
+        home_prior_mean = df['HomeField'].mean()
+        home_prior_sd = df['HomeField'].std() * numpy.sqrt(spread_factor)
+        # Determine draw boundary priors
+        theta_prior_loc = df['DrawBoundary'].mean()
+        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread_factor)
+        # TODO: teams priors
+        # Remove ^ those params and 'chain', 'draw', 'warmup'
         raise NotImplementedError('from_fit not implemented')
+        return cls(teams_prior_mean = None,
+                   teams_prior_var = None,
+                   team_names = None,
+                   home_prior_mean = home_prior_mean,
+                   home_prior_sd = home_prior_sd,
+                   theta_prior_loc = theta_prior_loc,
+                   theta_prior_scale = theta_prior_scale)
