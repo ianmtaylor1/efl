@@ -3,3 +3,4 @@ theme: jekyll-theme-minimal
 title: EFL Models
 description: A collection of models for predicting outcomes of EFL games and assessing team strength.
 
+include: ['models','appendix']

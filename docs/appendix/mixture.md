@@ -15,9 +15,9 @@ moments) for cases that are relevant to the models in this program.
 
 We want to define a random variable $$Y$$ that is a mixture of several random
 variables $$X_1, X_2, \dots, X_k$$. For this, we will assume that
-$$(X_1,\dots,X_k) = \bm{X} \sim (\bm{\mu},\Sigma)$$, i.e. that the $$X$$'s have
-mean $$\bm{\mu} = (\mu_1,\dots,\mu_k)$$ and (co)variance matrix
-$$\Sigma = (\sigma_{ij})$$, so they may be correlated.
+$$(X_1,\dots,X_k) = \boldsymbol{X} \sim (\boldsymbol{\mu},\Sigma)$$, i.e. that
+the $$X$$'s have mean $$\boldsymbol{\mu} = (\mu_1,\dots,\mu_k)$$ and
+(co)variance matrix $$\Sigma = (\sigma_{ij})$$, so they may be correlated.
 
-$$Y = \bm{S}^\top \bm{X},$$
+$$Y = \boldsymbol{S}^\top \boldsymbol{X},$$
 
