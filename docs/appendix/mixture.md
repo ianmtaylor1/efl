@@ -96,7 +96,19 @@ $$Var(Y) = \sum_{i=1}^k p_i(\sigma_{ii} + \mu_i^2) -
 
 Define a random variable $$Z$$ such that $$Z \perp \boldsymbol{S}$$ but $$Z$$ may be correlated with $$\boldsymbol{X}$$.
 
-Covariance TBD.
+$$
+\begin{align*}
+Cov(Y,Z) &= Cov\left(\sum_{i=1}^k S_i X_i, Z\right) \\
+&= \sum_{i=1}^k Cov(S_i X_i, Z) \\
+&= \sum_{i=1}^k \left(E[S_i X_i Z] - E[S_i X_i]E[Z]\right) \\
+&= \sum_{i=1}^k \left(E[S_i X_i Z] - p_i \mu_i E[Z]\right) \\
+&= \sum_{i=1}^k \left(E[S_i]E[X_i Z] - p_i \mu_i E[Z]\right) 
+& \text{due to independence}\\
+&= \sum_{i=1}^k \left(p_i (Cov(X_i, Z) + E[X_i]E[Z]) - p_i \mu_i E[Z]\right) \\
+&= \sum_{i=1}^k p_i Cov(X_i, Z) \\
+&= \boldsymbol{p}^\top Cov(\boldsymbol{X}, Z)
+\end{align*}
+$$
 
 ### ...with another mixture of the same variables $$X_i$$
 
