@@ -127,14 +127,14 @@ $$\boldsymbol{S}_1 = \boldsymbol{S}_2$$ both will select the same $$X_i$$.
 $$
 \begin{align*}
 Cov(Y_1,Y_2) &= Cov\left(\sum_{i=1}^k S_{1i}X_i, \sum_{j=1}^k S_{2j}X_j\right)\\
-&= \sum_{i=1}^k \sum{j=1}^k Cov(S_{1i}X_i, S_{2j}X_j) \\
-&= \sum_{i=1}^k \sum{j=1}^k \left(E[S_{1i}X_i S_{2j}X_j] 
+&= \sum_{i=1}^k \sum_{j=1}^k Cov(S_{1i}X_i, S_{2j}X_j) \\
+&= \sum_{i=1}^k \sum_{j=1}^k \left(E[S_{1i}X_i S_{2j}X_j] 
                                   - E[S_{1i}X_i]E[S_{2j}X_j]\right) \\
-&= \sum_{i=1}^k \sum{j=1}^k \left(p_i p_j E[X_i X_j] - p_i p_j\mu_i\mu_j\right)
+&= \sum_{i=1}^k \sum_{j=1}^k \left(p_i p_j E[X_i X_j] - p_i p_j\mu_i\mu_j\right)
 & \text{due to independence} \\
-&= \sum_{i=1}^k \sum{j=1}^k \left(p_i p_j(Cov(X_i,X_j) + E[X_i]E[X_j]) 
+&= \sum_{i=1}^k \sum_{j=1}^k \left(p_i p_j(Cov(X_i,X_j) + E[X_i]E[X_j]) 
                                   - p_i p_j\mu_i\mu_j\right) \\
-&= \sum_{i=1}^k \sum{j=1}^k p_i p_j\sigma_{ij} \\
+&= \sum_{i=1}^k \sum_{j=1}^k p_i p_j\sigma_{ij} \\
 &= \boldsymbol{p}^\top \Sigma \boldsymbol{p}
 \end{align*}
 $$
