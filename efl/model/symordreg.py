@@ -14,21 +14,17 @@ import numpy
 class EFLSymOrdReg(base.EFL_ResultModel):
     """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
     
-    def __init__(self, eflgames, **kwargs):
+    def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
+            prior - an EFLSymOrdReg_Prior instance, or None for diffuse priors
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """
+        team_names = [t.shortname for t in eflgames.teams]
         # Create priors
-        priors = {}
-        priors['home_prior_mean']   = 0
-        priors['home_prior_sd']     = 1.8138
-        priors['theta_prior_loc']   = 0
-        priors['theta_prior_scale'] = 1
-        P = len(eflgames.teams)
-        priors['teams_prior_mean']  = numpy.zeros(P)
-        priors['teams_prior_var']   = numpy.identity(P) * ((P/2)**2)
+        if prior is None:
+            prior = EFLSymOrdReg_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'DrawBoundary':'theta', 'HomeField':'home'}
         for i,t in enumerate(eflgames.teams):
@@ -37,7 +33,7 @@ class EFLSymOrdReg(base.EFL_ResultModel):
         super().__init__(
                 modelfile      = 'symordreg_v2',
                 eflgames       = eflgames,
-                extramodeldata = priors,
+                extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
                 **kwargs)
     
@@ -149,12 +145,67 @@ class EFLSymOrdReg_Prior(object):
         # Determine draw boundary priors
         theta_prior_loc = df['DrawBoundary'].mean()
         theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread_factor)
-        # TODO: teams priors
-        # Remove ^ those params and 'chain', 'draw', 'warmup'
-        raise NotImplementedError('from_fit not implemented')
-        return cls(teams_prior_mean = None,
-                   teams_prior_var = None,
-                   team_names = None,
+        # Teams priors - base
+        team_names_base = list(
+                set(df.columns) 
+                - set(['DrawBoundary','HomeField','chain','draw','warmup'])
+                )
+        teams_mean_base = numpy.array(df[team_names_base].mean())
+        teams_var_base = numpy.cov(df[team_names_base].T)
+        # Do promotion and relegation
+        promoted_idx = [team_names_base.index(t) for t in promoted_out]
+        relegated_idx = [team_names_base.index(t) for t in relegated_out]
+        # Names
+        team_names = team_names_base.copy()
+        for i in range(len(relegated_in)):
+            team_names[promoted_idx[i]] = relegated_in[i]
+        for i in range(len(promoted_in)):
+            team_names[relegated_idx[i]] = promoted_in[i]
+        # Means
+        teams_prior_mean = teams_mean_base.copy()
+        if len(promoted_idx) > 0:
+            teams_prior_mean[promoted_idx] = teams_prior_mean[promoted_idx].mean()
+        if len(relegated_idx) > 0:
+            teams_prior_mean[relegated_idx] = teams_prior_mean[relegated_idx].mean()
+        # Variance: see mixture distrubiton documentation
+        teams_prior_var = teams_var_base.copy()
+        # Covariance between promoted/relegated teams and all other teams
+        for i in promoted_idx:
+            teams_prior_var[:,i] = teams_var_base[:,promoted_idx].mean(axis=1)
+            teams_prior_var[i,:] = teams_var_base[promoted_idx,:].mean(axis=0)
+        for i in relegated_idx:
+            teams_prior_var[:,i] = teams_var_base[:,relegated_idx].mean(axis=1)
+            teams_prior_var[i,:] = teams_var_base[relegated_idx,:].mean(axis=0)
+        # Covariance within promoted/relegated teams
+        if len(promoted_idx) > 0:
+            promoted_avg = teams_var_base[:,promoted_idx][promoted_idx,:].mean()
+        for i in promoted_idx:
+            for j in promoted_idx:
+                teams_prior_var[i,j] = promoted_avg
+        if len(relegated_idx) > 0:
+            relegated_avg = teams_var_base[:,relegated_idx][relegated_idx,:].mean()
+        for i in relegated_idx:
+            for j in relegated_idx:
+                teams_prior_var[i,j] = relegated_avg
+        # Variance of promoted/relegated teams themselves
+        if len(promoted_idx) > 0:
+            teams_prior_var[promoted_idx, promoted_idx] = (
+                    (teams_prior_var[promoted_idx, promoted_idx]
+                    + teams_mean_base[promoted_idx]**2).mean()
+                    - teams_mean_base[promoted_idx].mean()**2)
+        if len(relegated_idx) > 0:
+            teams_prior_var[relegated_idx, relegated_idx] = (
+                    (teams_prior_var[relegated_idx, relegated_idx]
+                    + teams_mean_base[relegated_idx]**2).mean()
+                    - teams_mean_base[relegated_idx].mean()**2)
+        # Scale the variance by the spread factor, add small identity for 
+        # non-singularity
+        teams_prior_var *= spread_factor
+        numpy.fill_diagonal(teams_prior_var, teams_prior_var.diagonal() * 1.01)
+        # Assemble and return
+        return cls(teams_prior_mean = teams_prior_mean,
+                   teams_prior_var = teams_prior_var,
+                   team_names = team_names,
                    home_prior_mean = home_prior_mean,
                    home_prior_sd = home_prior_sd,
                    theta_prior_loc = theta_prior_loc,
