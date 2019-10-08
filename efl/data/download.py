@@ -22,6 +22,21 @@ def _prompt_missing_team(session, name):
     stn.team = team
     return stn
 
+def _prompt_missing_league(session, name):
+    print("No league entries for '{}'".format(name))
+    league = None
+    while league is None:
+        choice = input("Enter a leagueid or 'c' to create new: ")
+        if choice == "c":
+            shortname = input("Enter new league short name: ")
+            longname = input("Enter new league long name: ")
+            league = orm.League(shortname=shortname, longname=longname)
+        else:
+            league = session.query(orm.League).filter(orm.League.id == choice).one_or_none()
+    sln = orm.SourceLeagueName(datasource='footballdata', name=name)
+    sln.league = league
+    return sln
+    
 
 def fetch_and_save(league, year):
     """Download and games for a given league and year, and save them to the
@@ -75,7 +90,9 @@ def fetch_and_save(league, year):
                         orm.SourceLeagueName.datasource == 'footballdata')
                 ).one_or_none()
         if sln is None:
-            raise Exception("Need to create league '{}'".format(l))
+            sln = _prompt_missing_league(session, l)
+            session.add(sln)
+            session.commit()
         leagues[l] = sln.league
     
     # TEAM-LEAGUE ##################################################
