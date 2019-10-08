@@ -119,15 +119,16 @@ class EFLSymOrdReg_Prior(object):
                    theta_prior_loc = 0, theta_prior_scale = 1)
     
     @classmethod
-    def from_fit(cls, fit, spread_factor=1, 
+    def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
         """Create a prior from the posterior of a previous EFLSymOrdReg fit.
         Parameters:
             fit - the previous instance of EFLSymOrdReg
-            spread_factor - factor by which to inflate variances of all 
-                parameters from the posterior of 'fit'. Think of this as
-                season-to-season uncertainty.
+            spread - factor by which to inflate variances of all parameters
+                from the posterior of 'fit'. Think of this as season-to-season
+                uncertainty.
+            regression - is multiplied by team means
             relegated_in - list of team names who were relegated into this
                 league from a higher league between the season of 'fit' and now
             promoted_out - list of team names who were promoted out of this
@@ -137,71 +138,43 @@ class EFLSymOrdReg_Prior(object):
             relegated_out - list of team names who were relegated out of this
                 league into a lower league between the season of 'fit' and now
         """
+        # Input checks
+        if len(relegated_out) != len(promoted_in):
+            raise Exception('len(relegated_out) must equal len(promoted_in)')
+        if len(promoted_out) != len(relegated_in):
+            raise Exception('len(promoted_out) must equal len(relegated_in)')
+        if len(set(relegated_out) & set(promoted_out)) > 0:
+            raise Exception('promoted_out and relegated_out cannot have common teams')
+        if len(set(relegated_in) & set(promoted_in)) > 0:
+            raise Exception('promoted_in and relegated_in cannot have common teams')
         # Get the posterior samples from the fit
         df = fit.to_dataframe(diagnostics=False)
         # Determine homefield advantage priors
         home_prior_mean = df['HomeField'].mean()
-        home_prior_sd = df['HomeField'].std() * numpy.sqrt(spread_factor)
+        home_prior_sd = df['HomeField'].std() * numpy.sqrt(spread)
         # Determine draw boundary priors
         theta_prior_loc = df['DrawBoundary'].mean()
-        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread_factor)
-        # Teams priors - base
-        team_names_base = list(
-                set(df.columns) 
+        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
+        # Shuffle and rename the promoted/relegated teams
+        for i in df.index:
+            df.loc[i,relegated_out] = numpy.random.permutation(df.loc[i,relegated_out])
+            df.loc[i,promoted_out] = numpy.random.permutation(df.loc[i,promoted_out])
+        colmap = {o:i for o,i in zip(relegated_out, promoted_in)}
+        colmap.update({o:i for o,i in zip(promoted_out, relegated_in)})
+        df = df.rename(columns=colmap)
+        # Teams priors
+        team_names = list(
+                set(df.columns)
                 - set(['DrawBoundary','HomeField','chain','draw','warmup'])
                 )
-        teams_mean_base = numpy.array(df[team_names_base].mean())
-        teams_var_base = numpy.cov(df[team_names_base].T)
-        # Do promotion and relegation
-        promoted_idx = [team_names_base.index(t) for t in promoted_out]
-        relegated_idx = [team_names_base.index(t) for t in relegated_out]
-        # Names
-        team_names = team_names_base.copy()
-        for i in range(len(relegated_in)):
-            team_names[promoted_idx[i]] = relegated_in[i]
-        for i in range(len(promoted_in)):
-            team_names[relegated_idx[i]] = promoted_in[i]
-        # Means
-        teams_prior_mean = teams_mean_base.copy()
-        if len(promoted_idx) > 0:
-            teams_prior_mean[promoted_idx] = teams_prior_mean[promoted_idx].mean()
-        if len(relegated_idx) > 0:
-            teams_prior_mean[relegated_idx] = teams_prior_mean[relegated_idx].mean()
-        # Variance: see mixture distrubiton documentation
-        teams_prior_var = teams_var_base.copy()
-        # Covariance between promoted/relegated teams and all other teams
-        for i in promoted_idx:
-            teams_prior_var[:,i] = teams_var_base[:,promoted_idx].mean(axis=1)
-            teams_prior_var[i,:] = teams_var_base[promoted_idx,:].mean(axis=0)
-        for i in relegated_idx:
-            teams_prior_var[:,i] = teams_var_base[:,relegated_idx].mean(axis=1)
-            teams_prior_var[i,:] = teams_var_base[relegated_idx,:].mean(axis=0)
-        # Covariance within promoted/relegated teams
-        if len(promoted_idx) > 0:
-            promoted_avg = teams_var_base[:,promoted_idx][promoted_idx,:].mean()
-        for i in promoted_idx:
-            for j in promoted_idx:
-                teams_prior_var[i,j] = promoted_avg
-        if len(relegated_idx) > 0:
-            relegated_avg = teams_var_base[:,relegated_idx][relegated_idx,:].mean()
-        for i in relegated_idx:
-            for j in relegated_idx:
-                teams_prior_var[i,j] = relegated_avg
-        # Variance of promoted/relegated teams themselves
-        if len(promoted_idx) > 0:
-            teams_prior_var[promoted_idx, promoted_idx] = (
-                    (teams_prior_var[promoted_idx, promoted_idx]
-                    + teams_mean_base[promoted_idx]**2).mean()
-                    - teams_mean_base[promoted_idx].mean()**2)
-        if len(relegated_idx) > 0:
-            teams_prior_var[relegated_idx, relegated_idx] = (
-                    (teams_prior_var[relegated_idx, relegated_idx]
-                    + teams_mean_base[relegated_idx]**2).mean()
-                    - teams_mean_base[relegated_idx].mean()**2)
+        teams_prior_mean = numpy.array(df[team_names].mean())
+        teams_prior_var = numpy.cov(df[team_names].T)
         # Scale the variance by the spread factor, add small identity for 
         # non-singularity
-        teams_prior_var *= spread_factor
-        numpy.fill_diagonal(teams_prior_var, teams_prior_var.diagonal() * 1.01)
+        num_teams = len(team_names)
+        minvar = min(teams_prior_var.diagonal())
+        teams_prior_var = (teams_prior_var * spread + 
+                           numpy.identity(num_teams) * minvar * 0.01)
         # Assemble and return
         return cls(teams_prior_mean = teams_prior_mean,
                    teams_prior_var = teams_prior_var,
