@@ -48,7 +48,7 @@ class EFLModel(object):
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
                  efl2stan,
-                 chains=4, iter=10000, warmup=None, thin=1, n_jobs=1,
+                 chains=4, iter=12000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
         Parameters:
@@ -111,7 +111,7 @@ class EFLModel(object):
     def parameters(self):
         return list(self._efl2stan.keys())
     
-    def summary(self, pars=None, **kwargs):
+    def stansummary(self, pars=None, **kwargs):
         """A wrapper around the stansummary method on the included stanfit
         object. It will convert parameter names as defined in _stan2efl, and
         by default will only include those parameters which are keys in 

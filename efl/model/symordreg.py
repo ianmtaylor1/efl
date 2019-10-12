@@ -113,7 +113,7 @@ class EFLSymOrdReg_Prior(object):
         """Instantiates a wide, default prior for this model."""
         P = len(team_names)
         return cls(teams_prior_mean = numpy.zeros(P),
-                   teams_prior_var = numpy.identity(P) * ((P/2)**2),
+                   teams_prior_var = numpy.identity(P) * ((P/4)**2),
                    team_names = team_names,
                    home_prior_mean = 0, home_prior_sd = 1.8138, 
                    theta_prior_loc = 0, theta_prior_scale = 1)
