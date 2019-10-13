@@ -141,6 +141,37 @@ class EFLModel(object):
             sts = sts.replace("{} mean ".format(" "*abs(addlength)), " mean ")
         return sts
     
+    def summary(self, pars=None, by_chain=False):
+        """Returns a summary of the posterior distribution as a pandas
+        DataFrame with rows for parameters and columns for statistics."""
+        # Fill default pars and map to stan names
+        if pars is None:
+            pars = self._efl2stan.keys()
+        stspars = [self._efl2stan[p] for p in pars]
+        # Run stanfit's summary method for the underlying fit
+        sts = self.stanfit.summary(pars=stspars)
+        # Transform into form we want
+        summ = None
+        if by_chain:
+            nchains = sts['c_summary'].shape[2]
+            summlist = [None] * nchains
+            # Create a dataframe for each chain
+            for c in range(nchains):
+                summlist[c] = pandas.DataFrame(
+                        sts['c_summary'][:,:,c],
+                        columns = sts['c_summary_colnames'])
+                summlist[c]['chain'] = c
+                summlist[c]['parameter'] = [self._stan2efl[p] for p in sts['c_summary_rownames']]
+            # Combine them and set parameter,chain as index
+            summ = pandas.concat(summlist).set_index(['parameter','chain'])
+        else:
+            summ = pandas.DataFrame(
+                    sts['summary'],
+                    columns = sts['summary_colnames'],
+                    index = [self._stan2efl[p] for p in sts['summary_rownames']]
+                    )
+        return summ
+    
     def to_dataframe(self, pars=None, **kwargs):
         """A wrapper around the to_dataframe method on the included stanfit
         object. It will convert column par names as defined in _stan2efl, and
