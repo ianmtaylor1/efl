@@ -254,8 +254,6 @@ class EFLModel(object):
             combine_chains - True: combine chains and plot one series per
                 graph. False: plot each chain as individual series on each
                 graph.
-            combine_plots - False: each parameter gets its own plot. True: all
-                parameters are plotted as series on the same plot.
             page - tuple describing how many plots to put in one figure, 
                 arranged in (rows, columns)
         Returns: a list of matplotlib.pyplot figures, one for each page.
@@ -279,8 +277,30 @@ class EFLModel(object):
         # Return the list of figures
         return figs
     
-    def boxplot(self, pars=None):
-        pass
+    def boxplot(self, pars=None, vert=True):
+        """Create side-by-side boxplots of the samples from this model.
+        Parameters:
+            pars - list of parameters to make plots for. Default all.
+            kwargs - extra arguments passed to matplotlib.pyplot.boxplot
+        Returns: a matplotlib.pyplot figure
+        """
+        # Fill default pars and map to stan names
+        if pars is None:
+            pars = self._efl2stan.keys()
+        # Get the data for plotting
+        samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        # Create the figures and axes for plotting
+        figs, axes = _make_axes(1, (1,1), None)
+        # Draw the boxplots on these axes
+        axes[0].set_title("Parameter Boxplots")
+        axes[0].boxplot(samples[pars].T, labels=pars, 
+                        showmeans=True, showcaps=False, showfliers=False,
+                        vert=vert)
+        if vert:
+            for tick in axes[0].get_xticklabels():
+                tick.set_rotation(45)
+        # Return the figure (no list, since boxplot always is on one figure)
+        return figs[0]
     
     def acfplot(self, pars=None, maxlag=50, page=(2,2)):
         pass
@@ -486,7 +506,7 @@ def _make_axes(num_plots, page, main_title):
         one figure per actual figure created. len(axes) is always num_plots,
         and the list axes contains all the axes to be plotted on.
     """
-    numfigs = (num_plots // (page[0]*page[1])) + 1
+    numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
     subplots = [plt.subplots(nrows=page[0], ncols=page[1]) for i in range(numfigs)]
     figs = [x[0] for x in subplots]
     if (page[0]*page[1] == 1):
