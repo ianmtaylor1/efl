@@ -267,7 +267,16 @@ class EFLModel(object):
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         # Create the figures and axes for plotting
         figs, axes = _make_axes(len(pars), page, "Density Plot")
-        
+        # Draw density estimates on all of the axes
+        for ax,p in zip(axes,pars):
+            ax.set_title(p)
+            if combine_chains:
+                _draw_densplot(ax, samples[p])
+            else:
+                for c in samples['chain'].unique():
+                    chain = samples[samples['chain'] == c]
+                    _draw_densplot(ax, chain[p])
+        # Return the list of figures
         return figs
     
     def boxplot(self, pars=None):
@@ -492,4 +501,16 @@ def _make_axes(num_plots, page, main_title):
             f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
             f.subplots_adjust(hspace=0.5, wspace=0.25)
     return figs, axes
-    
+
+def _draw_densplot(ax, data, nout=220):
+    """Draw a density plot on the axes provided.
+    Parameters:
+        ax - the axes to draw on
+        data - the data to estimate the density with
+    """
+    density = kde.gaussian_kde(data)
+    xlow = min(data) - 0.05*(max(data) - min(data))
+    xhigh = max(data) + 0.05*(max(data) - min(data))
+    x = numpy.arange(xlow, xhigh, (xhigh-xlow)/nout)
+    y = density(x)
+    ax.plot(x,y)
