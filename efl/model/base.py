@@ -13,6 +13,8 @@ import numpy
 import pandas
 import itertools
 import re
+import matplotlib.pyplot as plt
+from scipy.stats import kde
 
 ###############################################################################
 ## BASE MODEL #################################################################
@@ -213,6 +215,71 @@ class EFLModel(object):
         return pandas.concat(
             (self._predict(g, **kwargs).assign(gameid=g) for g in gameids),
             ignore_index=True)
+    
+    def traceplot(self, pars=None, combine_chains=False, combine_plots=False,
+                  page=(2,2)):
+        """Create a traceplot of the samples from this model.
+        Parameters:
+            pars - list of parameters to make plots for. Default all.
+            combine_chains - True: combine chains and plot one series per
+                graph. False: plot each chain as individual series on each
+                graph.
+            combine_plots - False: each parameter gets its own plot. True: all
+                parameters are plotted as series on the same plot.
+            page - tuple describing how many plots to put in one figure, 
+                arranged in (rows, columns)
+        Returns: a list of matplotlib.pyplot figures, one for each page.        
+        """
+        # Fill default pars and map to stan names
+        if pars is None:
+            pars = self._efl2stan.keys()
+        # Get the data for plotting
+        samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        # Create the figures and axes for plotting
+        numfigs = (len(pars) // (page[0]*page[1])) + 1
+        subplots = [plt.subplots(nrows=page[0], ncols=page[1]) for i in range(numfigs)]
+        figs = [x[0] for x in subplots]
+        axes = list(itertools.chain.from_iterable(x[1].flatten() for x in subplots))
+        for ax in axes[len(pars):]:
+            ax.axis('off')
+        # Write big titles on figures
+        for i,f in enumerate(figs):
+            f.suptitle("Traceplot {}/{}".format(i+1, numfigs))
+            f.subplots_adjust(hspace=0.5, wspace=0.5)
+        # Draw on all the necessary axes objects
+        for i,p in enumerate(pars):
+            axes[i].set_title(p)
+            if combine_chains:
+                perchain = samples['draw'].max() + 1
+                axes[i].plot(perchain*samples['chain']+samples['draw'], samples[p],
+                             linewidth=1)
+            else:
+                nchains = samples['chain'].max() + 1
+                for c in samples['chain'].unique():
+                    chain = samples[samples['chain']==c]
+                    axes[i].plot(chain['draw'], chain[p], label="Chain {}".format(c),
+                                 linewidth=1/nchains)
+        # Return the list of figures
+        return figs
+    
+    def densplot(self, pars=None, combine_chains=False, combine_plots=False,
+                 page=(2,2)):
+        """Create a density plot of the samples from this model.
+        Parameters:
+            pars - list of parameters to make plots for. Default all.
+            combine_chains - True: combine chains and plot one series per
+                graph. False: plot each chain as individual series on each
+                graph.
+            combine_plots - False: each parameter gets its own plot. True: all
+                parameters are plotted as series on the same plot.
+            page - tuple describing how many plots to put in one figure, 
+                arranged in (rows, columns)
+        Returns: a list of matplotlib.pyplot figures, one for each page.
+        """
+        pass
+    
+    def acfplot():
+        pass
 
 
 ###############################################################################
@@ -394,3 +461,53 @@ class EFL_ResultModel(EFLModel):
         # Drop quantity and return
         return samples.drop(qtyname, axis=1)
 
+
+###############################################################################
+## UTILITY FUNCTIONS ##########################################################
+###############################################################################
+        
+
+def _make_axes(num_plots, combine_plots, page, main_title):
+    """Create figures and plots to be used by the plotting functions of
+    EFLModel.
+    Parameters:
+        num_plots - number of plots that will be plotted
+        combine_plots - True: all plots will be on the same axes. False: each
+            plot will be on its own axes
+        page - a 2-tuple for the number of (rows, columns) that the axes will
+            be arranged in per page. If combine_plots==True, this parameter
+            is ignored and a single set of axes on a single plot will be
+            created.
+        main_title - the title of each figure created. If None, no title will
+            be added to the plot. Else, a title in the format
+            'main_title #/#' will be added indicating the number of the plot
+            in the sequence
+    Returns: (figs, axes), a list of figures and a list of axes. figs contains
+        one figure per actual figure created. len(axes) is always num_plots,
+        and the list axes contains all the axes to be plotted on. If
+        combine_plots == True, all elements of that list will reference the
+        same axes object. The idea is the calling function can go through the
+        list axes in the same way, regardless of whether combine_plots==True,
+        and get the desired result.
+    """
+    if combine_plots:
+        subplots = plt.subplots(nrow=1, ncol=1)
+        figs = [subplots[0]]
+        axes = [subplots[1]] * num_plots
+        if main_title is not None:
+            figs[0].suptitle(main_title)
+    else:
+        numfigs = (num_plots // (page[0]*page[1])) + 1
+        subplots = [plt.subplots(nrows=page[0], ncols=page[1]) for i in range(numfigs)]
+        figs = [x[0] for x in subplots]
+        if (page[0]*page[1] == 1):
+            axes = [x[1] for x in subplots]
+        else:
+            axes = list(itertools.chain.from_iterable(x[1].flatten() for x in subplots))
+        for ax in axes[num_plots:]:
+            ax.axis('off')
+        axes = axes[:num_plots]
+        if main_title is not None:
+            for i,f in enumerate(figs):
+                f.suptitle("{} {}/{}".format(main_title, i, numfigs))
+    return figs, axes
