@@ -507,6 +507,7 @@ def _draw_densplot(ax, data, nout=220):
     Parameters:
         ax - the axes to draw on
         data - the data to estimate the density with
+        nout - number of points to use when drawing the density
     """
     density = kde.gaussian_kde(data)
     xlow = min(data) - 0.05*(max(data) - min(data))
