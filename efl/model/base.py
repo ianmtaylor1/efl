@@ -41,6 +41,7 @@ class EFLModel(object):
                 model (respectively).
         8. A readable attribute parameters, which is a list of all efl (human-
                 readable) parameters available in the model.
+        9. Plotting methods: traceplot, densplot, boxplot, acfplot
     
     Subclasses of EFLModel should:
         1. Implement _stan_inits() method for generating initial values 

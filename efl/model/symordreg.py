@@ -31,7 +31,7 @@ class EFLSymOrdReg(base.EFL_ResultModel):
             efl2stan[t.shortname] = 'teams[{}]'.format(i+1)
         # Call super init
         super().__init__(
-                modelfile      = 'symordreg_v2',
+                modelfile      = 'symordreg',
                 eflgames       = eflgames,
                 extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
