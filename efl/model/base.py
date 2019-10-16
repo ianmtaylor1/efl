@@ -216,6 +216,29 @@ class EFLModel(object):
             (self._predict(g, **kwargs).assign(gameid=g) for g in gameids),
             ignore_index=True)
     
+    def autocorr(self, pars=None, lags=[1,5,10,20]):
+        """Computes autocorrelations of posterior samples from this model.
+        Used for assessing MCMC samples.
+        Parameters:
+            pars - parameters for which to compute autocorrelation
+            lags - iterable of lags to use
+        Returns:
+            A pandas.DataFrame with one column per parameter containing
+            computed autocorrelations. The index is the supplied lags
+        """
+        # Fill default pars and map to stan names
+        if pars is None:
+            pars = self._efl2stan.keys()
+        # Get the data for autocorr
+        samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        # Create blank df and compute autocorr
+        ac = pandas.DataFrame(numpy.NaN, columns=pars, index=lags)
+        for p in pars:
+            # Can this be done faster with numpy.correlate?
+            for n in lags:
+                ac.loc[n,p] = samples[p].autocorr(n)
+        return ac
+    
     def traceplot(self, pars=None, combine_chains=False, page=(2,2)):
         """Create a traceplot of the samples from this model.
         Parameters:
@@ -281,7 +304,7 @@ class EFLModel(object):
         """Create side-by-side boxplots of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
-            kwargs - extra arguments passed to matplotlib.pyplot.boxplot
+            vert - should the boxplots be vertical?
         Returns: a matplotlib.pyplot figure
         """
         # Fill default pars and map to stan names
@@ -302,8 +325,26 @@ class EFLModel(object):
         # Return the figure (no list, since boxplot always is on one figure)
         return figs[0]
     
-    def acfplot(self, pars=None, maxlag=50, page=(2,2)):
-        pass
+    def acfplot(self, pars=None, maxlag=20, page=(2,2)):
+        """Create an acf plot for the posterior samples of this model.
+        Parameters:
+            pars - the parameters to plot autocorrelation for. Default all.
+            maxlag - the maximum lag to compute and plot autocorelation for.
+            page - tuple describing how many plots to put in one figure, 
+                arranged in (rows, columns)
+        """
+        # Find autocorrelations. Let autocorr do parameter parsing, and just
+        # look at what columns it returns
+        ac = self.autocorr(pars, range(maxlag+1))
+        pars = list(ac.columns)
+        # Create the figures and axes for plotting
+        figs, axes = _make_axes(len(pars), page, None)
+        # Draw the autocorrelation plots
+        for ax,p in zip(axes, pars):
+            ax.set_title(p)
+            ax.bar(ac.index, ac[p])
+        return figs
+        
 
 
 ###############################################################################
