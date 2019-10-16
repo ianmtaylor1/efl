@@ -322,7 +322,10 @@ class EFLModel(object):
                         vert=vert)
         if vert:
             for tick in axes[0].get_xticklabels():
-                tick.set_rotation(45)
+                tick.set_rotation(90)
+            figs[0].subplots_adjust(bottom=0.25)
+        else:
+            figs[0].subplots_adjust(left=0.2)
         # Return the figure (no list, since boxplot always is on one figure)
         return figs[0]
     
