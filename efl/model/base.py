@@ -558,10 +558,10 @@ def _make_axes(num_plots, page, main_title):
     for ax in axes[num_plots:]:
         ax.axis('off')
     axes = axes[:num_plots]
-    if main_title is not None:
-        for i,f in enumerate(figs):
+    for i,f in enumerate(figs):
+        if main_title is not None:
             f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
-            f.subplots_adjust(hspace=0.5, wspace=0.25)
+        f.subplots_adjust(hspace=0.5, wspace=0.25)
     return figs, axes
 
 def _draw_densplot(ax, data, nout=220):
