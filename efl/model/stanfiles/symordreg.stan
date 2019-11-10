@@ -40,7 +40,7 @@ transformed parameters {
 }
 model {
     // Priors
-    theta ~ logistic(theta_prior_loc, theta_prior_scale);
+    theta ~ logistic(theta_prior_loc, theta_prior_scale) T[0,];
     home ~ normal(home_prior_mean, home_prior_sd);
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
     // Model
