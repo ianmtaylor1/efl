@@ -50,7 +50,7 @@ class EFLModel(object):
     """
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
-                 efl2stan,
+                 efl2stan, pargroups={},
                  chains=4, iter=12000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
@@ -65,6 +65,10 @@ class EFLModel(object):
                 parameters, and values that are the corresponding Stan
                 parameters. Should contain every parameter available to be
                 returned by "summary" or "to_dataframe".
+            pargroups - a dict with keys that are parameter group names, and
+                values that are lists of the human-readable parameter names in
+                that group. (i.e. values are lists containing some of the keys
+                of efl2stan.)
             chains, iter, warmup, thin, n_jobs - same as pystan options.
                 Passed to sampling()
             **kwargs - any additional keyword arguments to pass to sampling()
@@ -79,6 +83,7 @@ class EFLModel(object):
         # Create parameter mappings
         self._efl2stan = efl2stan
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
+        self._pargroups = pargroups
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
@@ -110,9 +115,45 @@ class EFLModel(object):
     
     # Methods and properties provided by this base class
     
+    def _translate_pars(self, pars=None):
+        """Method to translate human-readable parameters or parameter groups
+        into a list of stan parameters to pass to the methods of the stan
+        fit.
+        Parameters:
+            pars - string or list of strings. If string, can be the name of
+            a parameter, parameter group, or the word 'all'. If a list, must
+            be a list of parameter names.
+        Returns:
+            list of parameter names corresponding to 'pars'.
+        """
+        # If pars is none, replace it with the word "all"
+        if pars is None:
+            pars = 'all'
+        # Standardize the input into a list of human-readable parameter names
+        if type(pars) == str:
+            if pars in self.pargroups:
+                # This is a parameter group
+                eflparlist = self._pargroups[pars]
+            elif pars == 'all':
+                # This is the keyword "all". This check is second to allow
+                # models to override the 'all' keyword in _pargroups
+                eflparlist = self.parameters
+            else:
+                # This is a parameter by itself
+                eflparlist = [pars]
+        else:
+            # Assume this is a list or iterable
+            eflparlist = pars
+        # Now reference the mapping dictionary to get stanfit parameters
+        return [self._efl2stan[p] for p in eflparlist]         
+    
     @property
     def parameters(self):
         return list(self._efl2stan.keys())
+    
+    @property
+    def pargroups(self):
+        return list(self._pargroups.keys())
     
     def stansummary(self, pars=None, **kwargs):
         """A wrapper around the stansummary method on the included stanfit
@@ -120,9 +161,7 @@ class EFLModel(object):
         by default will only include those parameters which are keys in 
         that dict."""
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
-        stspars = [self._efl2stan[p] for p in pars]
+        stspars = self._translate_pars(pars)
         # Run stansummary for the underlying fit
         sts = self.stanfit.stansummary(pars=stspars, **kwargs)
         # Translate summary to useful parameter names
@@ -148,9 +187,7 @@ class EFLModel(object):
         """Returns a summary of the posterior distribution as a pandas
         DataFrame with rows for parameters and columns for statistics."""
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
-        stspars = [self._efl2stan[p] for p in pars]
+        stspars = self._translate_pars(pars)
         # Run stanfit's summary method for the underlying fit
         sts = self.stanfit.summary(pars=stspars)
         # Transform into form we want
@@ -181,9 +218,7 @@ class EFLModel(object):
         by default will only include those parameters which are keys in 
         that dict."""
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
-        stspars = [self._efl2stan[p] for p in pars]
+        stspars = self._translate_pars(pars)
         # Run to_dataframe for the underlying fit
         df = self.stanfit.to_dataframe(pars=stspars, **kwargs)
         # Translate the column names to useful parameter names
@@ -228,8 +263,7 @@ class EFLModel(object):
             computed autocorrelations. The index is the supplied lags
         """
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
+        pars = self._translate_pars(pars)
         # Get the data for autocorr
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         # Create blank df and compute autocorr
@@ -252,8 +286,7 @@ class EFLModel(object):
         Returns: a list of matplotlib.pyplot figures, one for each page.        
         """
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
+        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         # Create the figures and axes for plotting
@@ -283,8 +316,7 @@ class EFLModel(object):
         Returns: a list of matplotlib.pyplot figures, one for each page.
         """
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
+        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         # Create the figures and axes for plotting
@@ -309,8 +341,7 @@ class EFLModel(object):
         Returns: a matplotlib.pyplot figure
         """
         # Fill default pars and map to stan names
-        if pars is None:
-            pars = self._efl2stan.keys()
+        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         # Create the figures and axes for plotting
