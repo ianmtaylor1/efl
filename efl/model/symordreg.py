@@ -27,14 +27,16 @@ class EFLSymOrdReg(base.EFL_ResultModel):
             prior = EFLSymOrdReg_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'DrawBoundary':'theta', 'HomeField':'home'}
-        for i,t in enumerate(eflgames.teams):
-            efl2stan[t.shortname] = 'teams[{}]'.format(i+1)
+        for i,t in enumerate(team_names):
+            efl2stan[t] = 'teams[{}]'.format(i+1)
+        pargroups = {'teams':team_names}
         # Call super init
         super().__init__(
                 modelfile      = 'symordreg',
                 eflgames       = eflgames,
                 extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
+                pargroups      = pargroups,
                 **kwargs)
     
     def _stan_inits(self, chain_id=None):

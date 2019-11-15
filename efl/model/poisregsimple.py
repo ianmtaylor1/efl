@@ -39,12 +39,18 @@ class EFLPoisRegSimple(base.EFL_GoalModel):
         for i,t in enumerate(eflgames.teams):
             efl2stan[t.shortname+' Off'] = 'offense[{}]'.format(i+1)
             efl2stan[t.shortname+' Def'] = 'defense[{}]'.format(i+1)
+        pargroups = {'goals':['HomeGoals','AwayGoals'],
+                     'offense':[t.shortname+' Off' for t in eflgames.teams],
+                     'defense':[t.shortname+' Def' for t in eflgames.teams]}
+        for t in eflgames.teams:
+            pargroups[t.shortname] = [t.shortname+' Off', t.shortname+' Def']
         # Call super init
         super().__init__(
                 modelfile      = 'poisreg_simple',
                 eflgames       = eflgames,
                 extramodeldata = priors,
                 efl2stan       = efl2stan,
+                pargroups      = pargroups,
                 **kwargs)
     
     def _stan_inits(self, chain_id=None):

@@ -44,12 +44,21 @@ class EFLPoisRegNumberphile(base.EFL_GoalModel):
             efl2stan[t.shortname+' HD'] = 'homedef[{}]'.format(i+1)
             efl2stan[t.shortname+' AO'] = 'awayoff[{}]'.format(i+1)
             efl2stan[t.shortname+' AD'] = 'awaydef[{}]'.format(i+1)
+        pargroups = {'goals':['HomeGoals','AwayGoals'],
+                     'homeoff':[t.shortname+' HO' for t in eflgames.teams],
+                     'homedef':[t.shortname+' HD' for t in eflgames.teams],
+                     'awayoff':[t.shortname+' AO' for t in eflgames.teams],
+                     'awaydef':[t.shortname+' AD' for t in eflgames.teams]}
+        for t in eflgames.teams:
+            pargroups[t.shortname] = [t.shortname+' HO', t.shortname+' HD',
+                                      t.shortname+' AO', t.shortname+' AD']
         # Call super init
         super().__init__(
                 modelfile      = 'poisreg_numberphile',
                 eflgames       = eflgames,
                 extramodeldata = priors,
                 efl2stan       = efl2stan,
+                pargroups      = pargroups,
                 **kwargs)
     
     def _stan_inits(self, chain_id=None):
