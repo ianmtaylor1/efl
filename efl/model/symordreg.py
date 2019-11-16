@@ -169,7 +169,7 @@ class EFLSymOrdReg_Prior(object):
                 set(df.columns)
                 - set(['DrawBoundary','HomeField','chain','draw','warmup'])
                 )
-        teams_prior_mean = numpy.array(df[team_names].mean())
+        teams_prior_mean = numpy.array(df[team_names].mean()) * regression
         teams_prior_var = numpy.cov(df[team_names].T)
         # Scale the variance by the spread factor, add small identity for 
         # non-singularity
