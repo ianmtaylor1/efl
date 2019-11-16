@@ -222,3 +222,4 @@ class EFLPoisRegSimple_Prior(object):
                    log_home_goals_prior_sd = log_home_goals_prior_sd,
                    log_away_goals_prior_mean = log_away_goals_prior_mean,
                    log_away_goals_prior_sd = log_away_goals_prior_sd)
+

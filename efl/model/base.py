@@ -165,8 +165,8 @@ class EFLModel(object):
         # Run stansummary for the underlying fit
         sts = self.stanfit.stansummary(pars=stspars, **kwargs)
         # Translate summary to useful parameter names
-        addlength = max(len(p) for p in self._stan2efl.values()) \
-                    - max(len(p) for p in self._stan2efl.keys()) + 1
+        addlength = max(len(self._stan2efl[p]) for p in stspars) \
+                    - max(len(p) for p in stspars) + 1
         for (stanpar, eflpar) in self._stan2efl.items():
             spaces = addlength - (len(eflpar) - len(stanpar))
             if spaces >= 0: # Need to net insert spaces
@@ -262,13 +262,12 @@ class EFLModel(object):
             A pandas.DataFrame with one column per parameter containing
             computed autocorrelations. The index is the supplied lags
         """
-        # Fill default pars and map to stan names
-        pars = self._translate_pars(pars)
         # Get the data for autocorr
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
         # Create blank df and compute autocorr
-        ac = pandas.DataFrame(numpy.NaN, columns=pars, index=lags)
-        for p in pars:
+        ac = pandas.DataFrame(numpy.NaN, columns=eflpars, index=lags)
+        for p in eflpars:
             # Can this be done faster with numpy.correlate?
             for n in lags:
                 ac.loc[n,p] = samples[p].autocorr(n)
@@ -285,14 +284,13 @@ class EFLModel(object):
                 arranged in (rows, columns)
         Returns: a list of matplotlib.pyplot figures, one for each page.        
         """
-        # Fill default pars and map to stan names
-        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(pars), page, "Traceplot")
+        figs, axes = _make_axes(len(eflpars), page, "Traceplot")
         # Draw traceplots on all the axes objects
-        for ax,p in zip(axes, pars):
+        for ax,p in zip(axes, eflpars):
             ax.set_title(p)
             if combine_chains:
                 ax.plot(range(len(samples[p])), samples[p], linewidth=1)
@@ -315,14 +313,13 @@ class EFLModel(object):
                 arranged in (rows, columns)
         Returns: a list of matplotlib.pyplot figures, one for each page.
         """
-        # Fill default pars and map to stan names
-        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(pars), page, "Density Plot")
+        figs, axes = _make_axes(len(eflpars), page, "Density Plot")
         # Draw density estimates on all of the axes
-        for ax,p in zip(axes,pars):
+        for ax,p in zip(axes,eflpars):
             ax.set_title(p)
             if combine_chains:
                 _draw_densplot(ax, samples[p])
@@ -340,15 +337,14 @@ class EFLModel(object):
             vert - should the boxplots be vertical?
         Returns: a matplotlib.pyplot figure
         """
-        # Fill default pars and map to stan names
-        pars = self._translate_pars(pars)
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
         figs, axes = _make_axes(1, (1,1), None)
         # Draw the boxplots on these axes
         axes[0].set_title("Parameter Boxplots")
-        axes[0].boxplot(samples[pars].T, labels=pars, 
+        axes[0].boxplot(samples[eflpars].T, labels=eflpars, 
                         showmeans=True, showcaps=False, showfliers=False,
                         vert=vert)
         if vert:
@@ -371,11 +367,11 @@ class EFLModel(object):
         # Find autocorrelations. Let autocorr do parameter parsing, and just
         # look at what columns it returns
         ac = self.autocorr(pars, range(maxlag+1))
-        pars = list(ac.columns)
+        eflpars = list(ac.columns)
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(pars), page, None)
+        figs, axes = _make_axes(len(eflpars), page, None)
         # Draw the autocorrelation plots
-        for ax,p in zip(axes, pars):
+        for ax,p in zip(axes, eflpars):
             ax.set_title(p)
             ax.bar(ac.index, ac[p])
         return figs
