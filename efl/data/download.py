@@ -2,47 +2,69 @@
 
 from . import orm
 from . import footballdata
+from . import fixturedownload
 from . import db
 
 import sqlalchemy
 import argparse
-
+import difflib
 
 # Function to prompt for a missing team
-def _prompt_missing_team(session, name):
+def _prompt_missing_team(session, name, sourcename):
     print("No team entries for '{}'".format(name))
     team = None
     while team is None:
-        choice = input("Enter a teamid or 'c' to create new: ")
+        choice = input("Enter a teamid, 'c' to create, 's' to show all, or 'b' to show best: ")
         if choice == "c":
             team = orm.Team(shortname=name)
+        if choice == "s":
+            for tm in session.query(orm.Team).order_by(orm.Team.shortname).all():
+                print("{}: {}".format(tm.id, tm.shortname), end="")
+                if (tm.longname is not None) and (len(tm.longname) > 0):
+                    print(" ({})".format(tm.longname), end="")
+                print()
+        if choice == "b":
+            tms = sorted(session.query(orm.Team).all(),
+                         key=lambda x: difflib.SequenceMatcher(None, name, x.shortname).ratio(),
+                         reverse=True)
+            for tm in tms[:5]:
+                print("{}: {}".format(tm.id, tm.shortname), end="")
+                if (tm.longname is not None) and (len(tm.longname) > 0):
+                    print(" ({})".format(tm.longname), end="")
+                print()
         else:
             team = session.query(orm.Team).filter(orm.Team.id == choice).one_or_none()
-    stn = orm.SourceTeamName(datasource='footballdata', name=name)
+    stn = orm.SourceTeamName(datasource=sourcename, name=name)
     stn.team = team
     return stn
 
-def _prompt_missing_league(session, name):
+def _prompt_missing_league(session, name, sourcename):
     print("No league entries for '{}'".format(name))
     league = None
     while league is None:
-        choice = input("Enter a leagueid or 'c' to create new: ")
+        choice = input("Enter a leagueid, 'c' to create, or 's' to show all: ")
         if choice == "c":
             shortname = input("Enter new league short name: ")
             longname = input("Enter new league long name: ")
             league = orm.League(shortname=shortname, longname=longname)
+        if choice == "s":
+            for lg in session.query(orm.League).order_by(orm.League.id).all():
+                print("{}: {}".format(lg.id, lg.shortname), end="")
+                if (lg.longname is not None) and (len(lg.longname) > 0):
+                    print(" ({})".format(lg.longname), end="")
+                print()
         else:
             league = session.query(orm.League).filter(orm.League.id == choice).one_or_none()
-    sln = orm.SourceLeagueName(datasource='footballdata', name=name)
+    sln = orm.SourceLeagueName(datasource=sourcename, name=name)
     sln.league = league
     return sln
     
 
-def fetch_and_save(league, year):
+def fetch_and_save(league, year, fetcher, sourcename):
     """Download and games for a given league and year, and save them to the
     EFL games database."""
     # Get the list of games from the provider
-    games = footballdata.get_games(league, year)
+    games = fetcher(league, year)
     
     # Create session and tables
     orm.Base.metadata.create_all(db.connect())  # create tables
@@ -69,10 +91,10 @@ def fetch_and_save(league, year):
     for t in teamnames:
         stn = session.query(orm.SourceTeamName).filter(
                 sqlalchemy.and_(orm.SourceTeamName.name == t, 
-                                orm.SourceTeamName.datasource == 'footballdata')
+                                orm.SourceTeamName.datasource == sourcename)
                 ).one_or_none()
         if stn is None:
-            stn = _prompt_missing_team(session,t)
+            stn = _prompt_missing_team(session,t,sourcename)
             session.add(stn)
             session.commit()
         teams[t] = stn.team
@@ -87,10 +109,10 @@ def fetch_and_save(league, year):
     for l in leaguenames:
         sln = session.query(orm.SourceLeagueName).filter(
                 sqlalchemy.and_(orm.SourceLeagueName.name == l,
-                        orm.SourceLeagueName.datasource == 'footballdata')
+                        orm.SourceLeagueName.datasource == sourcename)
                 ).one_or_none()
         if sln is None:
-            sln = _prompt_missing_league(session, l)
+            sln = _prompt_missing_league(session, l, sourcename)
             session.add(sln)
             session.commit()
         leagues[l] = sln.league
@@ -168,6 +190,7 @@ def console_download_games():
         from .. import config
         config.parse(args.config)
     # Run the interactive data getting function
-    fetch_and_save(args.l, args.y)
+    fetch_and_save(league=args.l, year=args.y, 
+                   fetcher=footballdata.get_games, sourcename='footballdata')
 
 
