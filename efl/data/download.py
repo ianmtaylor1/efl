@@ -18,13 +18,13 @@ def _prompt_missing_team(session, name, sourcename):
         choice = input("Enter a teamid, 'c' to create, 's' to show all, or 'b' to show best: ")
         if choice == "c":
             team = orm.Team(shortname=name)
-        if choice == "s":
+        elif choice == "s":
             for tm in session.query(orm.Team).order_by(orm.Team.shortname).all():
                 print("{}: {}".format(tm.id, tm.shortname), end="")
                 if (tm.longname is not None) and (len(tm.longname) > 0):
                     print(" ({})".format(tm.longname), end="")
                 print()
-        if choice == "b":
+        elif choice == "b":
             tms = sorted(session.query(orm.Team).all(),
                          key=lambda x: difflib.SequenceMatcher(None, name, x.shortname).ratio(),
                          reverse=True)
@@ -48,7 +48,7 @@ def _prompt_missing_league(session, name, sourcename):
             shortname = input("Enter new league short name: ")
             longname = input("Enter new league long name: ")
             league = orm.League(shortname=shortname, longname=longname)
-        if choice == "s":
+        elif choice == "s":
             for lg in session.query(orm.League).order_by(orm.League.id).all():
                 print("{}: {}".format(lg.id, lg.shortname), end="")
                 if (lg.longname is not None) and (len(lg.longname) > 0):
