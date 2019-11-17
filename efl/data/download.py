@@ -8,6 +8,7 @@ from . import db
 import sqlalchemy
 import argparse
 import difflib
+import numpy
 
 # Function to prompt for a missing team
 def _prompt_missing_team(session, name, sourcename):
@@ -157,7 +158,9 @@ def fetch_and_save(league, year, fetcher, sourcename):
             game.awayteam = teams[games.loc[i,"AwayTeam"]]
             game.season = season
             session.add(game)
-        if game.result is None:
+        if (game.result is None) \
+                and (not numpy.isnan(games.loc[i,"HomePoints"])) \
+                and (not numpy.isnan(games.loc[i,"AwayPoints"])):
             print("Adding {}-{} result to {} vs {}".format(
                     games.loc[i,"HomePoints"], games.loc[i,"AwayPoints"],
                     game.hometeam.shortname, game.awayteam.shortname))
@@ -172,9 +175,10 @@ def fetch_and_save(league, year, fetcher, sourcename):
     session.commit()
     session.close()
 
-"""Function to be run as a console command entry point, initiates download of 
-games and saves them to a sqlite database"""
+
 def console_download_games():
+    """Function to be run as a console command entry point, initiates download
+    of games and saves them to a sqlite database"""
     # Create argument parser
     parser = argparse.ArgumentParser(description="Download and save EFL games.")
     parser.add_argument("-y", type=int, required=True,
@@ -190,6 +194,11 @@ def console_download_games():
         from .. import config
         config.parse(args.config)
     # Run the interactive data getting function
+    if args.l in [1,2]:
+        print("\nGetting data from fixturedownload.com")
+        fetch_and_save(league=args.l, year=args.y, 
+                       fetcher=fixturedownload.get_games, sourcename='fixturedownload')
+    print("\nGetting data from footballdata.co.uk")
     fetch_and_save(league=args.l, year=args.y, 
                    fetcher=footballdata.get_games, sourcename='footballdata')
 
