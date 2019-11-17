@@ -161,7 +161,7 @@ def fetch_and_save(league, year, fetcher, sourcename):
         if (game.result is None) \
                 and (not numpy.isnan(games.loc[i,"HomePoints"])) \
                 and (not numpy.isnan(games.loc[i,"AwayPoints"])):
-            print("Adding {}-{} result to {} vs {}".format(
+            print("Adding {:.0f}-{:.0f} result to {} vs {}".format(
                     games.loc[i,"HomePoints"], games.loc[i,"AwayPoints"],
                     game.hometeam.shortname, game.awayteam.shortname))
             # BUG FIX: int(...) below fixes weird error where integers get stored
