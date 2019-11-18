@@ -154,7 +154,7 @@ class EFLPoisRegSimple_Prior(object):
                  promoted_in=[], relegated_out=[]):
         """Create a prior from the posterior of a previous EFLPoisRegSimple fit.
         Parameters:
-            fit - the previous instance of EFLSymOrdReg
+            fit - the previous instance of EFLPoisRegSimple
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
