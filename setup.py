@@ -25,6 +25,7 @@ setuptools.setup(
         ],
         install_requires=[
             'appdirs>=1.4.3',
+            'beautifulsoup4>=4.8.1',
             'configparser>=3.7.4',
             'matplotlib>=3.1.0',
             'pandas>=0.25.0',
