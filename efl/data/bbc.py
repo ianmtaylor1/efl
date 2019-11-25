@@ -24,10 +24,16 @@ def _download_page(league, year, month, results=False):
 def _parse_page(pagetext):
     """Parses the html of a fetched page into a pandas.DataFrame of games."""
     soup = bs4.BeautifulSoup(pagetext, features='html.parser')
-    match_blocks = soup.find_all('div', attrs={'class':'qa-match-block'})
-    return pandas.concat((_parse_block(m) for m in match_blocks), ignore_index=True)
+    match_blocks = soup.find_all('div', class_='qa-match-block')
+    matches = pandas.concat((_parse_block(m) for m in match_blocks), ignore_index=True)
+    matches.loc[matches['HomePoints']>matches['AwayPoints'],"Result"] = 'H'
+    matches.loc[matches['HomePoints']<matches['AwayPoints'],"Result"] = 'A'
+    matches.loc[matches['HomePoints']==matches['AwayPoints'],"Result"] = 'D'
+    return matches
 
 def _parse_block(block):
+    """Parses the html of a match block on a fetched page. Excepcts a div
+    element whose class is qa-match-block."""
     date = dateparser.parse(block.contents[0].text)
     items = block.find_all('li')
     matches = pandas.concat((_parse_item(i) for i in items), ignore_index=True)
@@ -35,8 +41,9 @@ def _parse_block(block):
     return matches
 
 def _parse_item(item):
+    """Parses the html of a specific match. Expects an li element within a
+    match block."""
     return pandas.DataFrame({'HomeTeam':['Home'],
                              'AwayTeam':['Away'],
                              'HomePoints':[0],
-                             'AwayPoints':[0],
-                             'Result':['D']})
+                             'AwayPoints':[0]})
