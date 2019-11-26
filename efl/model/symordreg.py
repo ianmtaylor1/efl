@@ -150,13 +150,14 @@ class EFLSymOrdReg_Prior(object):
         if len(set(relegated_in) & set(promoted_in)) > 0:
             raise Exception('promoted_in and relegated_in cannot have common teams')
         # Get the posterior samples from the fit
-        df = fit.to_dataframe(diagnostics=False)
+        df = fit.to_dataframe('teams', diagnostics=False)
+        hdb_df = fit.to_dataframe(['HomeField','DrawBoundary'], diagnostics=False)
         # Determine homefield advantage priors
-        home_prior_mean = df['HomeField'].mean()
-        home_prior_sd = df['HomeField'].std() * numpy.sqrt(spread)
+        home_prior_mean = hdb_df['HomeField'].mean()
+        home_prior_sd = hdb_df['HomeField'].std() * numpy.sqrt(spread)
         # Determine draw boundary priors
-        theta_prior_loc = df['DrawBoundary'].mean()
-        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
+        theta_prior_loc = hdb_df['DrawBoundary'].mean()
+        theta_prior_scale = hdb_df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
         # Shuffle and rename the promoted/relegated teams
         for i in df.index:
             df.loc[i,relegated_out] = numpy.random.permutation(df.loc[i,relegated_out])
@@ -165,10 +166,7 @@ class EFLSymOrdReg_Prior(object):
         colmap.update({o:i for o,i in zip(promoted_out, relegated_in)})
         df = df.rename(columns=colmap)
         # Teams priors
-        team_names = list(
-                set(df.columns)
-                - set(['DrawBoundary','HomeField','chain','draw','warmup'])
-                )
+        team_names = list(set(df.columns) - set(['chain','draw','warmup']))
         teams_prior_mean = numpy.array(df[team_names].mean()) * regression
         teams_prior_var = numpy.cov(df[team_names].T)
         # Scale the variance by the spread factor, add small identity for 
