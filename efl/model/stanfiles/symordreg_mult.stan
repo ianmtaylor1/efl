@@ -54,9 +54,9 @@ transformed parameters {
     matrix[nTeams,nTeams] matchup = (U * V') - (V * U');
 }
 model {
-    cholesky_factor_cov[2*uvdim] uvcov_chol;
+    matrix[2*uvdim,2*uvdim] uvcov_chol;
     row_vector[2*uvdim] uv_vec[nTeams];
-    real apply_matchup[nGames];
+    vector[nGames] apply_matchup;
     // Priors
     theta ~ logistic(theta_prior_loc, theta_prior_scale) T[0,];
     home ~ normal(home_prior_mean, home_prior_sd);
@@ -64,14 +64,14 @@ model {
     // Multiplicative matchup effect priors
     uvscale ~ cauchy(0.0, 1.0);
     uvcorr_chol ~ lkj_corr_cholesky(1.0);
-    uvcov_chol = diag_pre_multiply(uvscale, uvcorr_chol);
+    uvcov_chol = diag_pre_multiply(append_row(uvscale,uvscale), uvcorr_chol);
     for (i in 1:nTeams) {
         uv_vec[i] = append_col(U[i], V[i]);
     }
     uv_vec ~ multi_normal_cholesky(rep_row_vector(0.0, 2*uvdim), uvcov_chol);
     // Model
     for (i in 1:nGames) {
-        apply_matchup[i] = matcup[hometeamidx[i], awayteamidx[i]]
+        apply_matchup[i] = matchup[hometeamidx[i], awayteamidx[i]];
     }
     if (nGames > 0) {
         result ~ ordered_logistic(
@@ -87,14 +87,14 @@ generated quantities {
     // Posterior predictions for observed games
     for (i in 1:nGames) {
         result_pred[i] = ordered_logistic_rng(
-                teams[hometeamidx[i]] - teams[awayteamidx[i]] + matcup[hometeamidx[i], awayteamidx[i]] + home, 
+                teams[hometeamidx[i]] - teams[awayteamidx[i]] + matchup[hometeamidx[i], awayteamidx[i]] + home, 
                 [ -theta, theta ]'
                 );
     };
     // Posterior predictions for unobserved games
     for (i in 1:nGames_new) {
         result_new_pred[i] = ordered_logistic_rng(
-                teams[hometeamidx_new[i]] - teams[awayteamidx_new[i]] + matcup[hometeamidx_new[i], awayteamidx_new[i]] + home, 
+                teams[hometeamidx_new[i]] - teams[awayteamidx_new[i]] + matchup[hometeamidx_new[i], awayteamidx_new[i]] + home, 
                 [ -theta, theta ]'
                 );
     };
