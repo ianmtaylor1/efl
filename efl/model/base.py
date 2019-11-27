@@ -88,7 +88,6 @@ class EFLModel(object):
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
             chains=chains, iter=iter, warmup=warmup, thin=thin, n_jobs=n_jobs,
-            pars=self._stan2efl.keys(),
             **kwargs)
     
     # Stubs for methods that should be implemented by subclasses
