@@ -211,7 +211,7 @@ def console_download_games():
     print("\nGetting data from footballdata.co.uk")
     footballdata_games = footballdata.get_games(args.l, args.y, enddate=today)
     save_games(footballdata_games, sourcename='footballdata')
-    if args.l in [1,2]:
+    if (args.l in [1,2]) and (args.y >= today.year-1):
         print("\nGetting data from fixturedownload.com")
         fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
         save_games(fixturedownload_games, sourcename='fixturedownload')
