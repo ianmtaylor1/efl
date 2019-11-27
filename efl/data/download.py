@@ -9,6 +9,7 @@ import sqlalchemy
 import argparse
 import difflib
 import numpy
+import datetime
 
 # Function to prompt for a missing team
 def _prompt_missing_team(session, name, sourcename):
@@ -61,11 +62,17 @@ def _prompt_missing_league(session, name, sourcename):
     return sln
     
 
-def fetch_and_save(league, year, fetcher, sourcename):
-    """Download and games for a given league and year, and save them to the
-    EFL games database."""
-    # Get the list of games from the provider
-    games = fetcher(league, year)
+def _save_season(games, year, sourcename):
+    """Save a dataframe representing games from a single season to the
+    database.
+    Parameters:
+        games - dataframe of games in download format
+        year - starting year of the season (e.g. 2018 == 2018-2019 season)
+        sourcename - name of the datasource used to download the games
+    """
+    # Error check: all games must be from supplied season
+    if not all(games['Season']==year):
+        raise Exception('All supplied games must be from supplied season.')
     
     # Create session and tables
     orm.Base.metadata.create_all(db.connect())  # create tables
@@ -175,6 +182,11 @@ def fetch_and_save(league, year, fetcher, sourcename):
     session.commit()
     session.close()
 
+def save_games(games, sourcename):
+    """Save a dataframe of EFL games in download format to the EFL games database."""
+    for y,g in games.groupby('Season'):
+        _save_season(g,y,sourcename)
+
 
 def console_download_games():
     """Function to be run as a console command entry point, initiates download
@@ -194,12 +206,14 @@ def console_download_games():
         from .. import config
         config.parse(args.config)
     # Run the interactive data getting function
+    today = datetime.date.today()
+    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    print("\nGetting data from footballdata.co.uk")
+    footballdata_games = footballdata.get_games(args.l, args.y, enddate=today)
+    save_games(footballdata_games, sourcename='footballdata')
     if args.l in [1,2]:
         print("\nGetting data from fixturedownload.com")
-        fetch_and_save(league=args.l, year=args.y, 
-                       fetcher=fixturedownload.get_games, sourcename='fixturedownload')
-    print("\nGetting data from footballdata.co.uk")
-    fetch_and_save(league=args.l, year=args.y, 
-                   fetcher=footballdata.get_games, sourcename='footballdata')
+        fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
+        save_games(fixturedownload_games, sourcename='fixturedownload')
 
 

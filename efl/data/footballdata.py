@@ -18,7 +18,7 @@ def _download_games(league, season):
 # Extract only the columns we need and parse dates
 def _parse_games(rawgames):
     parsed = pandas.DataFrame()
-    parsed['Date'] = rawgames['Date'].apply(lambda x: dateparser.parse(x, dayfirst=True))
+    parsed['Date'] = rawgames['Date'].apply(lambda x: dateparser.parse(x, dayfirst=True).date())
     parsed['HomeTeam'] = rawgames['HomeTeam']
     parsed['AwayTeam'] = rawgames['AwayTeam']
     parsed['HomePoints'] = rawgames['FTHG'].apply(int)
