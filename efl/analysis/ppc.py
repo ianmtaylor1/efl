@@ -6,6 +6,7 @@ Contains code for running posterior predictive checks of models.
 
 import numpy
 import matplotlib.pyplot as plt
+from . import analysis
 
 class EFL_PPC(object):
     """Class that represents a posterior predictive check of an EFL Model."""
@@ -24,15 +25,12 @@ class EFL_PPC(object):
             name = statfun.__name__
         self.name = name
         # Convert to data frames (fitted games only)
-        obs_df = observed.to_dataframe()
-        pred_df = model.predict("fit").merge(
-                obs_df[['gameid','hometeam','awayteam']],
-                on = 'gameid',
-                validate = 'm:1') # predict is missing team names, add them
+        # Add team names and dates to predicted games
+        pred_df = analysis.add_info(model.to_dataframe("fit"), observed)
         # Compute the statistic for each set of simulated games
         self.ppd = numpy.array([statfun(g) for _,g in pred_df.groupby(['chain','draw'])])
         # Compute the statistic for the observed games
-        self.obs = statfun(obs_df)
+        self.obs = statfun(observed.to_dataframe())
     
     def quantile(self):
         """Return the quantile of the observed games within the posterior
