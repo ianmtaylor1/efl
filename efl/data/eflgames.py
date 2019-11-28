@@ -102,6 +102,7 @@ class EFLGames(object):
             # We can assume all games in fit have results
             fitdf = pandas.DataFrame({
                     'gameid':    [g.id for g in self.fit],
+                    'date':      [g.date for g in self.fit],
                     'hometeam':  [g.hometeam.shortname for g in self.fit],
                     'awayteam':  [g.awayteam.shortname for g in self.fit],
                     'homegoals': [g.result.homegoals for g in self.fit],
@@ -113,6 +114,7 @@ class EFLGames(object):
             # Function to convert a game to a dictionary of items for the df
             def gametodict(g):
                 d = {'gameid':g.id,
+                     'date':g.date,
                      'hometeam':g.hometeam.shortname,
                      'awayteam':g.awayteam.shortname}
                 if g.result is None:
