@@ -188,7 +188,7 @@ def _clean_db():
     
     # Past games without results
     today = datetime.date.today()
-    pastgames = session.query(orm.Game).filter(orm.game.date < today).all()
+    pastgames = session.query(orm.Game).filter(orm.Game.date < today).all()
     print("\nPast games without results:")
     for g in pastgames:
         if g.result is None:
