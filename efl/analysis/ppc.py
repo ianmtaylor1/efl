@@ -42,11 +42,19 @@ class EFL_PPC(object):
     def plot(self, title=None):
         """Display the posterior predictive samples as a histogram, with a red
         line indicating the observed value."""
-        plt.hist(self.ppd, density=True)
-        plt.axvline(self.obs, color="red")
-        plt.ylabel("Frequency")
-        plt.xlabel(self.name)
+        fig, ax = plt.subplots(nrows=1, ncols=1)
         if title is not None:
-            plt.title(title)
-        plt.show()
+            fig.suptitle(title)
+        ax.hist(self.ppd, density=True)
+        ax.axvline(self.obs, color="red")
+        ax.ylabel("Frequency")
+        ax.xlabel(self.name)
+        #plt.hist(self.ppd, density=True)
+        #plt.axvline(self.obs, color="red")
+        #plt.ylabel("Frequency")
+        #plt.xlabel(self.name)
+        #if title is not None:
+        #    plt.title(title)
+        #plt.show()
+        return fig
 
