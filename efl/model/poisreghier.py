@@ -151,7 +151,7 @@ class EFLPoisRegHier_Prior(object):
         self._sigma_prior_informative = 1 if sigma_prior_informative else 0
         self._sigma_prior_alpha = sigma_prior_alpha
         self._sigma_prior_beta = sigma_prior_beta
-        self._teamcorr_prior_eta = self._teamcorr_prior_eta
+        self._teamcorr_prior_eta = teamcorr_prior_eta
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -164,10 +164,10 @@ class EFLPoisRegHier_Prior(object):
             a dict in the format needed for pystan (and the EFLModel class)
         """
         idx = [self._team_map[t] for t in teams]
-        return {'teams_prior_mean':self._homeoff_prior_mean[idx],
-                'teams_prior_var':self._homeoff_prior_var[idx,:][:,idx],
-                'log_goals_prior_mean':self._log_home_goals_prior_mean,
-                'log_goals_prior_sd':self._log_home_goals_prior_sd,
+        return {'teams_prior_mean':self._teams_prior_mean[idx],
+                'teams_prior_var':self._teams_prior_var[idx,:][:,idx],
+                'log_goals_prior_mean':self._log_goals_prior_mean,
+                'log_goals_prior_sd':self._log_goals_prior_sd,
                 'home_prior_mean':self._home_prior_mean,
                 'home_prior_sd':self._home_prior_sd,
                 'sigma_prior_informative':self._sigma_prior_informative,

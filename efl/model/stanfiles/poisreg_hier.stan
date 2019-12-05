@@ -90,7 +90,7 @@ model {
     // Hierarchical variance has Cauchy prior
     if (sigma_prior_informative) {
         sigma^2 ~ inv_gamma(sigma_prior_alpha, sigma_prior_beta);
-        target += log(sigma)
+        target += log(sigma);
     } else {
         sigma ~ cauchy(0.0, 1.0) T[0,];
     }
@@ -118,7 +118,7 @@ generated quantities {
     int<lower=0> awaygoals_pred[nGames];
     int<lower=0> homegoals_new_pred[nGames_new];
     int<lower=0> awaygoals_new_pred[nGames_new];
-    matrix[4,4] teamcorr;
+    corr_matrix[4] teamcorr;
     // Posterior predictive sample for goals in observed games
     if (nGames > 0) {
         homegoals_pred = poisson_log_rng(homeoff[hometeamidx] - awaydef[awayteamidx] + log_goals);
