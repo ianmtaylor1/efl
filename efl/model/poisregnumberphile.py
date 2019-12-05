@@ -19,6 +19,8 @@ class EFLPoisRegNumberphile(base.EFL_GoalModel):
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
+            prior - instance of EFLPoisRegNumberphile_Prior, or None for 
+                a diffuse prior
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """

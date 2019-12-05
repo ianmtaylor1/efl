@@ -20,6 +20,8 @@ class EFLPoisRegSimple(base.EFL_GoalModel):
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
+            prior - instance of EFLPoisRegSimple_Prior, or None for a diffuse 
+                prior (default)
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """
