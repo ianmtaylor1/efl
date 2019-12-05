@@ -27,19 +27,15 @@ data {
     real home_prior_mean;
     real<lower=0> home_prior_sd;
     
-    // Prior parameters for the variance of the hierarchical team
-    // offense/defense home/away parameters, given the latent team strength
-    // and homefield advantage
-    real<lower=0> sigma2_prior_alpha;
-    real<lower=0> sigma2_prior_beta;
+    // Prior parameters for the standard deviation of hierarchical team pars
+    // If informative, inverse-gamma(alpha,beta). If not, cauchy+(0,1).
+    int<lower=0,upper=1> sigma_prior_informative;
+    real<lower=0> sigma_prior_alpha;
+    real<lower=0> sigma_prior_beta;
     
-    // Prior parameters for the variance of homefield advantage by team
-    real<lower=0> s2home_prior_alpha;
-    real<lower=0> s2home_prior_beta;
-    
-    // Prior parameters for the correlation between off/def subparameters
-    real<lower=0> rho_prior_alpha;
-    real<lower=0> rho_prior_beta;
+    // Prior parameters for teamcorr matrix - correlation among hierarchical
+    // team parameters. 1 = uniform, >1 = peak at ident, <1 = trough at ident
+    real<lower=0> teamcorr_prior_eta;
 }
 transformed data {
     // Cholesky decomp of the prior variance of the latent team strengths
@@ -60,13 +56,10 @@ parameters {
     
     // Variance of how far the hierarchical team parameters can vary from the
     // latent team strength
-    real<lower=0> sigma2;
+    real<lower=0> sigma;
     
-    // Variance of the difference in homefield advantage between teams
-    real<lower=0> s2home;
-    
-    // Correlation between home/away offense and home/away defense
-    real<lower=-1,upper=1> rho;
+    // Correlation among hierarchical team parameters (cholesky decomp)
+    cholesky_factor_corr[4] teamcorr_chol;
     
     // Home/away offense/defense parameters, hierarchically defined from
     // latent team strength, log_goals, home, and teamvar
@@ -84,8 +77,6 @@ model {
     // distribution of beta
     vector[4] beta_stacked[nTeams];
     vector[4] beta_means[nTeams];
-    // sigma2 and rho assembled into a 4x4 covariance matrix
-    matrix[4,4] teamvar;
     
     // Log goals distributed by normal prior
     log_goals ~ normal(log_goals_prior_mean, log_goals_prior_sd);
@@ -96,15 +87,16 @@ model {
     // Team strengths distributed by a MVN prior
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
     
-    // Hierarchical variance has gamma prior
-    sigma2 ~ gamma(sigma2_prior_alpha, sigma2_prior_beta);
+    // Hierarchical variance has Cauchy prior
+    if (sigma_prior_informative) {
+        sigma^2 ~ inv_gamma(sigma_prior_alpha, sigma_prior_beta);
+        target += log(sigma)
+    } else {
+        sigma ~ cauchy(0.0, 1.0) T[0,];
+    }
     
-    // Homefield variance has gamma prior
-    s2home ~ gamma(s2home_prior_alpha, s2home_prior_beta);
-    
-    // Offense and defense correlation has (shifted,scaled) beta prior
-    // Linear transformation, fine to do without Jacobian
-    (rho + 1)/2 ~ beta(rho_prior_alpha, rho_prior_beta);
+    // Hierarchical correlation has LKJ prior
+    teamcorr_chol ~ lkj_corr_cholesky(teamcorr_prior_eta);
     
     // Hierarchical distribution of beta
     // Build arrays of 2-vectors for vectorization
@@ -112,13 +104,8 @@ model {
         beta_means[t]   = [teams[t]+home, teams[t], teams[t]+home, teams[t]]';
         beta_stacked[t] = [homeoff[t], awayoff[t], homedef[t], awaydef[t]]';
     }
-    // Build variance matrix
-    teamvar = [[sigma2+s2home , rho*sigma2 , s2home        , 0         ],
-               [rho*sigma2    , sigma2     , 0             , 0         ],
-               [s2home        , 0          , sigma2+s2home , rho*sigma2],
-               [0             , 0          , rho*sigma2    , sigma2    ]];
     // Vectorized sampling statement
-    beta_stacked ~ multi_normal(beta_means, teamvar);
+    beta_stacked ~ multi_normal_cholesky(beta_means, teamcorr_chol * sigma);
     
     // Distribution of goals
     if (nGames > 0) {
@@ -131,13 +118,17 @@ generated quantities {
     int<lower=0> awaygoals_pred[nGames];
     int<lower=0> homegoals_new_pred[nGames_new];
     int<lower=0> awaygoals_new_pred[nGames_new];
-    
+    matrix[4,4] teamcorr;
+    // Posterior predictive sample for goals in observed games
     if (nGames > 0) {
         homegoals_pred = poisson_log_rng(homeoff[hometeamidx] - awaydef[awayteamidx] + log_goals);
         awaygoals_pred = poisson_log_rng(awayoff[awayteamidx] - homedef[hometeamidx] + log_goals);
     }
+    // Posterior predictive sample for goals in unobserved games
     if (nGames_new > 0) {
         homegoals_new_pred = poisson_log_rng(homeoff[hometeamidx_new] - awaydef[awayteamidx_new] + log_goals);
         awaygoals_new_pred = poisson_log_rng(awayoff[awayteamidx_new] - homedef[hometeamidx_new] + log_goals);
     }
+    // Correlation matrix among hierarchical team parameters
+    teamcorr = multiply_lower_tri_self_transpose(teamcorr_chol);
 }
