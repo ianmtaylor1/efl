@@ -26,7 +26,7 @@ class EFL_PPC(object):
         self.name = name
         # Convert to data frames (fitted games only)
         # Add team names and dates to predicted games
-        pred_df = analysis.add_info(model.to_dataframe("fit"), observed)
+        pred_df = analysis.add_info(model.predict("fit"), observed)
         # Compute the statistic for each set of simulated games
         self.ppd = numpy.array([statfun(g) for _,g in pred_df.groupby(['chain','draw'])])
         # Compute the statistic for the observed games
@@ -45,8 +45,8 @@ class EFL_PPC(object):
             fig.suptitle(title)
         ax.hist(self.ppd, density=True)
         ax.axvline(self.obs, color="red")
-        ax.ylabel("Frequency")
-        ax.xlabel(self.name)
+        ax.set_ylabel("Frequency")
+        ax.set_xlabel(self.name)
         #plt.hist(self.ppd, density=True)
         #plt.axvline(self.obs, color="red")
         #plt.ylabel("Frequency")
