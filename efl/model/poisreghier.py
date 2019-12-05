@@ -31,10 +31,7 @@ class EFLPoisRegHier(base.EFL_GoalModel):
             prior = EFLPoisRegHier_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'LogAvgGoals':'log_goals', 'HomeField':'home',
-                    'TeamSkillSD':'sigma',
-                    'Cor(HO,AO)':'teamcorr[1,2]', 'Cor(HO,HD)':'teamcorr[1,3]',
-                    'Cor(HO,AD)':'teamcorr[1,4]', 'Cor(AO,HD)':'teamcorr[2,3]',
-                    'Cor(AO,AD)':'teamcorr[2,4]', 'Cor(HD,AD)':'teamcorr[3,4]'}
+                    'TeamSkillSD':'sigma'}
         for i,t in enumerate(eflgames.teams):
             efl2stan[t.shortname] = 'teams[{}]'.format(i+1)
             efl2stan[t.shortname+' HO'] = 'homeoff[{}]'.format(i+1)
@@ -42,9 +39,6 @@ class EFLPoisRegHier(base.EFL_GoalModel):
             efl2stan[t.shortname+' AO'] = 'awayoff[{}]'.format(i+1)
             efl2stan[t.shortname+' AD'] = 'awaydef[{}]'.format(i+1)
         pargroups = {'teams':team_names,
-                     'teamvar':['TeamSkillSD', 'Cor(HO,AO)', 'Cor(HO,HD)',
-                                'Cor(HO,AD)', 'Cor(AO,HD)', 'Cor(AO,AD)',
-                                'Cor(HD,AD)'],
                      'homeoff':[t+' HO' for t in team_names],
                      'homedef':[t+' HD' for t in team_names],
                      'awayoff':[t+' AO' for t in team_names],
@@ -77,8 +71,6 @@ class EFLPoisRegHier(base.EFL_GoalModel):
         else:
             # Don't actually sample from Cauchy for starting values
             sigma = abs(numpy.random.standard_normal())
-        # TODO: figure out how to sample LKJ in numpy
-        teamcorr = numpy.identity(4)
         # Individual team strengths
         teams = numpy.random.multivariate_normal(
                 self._modeldata['teams_prior_mean'],
@@ -92,14 +84,14 @@ class EFLPoisRegHier(base.EFL_GoalModel):
         awaydef = numpy.zeros(P)
         for i in range(P):
             mean = numpy.array([home, 0, home, 0]) + teams[i]
-            x = numpy.random.multivariate_normal(mean, teamcorr * sigma**2)
+            x = numpy.random.multivariate_normal(mean, numpy.identity(4) * sigma**2)
             homeoff[i] = x[0]
             awayoff[i] = x[1]
             homedef[i] = x[2]
             awaydef[i] = x[3]
         # Put together and return
         return {'log_goals':log_goals, 'home':home, 'teams_raw':teams[:(P-1)],
-                'sigma':sigma, 'teamcorr_chol':numpy.linalg.cholesky(teamcorr),
+                'sigma':sigma,
                 'homeoff':homeoff, 'homedef':homedef,
                 'awayoff':awayoff, 'awaydef':awaydef}
 
@@ -111,9 +103,7 @@ class EFLPoisRegHier_Prior(object):
                  teams_prior_mean, teams_prior_var, 
                  log_goals_prior_mean, log_goals_prior_sd,
                  home_prior_mean, home_prior_sd,
-                 sigma_prior_informative,
-                 sigma_prior_alpha, sigma_prior_beta,
-                 teamcorr_prior_eta):
+                 sigma_prior_alpha, sigma_prior_beta):
         """This constructor is pretty much never called in most typical uses.
         Parameters:
             team_names - a list of names used as labels for the indices of
@@ -129,13 +119,8 @@ class EFLPoisRegHier_Prior(object):
                 the goals scored parameter
             home_prior_mean, home_prior_sd - prior parameters for the homefield
                 advantage parameter
-            sigma_prior_informative - (bool) whether to use an informative
-                (inverse-gamma) prior on sigma^2, rather than a diffuse 
-                (cauchy) prior on sigma.
             sigma_prior_alpha, sigma_prior_beta - if using an informative
                 sigma prior, the alpha and beta inverse-gamma parameters
-            teamcorr_prior_eta - the LKJ parameter for the correlation matrix
-                of hierarchical team parameters
         """
         # Center mean around zero (due to the model's parameter centering)
         self._teams_prior_mean = teams_prior_mean - teams_prior_mean.mean()
@@ -148,10 +133,8 @@ class EFLPoisRegHier_Prior(object):
         self._log_goals_prior_sd = log_goals_prior_sd
         self._home_prior_mean = home_prior_mean
         self._home_prior_sd = home_prior_sd
-        self._sigma_prior_informative = 1 if sigma_prior_informative else 0
         self._sigma_prior_alpha = sigma_prior_alpha
         self._sigma_prior_beta = sigma_prior_beta
-        self._teamcorr_prior_eta = teamcorr_prior_eta
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -170,10 +153,8 @@ class EFLPoisRegHier_Prior(object):
                 'log_goals_prior_sd':self._log_goals_prior_sd,
                 'home_prior_mean':self._home_prior_mean,
                 'home_prior_sd':self._home_prior_sd,
-                'sigma_prior_informative':self._sigma_prior_informative,
                 'sigma_prior_alpha':self._sigma_prior_alpha,
-                'sigma_prior_beta':self._sigma_prior_beta,
-                'teamcorr_prior_eta':self._teamcorr_prior_eta}
+                'sigma_prior_beta':self._sigma_prior_beta}
         
     # Class methods for creating instances through various methods
     
@@ -188,10 +169,8 @@ class EFLPoisRegHier_Prior(object):
                    log_goals_prior_sd = 1,
                    home_prior_mean = 0,
                    home_prior_sd = 1,
-                   sigma_prior_informative = False,
-                   sigma_prior_alpha = 1,
-                   sigma_prior_beta = 1,
-                   teamcorr_prior_eta = 1)
+                   sigma_prior_alpha = 2,
+                   sigma_prior_beta = .25)
         
 #    @classmethod
 #    def from_fit(cls, fit, spread=1.0, regression=1.0,
