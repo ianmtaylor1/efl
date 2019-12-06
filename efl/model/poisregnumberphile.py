@@ -274,6 +274,21 @@ class EFLPoisRegNumberphile_Prior(object):
         awayoff_prior_var = numpy.cov(df[awayoff_pars].T)
         awaydef_prior_mean = numpy.array(df[awaydef_pars].mean()) * regression
         awaydef_prior_var = numpy.cov(df[awaydef_pars].T)
+        # Scale the variance by the spread factor, add small identity for 
+        # non-singularity
+        num_teams = len(team_names)
+        minvar_ho = min(homeoff_prior_var.diagonal())
+        minvar_hd = min(homedef_prior_var.diagonal())
+        minvar_ao = min(awayoff_prior_var.diagonal())
+        minvar_ad = min(awaydef_prior_var.diagonal())
+        homeoff_prior_var = (homeoff_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_ho * 0.01)
+        homedef_prior_var = (homedef_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_hd * 0.01)
+        awayoff_prior_var = (awayoff_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_ao * 0.01)
+        awaydef_prior_var = (awaydef_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_ad * 0.01)
         # Assemble and return
         return cls(homeoff_prior_mean = homeoff_prior_mean,
                    homeoff_prior_var = homeoff_prior_var,

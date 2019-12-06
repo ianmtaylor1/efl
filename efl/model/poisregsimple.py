@@ -214,6 +214,15 @@ class EFLPoisRegSimple_Prior(object):
         offense_prior_var = numpy.cov(df[offense_pars].T)
         defense_prior_mean = numpy.array(df[defense_pars].mean()) * regression
         defense_prior_var = numpy.cov(df[defense_pars].T)
+        # Scale the variance by the spread factor, add small identity for 
+        # non-singularity
+        num_teams = len(team_names)
+        minvar_off = min(offense_prior_var.diagonal())
+        minvar_def = min(defense_prior_var.diagonal())
+        offense_prior_var = (offense_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_off * 0.01)
+        defense_prior_var = (defense_prior_var * spread + 
+                             numpy.identity(num_teams) * minvar_def * 0.01)
         # Assemble and return
         return cls(offense_prior_mean = offense_prior_mean,
                    offense_prior_var = offense_prior_var,

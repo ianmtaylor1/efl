@@ -168,103 +168,75 @@ class EFLPoisRegHier_Prior(object):
                    sigma_prior_alpha = 2,
                    sigma_prior_beta = .25)
         
-#    @classmethod
-#    def from_fit(cls, fit, spread=1.0, regression=1.0,
-#                 relegated_in=[], promoted_out=[],
-#                 promoted_in=[], relegated_out=[]):
-#        """Create a prior from the posterior of a previous EFLPoisRegNumberphile fit.
-#        Parameters:
-#            fit - the previous instance of EFLPoisRegNumberphile
-#            spread - factor by which to inflate variances of all parameters
-#                from the posterior of 'fit'. Think of this as season-to-season
-#                uncertainty.
-#            regression - is multiplied by team offense/defense means
-#            relegated_in - list of team names who were relegated into this
-#                league from a higher league between the season of 'fit' and now
-#            promoted_out - list of team names who were promoted out of this
-#                league into a higher league between the season of 'fit' and now
-#            promoted_in - list of team names who were promoted into this
-#                league from a lower league between the season of 'fit' and now
-#            relegated_out - list of team names who were relegated out of this
-#                league into a lower league between the season of 'fit' and now
-#        """
-#        # Input checks
-#        if len(relegated_out) != len(promoted_in):
-#            raise Exception('len(relegated_out) must equal len(promoted_in)')
-#        if len(promoted_out) != len(relegated_in):
-#            raise Exception('len(promoted_out) must equal len(relegated_in)')
-#        if len(set(relegated_out) & set(promoted_out)) > 0:
-#            raise Exception('promoted_out and relegated_out cannot have common teams')
-#        if len(set(relegated_in) & set(promoted_in)) > 0:
-#            raise Exception('promoted_in and relegated_in cannot have common teams')
-#        # Get the posterior samples from the fit
-#        df = fit.to_dataframe(diagnostics=False)
-#        # Goals parameters
-#        log_home_goals_prior_mean = df['HomeGoals'].mean()
-#        log_home_goals_prior_sd = df['HomeGoals'].std() * numpy.sqrt(spread)
-#        log_away_goals_prior_mean = df['AwayGoals'].mean()
-#        log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
-#        # Build parameter names for promoted/relegated teams
-#        promoted_out_ho = [t+' HO' for t in promoted_out]
-#        promoted_out_hd = [t+' HD' for t in promoted_out]
-#        promoted_out_ao = [t+' AO' for t in promoted_out]
-#        promoted_out_ad = [t+' AD' for t in promoted_out]
-#        relegated_out_ho = [t+' HO' for t in relegated_out]
-#        relegated_out_hd = [t+' HD' for t in relegated_out]
-#        relegated_out_ao = [t+' AO' for t in relegated_out]
-#        relegated_out_ad = [t+' AD' for t in relegated_out]
-#        promoted_in_ho = [t+' HO' for t in promoted_in]
-#        promoted_in_hd = [t+' HD' for t in promoted_in]
-#        promoted_in_ao = [t+' AO' for t in promoted_in]
-#        promoted_in_ad = [t+' AD' for t in promoted_in]
-#        relegated_in_ho = [t+' HO' for t in relegated_in]
-#        relegated_in_hd = [t+' HD' for t in relegated_in]
-#        relegated_in_ao = [t+' AO' for t in relegated_in]
-#        relegated_in_ad = [t+' AD' for t in relegated_in]
-#        # Shuffle promoted/relegated teams
-#        for i in df.index:
-#            df.loc[i,promoted_out_ho] = numpy.random.permutation(df.loc[i,promoted_out_ho])
-#            df.loc[i,promoted_out_hd] = numpy.random.permutation(df.loc[i,promoted_out_hd])
-#            df.loc[i,promoted_out_ao] = numpy.random.permutation(df.loc[i,promoted_out_ao])
-#            df.loc[i,promoted_out_ad] = numpy.random.permutation(df.loc[i,promoted_out_ad])
-#            df.loc[i,relegated_out_ho] = numpy.random.permutation(df.loc[i,relegated_out_ho])
-#            df.loc[i,relegated_out_hd] = numpy.random.permutation(df.loc[i,relegated_out_hd])
-#            df.loc[i,relegated_out_ao] = numpy.random.permutation(df.loc[i,relegated_out_ao])
-#            df.loc[i,relegated_out_ad] = numpy.random.permutation(df.loc[i,relegated_out_ad])
-#        colmap = {o:i for o,i in zip(promoted_out_ho, relegated_in_ho)}
-#        colmap.update({o:i for o,i in zip(promoted_out_hd, relegated_in_hd)})
-#        colmap.update({o:i for o,i in zip(promoted_out_ao, relegated_in_ao)})
-#        colmap.update({o:i for o,i in zip(promoted_out_ad, relegated_in_ad)})
-#        colmap.update({o:i for o,i in zip(relegated_out_ho, promoted_in_ho)})
-#        colmap.update({o:i for o,i in zip(relegated_out_hd, promoted_in_hd)})
-#        colmap.update({o:i for o,i in zip(relegated_out_ao, promoted_in_ao)})
-#        colmap.update({o:i for o,i in zip(relegated_out_ad, promoted_in_ad)})
-#        df = df.rename(columns=colmap)
-#        # Team offense/defense priors
-#        team_names = [c[:-3] for c in df.columns if c[-3:]==' HO']
-#        homeoff_pars = [t+' HO' for t in team_names]
-#        homedef_pars = [t+' HD' for t in team_names]
-#        awayoff_pars = [t+' AO' for t in team_names]
-#        awaydef_pars = [t+' AD' for t in team_names]
-#        homeoff_prior_mean = numpy.array(df[homeoff_pars].mean()) * regression
-#        homeoff_prior_var = numpy.cov(df[homeoff_pars].T)
-#        homedef_prior_mean = numpy.array(df[homedef_pars].mean()) * regression
-#        homedef_prior_var = numpy.cov(df[homedef_pars].T)
-#        awayoff_prior_mean = numpy.array(df[awayoff_pars].mean()) * regression
-#        awayoff_prior_var = numpy.cov(df[awayoff_pars].T)
-#        awaydef_prior_mean = numpy.array(df[awaydef_pars].mean()) * regression
-#        awaydef_prior_var = numpy.cov(df[awaydef_pars].T)
-#        # Assemble and return
-#        return cls(homeoff_prior_mean = homeoff_prior_mean,
-#                   homeoff_prior_var = homeoff_prior_var,
-#                   homedef_prior_mean = homedef_prior_mean,
-#                   homedef_prior_var = homedef_prior_var,
-#                   awayoff_prior_mean = awayoff_prior_mean,
-#                   awayoff_prior_var = awayoff_prior_var,
-#                   awaydef_prior_mean = awaydef_prior_mean,
-#                   awaydef_prior_var = awaydef_prior_var,
-#                   team_names = team_names,
-#                   log_home_goals_prior_mean = log_home_goals_prior_mean,
-#                   log_home_goals_prior_sd = log_home_goals_prior_sd,
-#                   log_away_goals_prior_mean = log_away_goals_prior_mean,
-#                   log_away_goals_prior_sd = log_away_goals_prior_sd)
+    @classmethod
+    def from_fit(cls, fit, spread=1.0, regression=1.0,
+                 relegated_in=[], promoted_out=[],
+                 promoted_in=[], relegated_out=[]):
+        """Create a prior from the posterior of a previous EFLPoisRegNumberphile fit.
+        Parameters:
+            fit - the previous instance of EFLPoisRegNumberphile
+            spread - factor by which to inflate variances of all parameters
+                from the posterior of 'fit'. Think of this as season-to-season
+                uncertainty.
+            regression - is multiplied by team means means
+            relegated_in - list of team names who were relegated into this
+                league from a higher league between the season of 'fit' and now
+            promoted_out - list of team names who were promoted out of this
+                league into a higher league between the season of 'fit' and now
+            promoted_in - list of team names who were promoted into this
+                league from a lower league between the season of 'fit' and now
+            relegated_out - list of team names who were relegated out of this
+                league into a lower league between the season of 'fit' and now
+        """
+        # Input checks
+        if len(relegated_out) != len(promoted_in):
+            raise Exception('len(relegated_out) must equal len(promoted_in)')
+        if len(promoted_out) != len(relegated_in):
+            raise Exception('len(promoted_out) must equal len(relegated_in)')
+        if len(set(relegated_out) & set(promoted_out)) > 0:
+            raise Exception('promoted_out and relegated_out cannot have common teams')
+        if len(set(relegated_in) & set(promoted_in)) > 0:
+            raise Exception('promoted_in and relegated_in cannot have common teams')
+        # Get the posterior samples from the fit
+        teamdf = fit.to_dataframe('teams', diagnostics=False)
+        otherdf = fit.to_dataframe(['LogAvgGoals','HomeField','TeamSkillSD'], 
+                                   diagnostics=False)
+        # Goals parameters
+        log_goals_prior_mean = otherdf['LogAvgGoals'].mean()
+        log_goals_prior_sd = otherdf['LogAvgGoals'].std() * numpy.sqrt(spread)
+        # Homefield parameters
+        home_prior_mean = otherdf['HomeField'].mean()
+        home_prior_sd = otherdf['HomeField'].std() * numpy.sqrt(spread)
+        # Hierarchical team skill variance parameter
+        # Method of moments estimators for inverse-gamma
+        sigma2_mean = (otherdf['TeamSkillSD']**2).mean()
+        sigma2_var = (otherdf['TeamSkillSD']**2).var() * spread
+        sigma_prior_alpha = sigma2_mean**2 / sigma2_var + 2
+        sigma_prior_beta = sigma2_mean * (sigma_prior_alpha - 1)
+        # Shuffle promoted/relegated teams
+        for i in teamdf.index:
+            teamdf.loc[i,promoted_out] = numpy.random.permutation(teamdf.loc[i,promoted_out])
+            teamdf.loc[i,relegated_out] = numpy.random.permutation(teamdf.loc[i,relegated_out])
+        colmap = {o:i for o,i in zip(promoted_out, relegated_in)}
+        colmap.update({o:i for o,i in zip(relegated_out, promoted_in)})
+        teamdf = teamdf.rename(columns=colmap)
+        # Team offense/defense priors
+        team_names = list(set(teamdf.columns) - set(['chain','draw','warmup']))
+        teams_prior_mean = numpy.array(teamdf[team_names].mean()) * regression
+        teams_prior_var = numpy.cov(teamdf[team_names].T)
+        # Scale the variance by the spread factor, add small identity for 
+        # non-singularity
+        num_teams = len(team_names)
+        minvar = min(teams_prior_var.diagonal())
+        teams_prior_var = (teams_prior_var * spread + 
+                           numpy.identity(num_teams) * minvar * 0.01)
+        # Assemble and return
+        return cls(team_names = team_names,
+                   teams_prior_mean = teams_prior_mean,
+                   teams_prior_var = teams_prior_var,
+                   log_goals_prior_mean = log_goals_prior_mean,
+                   log_goals_prior_sd = log_goals_prior_sd,
+                   home_prior_mean = home_prior_mean,
+                   home_prior_sd = home_prior_sd,
+                   sigma_prior_alpha = sigma_prior_alpha,
+                   sigma_prior_beta = sigma_prior_beta)
