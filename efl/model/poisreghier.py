@@ -64,13 +64,9 @@ class EFLPoisRegHier(base.EFL_GoalModel):
                 self._modeldata['home_prior_mean'],
                 self._modeldata['home_prior_sd'])
         # Variance parameters for team sub-parameters
-        if self._modeldata['sigma_prior_informative']:
-            sigma = numpy.sqrt(1.0 / numpy.random.gamma(
-                    self._modeldata['sigma_prior_alpha'],
-                    1/self._modeldata['sigma_prior_beta']))
-        else:
-            # Don't actually sample from Cauchy for starting values
-            sigma = abs(numpy.random.standard_normal())
+        sigma = numpy.sqrt(1.0 / numpy.random.gamma(
+                self._modeldata['sigma_prior_alpha'],
+                1/self._modeldata['sigma_prior_beta']))
         # Individual team strengths
         teams = numpy.random.multivariate_normal(
                 self._modeldata['teams_prior_mean'],
