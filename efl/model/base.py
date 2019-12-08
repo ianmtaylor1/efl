@@ -263,7 +263,8 @@ class EFLModel(object):
                 .merge(self.gamedata[['date','hometeam','awayteam']], 
                        left_on='gameid', right_index=True, validate="m:1", 
                        how='left')\
-                .set_index(['chain','draw','gameid'])
+                .set_index(['chain','draw','gameid'])\
+                .sort_index()
         return df[['date','hometeam','awayteam','homegoals','awaygoals','result']]
     
     def autocorr(self, pars=None, lags=[1,5,10,20]):
