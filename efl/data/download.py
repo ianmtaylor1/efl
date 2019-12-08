@@ -158,7 +158,9 @@ def _save_season(games, year, sourcename):
                         )
                 ).one_or_none()
         if game is None:
-            print("Adding {} vs {}".format(teams[games.loc[i,"HomeTeam"]].shortname, 
+            print("Adding {} {} vs {}".format(
+                    games.loc[i,"Date"].strftime("%Y-%m-%d"),
+                    teams[games.loc[i,"HomeTeam"]].shortname, 
                     teams[games.loc[i,"AwayTeam"]].shortname))
             game = orm.Game(date=games.loc[i,"Date"])
             game.hometeam = teams[games.loc[i,"HomeTeam"]]
@@ -168,8 +170,9 @@ def _save_season(games, year, sourcename):
         if (game.result is None) \
                 and (not numpy.isnan(games.loc[i,"HomePoints"])) \
                 and (not numpy.isnan(games.loc[i,"AwayPoints"])):
-            print("Adding {:.0f}-{:.0f} result to {} vs {}".format(
+            print("Adding {:.0f}-{:.0f} result to {} {} vs {}".format(
                     games.loc[i,"HomePoints"], games.loc[i,"AwayPoints"],
+                    game.date.strftime("%Y-%m-%d"),
                     game.hometeam.shortname, game.awayteam.shortname))
             # BUG FIX: int(...) below fixes weird error where integers get stored
             # in sqlite as BLOBs. Pandas problem, not reading in CSV as integer?
