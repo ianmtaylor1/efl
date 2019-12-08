@@ -31,17 +31,22 @@ class EFLModel(object):
         3. Instance attribute: stanfit
         4. Instance attribute: _modeldata (equal to whatever was passed to
                 __init__). Useful for _stan_inits function
-        5. Method: summary - wraps self.stanfit.stansummary(), and replaces 
-                uninformative paramater names with more informative ones
-                from _stan2efl
-        6. Method: to_dataframe - wraps self.stanfit.to_dataframe(), and
+        5. Methods: summary, stansummary - wraps self.stanfit.summary() and
+                self.stanfit.stansummary(), and replaces uninformative
+                paramater names with more informative ones from _stan2efl
+        6. Method: predict - return posterior predictive samples of game
+                scores and outcomes.
+        7. Method: to_dataframe - wraps self.stanfit.to_dataframe(), and
                 replaces parameter names same as summary().
-        7. Readable attributes fitgameids and predictgameids which are lists
+        8. Readable attributes fitgameids and predictgameids which are lists
                 of all game id's used to fit, and predicted by this
                 model (respectively).
-        8. A readable attribute parameters, which is a list of all efl (human-
+        9. A readable attribute gamedata, which is the data for games included
+                in this model, in dataframe form. (As it would be returned by
+                EFLGames.to_dataframe)
+        10. A readable attribute parameters, which is a list of all efl (human-
                 readable) parameters available in the model.
-        9. Plotting methods: traceplot, densplot, boxplot, acfplot
+        11. Plotting methods: traceplot, densplot, boxplot, acfplot
     
     Subclasses of EFLModel should:
         1. Implement _stan_inits() method for generating initial values 
@@ -50,7 +55,7 @@ class EFLModel(object):
     """
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
-                 efl2stan, pargroups={},
+                 gamedata, efl2stan, pargroups={},
                  chains=4, iter=12000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
@@ -61,6 +66,8 @@ class EFLModel(object):
                 also stored as self._modeldata for use in other methods.
             fitgameids, predictgameids - lists of game ids which were used to
                 fit the model, or which are predicted by the model.
+            gamedata - The data for games included in this model, in dataframe
+                form. (As it would be returned by EFLGames.to_dataframe)
             efl2stan - a dict with keys that are human-readable model
                 parameters, and values that are the corresponding Stan
                 parameters. Should contain every parameter available to be
@@ -77,9 +84,10 @@ class EFLModel(object):
         self._model = cache.get_model(modelfile)
         # Store the data that was passed as an instance attribute
         self._modeldata = modeldata
-        # Save the fit and predict game id's
+        # Save the fit and predict game id's, as well as game data
         self.fitgameids = fitgameids
         self.predictgameids = predictgameids
+        self.gamedata = gamedata
         # Create parameter mappings
         self._efl2stan = efl2stan
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
@@ -232,13 +240,14 @@ class EFLModel(object):
                 iterable of game ids to predict
             **kwargs - any extra keyword arguments for specific subclasses to
                 implement
-        Returns a pandas.DataFrame with (at least) the columns:
-            gameid - id of the game which is being predicted
-            chain - chain number of the sample
-            draw - draw number within the chain
-            homegoals - home goals, if predicted by model (NA otherwise)
-            awaygoals - away goals, if predicted by model (NA otherwise)
-            result - match result ('H','A','D')
+        Returns these games in a pandas.DataFrame with (chain, draw, gameid) as
+        a multi-index, and the following columns (in order):
+            date - date the game took place
+            hometeam - unique short name of home team
+            awayteam - unique short name of away team
+            homegoals - home goals, if available (NA otherwise)
+            awaygoals - away goals, if available (NA otherwise)
+            result - match result ('H','A','D') if available (NA otherwise)
         """
         # Sort out keyword arguments
         if (gameids == "all") or (gameids is None):
@@ -248,9 +257,14 @@ class EFLModel(object):
         elif gameids == "predict":
             gameids = self.predictgameids
         # Predict each game, assign gameid, and concatenate
-        return pandas.concat(
-            (self._predict(g, **kwargs).assign(gameid=g) for g in gameids),
-            ignore_index=True)
+        df = pandas.concat(
+                (self._predict(g, **kwargs).assign(gameid=g) for g in gameids),
+                ignore_index=True)\
+                .merge(self.gamedata[['date','hometeam','awayteam']], 
+                       left_on='gameid', right_index=True, validate="m:1", 
+                       how='left')\
+                .set_index(['chain','draw','gameid'])
+        return df[['date','hometeam','awayteam','homegoals','awaygoals','result']]
     
     def autocorr(self, pars=None, lags=[1,5,10,20]):
         """Computes autocorrelations of posterior samples from this model.
@@ -407,8 +421,9 @@ class EFL_GoalModel(EFLModel):
         stddata = self._get_model_data(eflgames)
         # Call base model, passing along the fit and predict game ids
         super().__init__(modeldata      = {**stddata, **extramodeldata},
-                         fitgameids     = fitgameids, 
+                         fitgameids     = fitgameids,
                          predictgameids = predictgameids,
+                         gamedata       = eflgames.to_dataframe(fit=True, predict=True),
                          **kwargs)
     
     @staticmethod
@@ -494,6 +509,7 @@ class EFL_ResultModel(EFLModel):
         super().__init__(modeldata      = {**stddata, **extramodeldata},
                          fitgameids     = fitgameids, 
                          predictgameids = predictgameids,
+                         gamedata       = eflgames.to_dataframe(fit=True, predict=True),
                          **kwargs)
     
     @staticmethod

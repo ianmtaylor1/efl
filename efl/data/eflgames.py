@@ -84,9 +84,9 @@ class EFLGames(object):
     # Instance methods
     
     def to_dataframe(self, fit=True, predict=False):
-        """Returns these games in a pandas.DataFrame with the following
-        columns:
-            gameid - id of the game
+        """Returns these games in a pandas.DataFrame with the gameid as the
+        index, and the following columns (in order):
+            date - date the game took place
             hometeam - unique short name of home team
             awayteam - unique short name of away team
             homegoals - home goals, if available (NA otherwise)
@@ -133,7 +133,7 @@ class EFLGames(object):
         df.loc[df['homegoals'] < df['awaygoals'], 'result'] = 'A'
         df.loc[df['homegoals'] > df['awaygoals'], 'result'] = 'H'
         df.loc[df['homegoals'] == df['awaygoals'], 'result'] = 'D'
-        return df
+        return df.set_index('gameid')
 
 def seasonid(session, start_year):
     """Return a unique seasonid from the database based on the season's start
