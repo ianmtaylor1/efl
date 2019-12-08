@@ -113,7 +113,7 @@ class EFLPredictor(object):
             # the observed results, if any
             self._df_save = [self._modeldf.loc[i,:].append(self._gamesdf) for i in self._indices]
             if self._echo:
-                print("Done precomputing...")
+                print("Done precomputing lists...")
         return self._df_save
     
     @property
@@ -123,7 +123,7 @@ class EFLPredictor(object):
                 print("Precomputing league tables...")
             self._table_save = [make_table(df) for df in self._dataframes]
             if self._echo:
-                print("Done precomputing...")
+                print("Done precomputing tables...")
         return self._table_save
     
     @property
@@ -133,7 +133,7 @@ class EFLPredictor(object):
                 print("Precomputing directed win graphs...")
             self._matrix_save = [make_matrix(df) for df in self._dataframes]
             if self._echo:
-                print("Done precomputing...")
+                print("Done precomputing graphs...")
         return self._matrix_save
     
     # Property that lists the stats that have been added
@@ -177,6 +177,9 @@ class EFLPredictor(object):
         # Is this name already used?
         if name in self.stats:
             raise Exception("Name {} already used by stat".format(name))
+        # Echo if needed
+        if self._echo:
+            print("Calculating {}...".format(name))
         # Register the stat's type
         self._stat_types[name] = type_
         if type_ == 'ordinal':
@@ -254,6 +257,10 @@ class EFLPredictor(object):
         Returns:
             A list of matplotlib.pyplot figures for the plotted statistics.
         """
+        # By default, summarize all stats
+        if stat is None:
+            stat = self.stats
+        # For each stat, plot it on an axis
         if type(stat) == str:
             stat = list(stat)
         figs, axes = _make_axes(len(stat), page, "Statistic Plots")
