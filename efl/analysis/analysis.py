@@ -290,12 +290,25 @@ class EFLPredictor(object):
     def _plot_categorical(self, stat, ax):
         """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate."""
         s = self.summary(stat)
-        ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
+        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
+        maxtextlen = 40
+        # Print relative frequencies over bars
+        digits = 3
+        if (digits+2)*len(s) > maxtextlen:
+            rotation=90
+        else:
+            rotation=0
+        for bar in bars:
+            height = bar.get_height()
+            xc = bar.get_x() + bar.get_width()/2
+            ax.text(x=xc, y=height, str(round(height,digits)),
+                    ha='center', va='bottom', rotation=rotation)
+        # Set titles and labels
         ax.set_title(stat)
         ax.set_ylabel("Frequency")
         ax.set_xlabel(stat)
         # If the combined length of the labels is too long, rotate the labels
-        if sum(len(str(x)) for x in s.index) > 40:
+        if sum(len(str(x)) for x in s.index) > maxtextlen:
             for tick in ax.get_xticklabels():
                 tick.set_rotation(90)
         return ax
