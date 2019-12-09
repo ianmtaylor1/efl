@@ -35,19 +35,6 @@ def stat(precompute, type_, name=None, sort=None):
         return statwrapper
     return stat_decorator
 
-class TeamPoints(object):
-    """This class is a stat that returns, for a given team, how many points
-    the team has total (Points are 3 for a win, 1 for a draw.)"""
-    
-    def __init__(self, team):
-        self._team = team
-        self.name = '{} points'.format(team)
-        self.precompute = 'table'
-        self.type_ = 'numeric'
-    
-    def __call__(self, t):
-        return t.loc[self._team,'HPts'] + t.loc[self._team,'APts']
-
 class GameResult(object):
     """This class is a stat that returns, for a given game id, what the
     result is. (Home, Draw, Away)"""
@@ -81,7 +68,79 @@ class GameResult(object):
             return 4
 
 class GameScore(object):
-    pass
+    """This class is a stat that returns, for a given game id, what the
+    score is as a tuple: (homegoals, awaygoals)"""
+    
+    def __init__(self, gameid, games=None):
+        self._gameid = gameid
+        if games is None:
+            self.name = "Score {}".format(gameid)
+        else:
+            gamedf = games.to_dataframe(fit=True, predict=True)
+            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
+            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            self.name = '{} vs {} Score'.format(hometeam, awayteam)
+        self.precompute = 'df'
+        self.type_ = 'ordinal'
+    
+    def __call__(self, df):
+        # This assumes there is only one row for every gameid
+        return (df.loc[self._gameid,'homegoals'], df.loc[self._gameid,'awaygoals'])
+    
+    @staticmethod
+    def sort(v):
+        # Sorts from largest home win to largest away win
+        margin = v[0] - v[1]
+        if margin >= 0:
+            total = v[0] + v[1]
+        else:
+            total = -(v[0] + v[1])
+        return (-margin, -total)
+
+class GameMargin(object):
+    """This class is a stat that returns, for a given game id, what the
+    margin is: homegoals - awaygoals"""
+    
+    def __init__(self, gameid, games=None):
+        self._gameid = gameid
+        if games is None:
+            self.name = "Margin {}".format(gameid)
+        else:
+            gamedf = games.to_dataframe(fit=True, predict=True)
+            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
+            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            self.name = '{} vs {} Margin'.format(hometeam, awayteam)
+        self.precompute = 'df'
+        self.type_ = 'ordinal'
+    
+    def __call__(self, df):
+        # This assumes there is only one row for every gameid
+        return df.loc[self._gameid,'homegoals'] - df.loc[self._gameid,'awaygoals']
+    
+    @staticmethod
+    def sort(v):
+        # Sorts from largest home win to largest away win
+        return -v
+    
+class GameTotalGoals(object):
+    """This class is a stat that returns, for a given game id, what the
+    total score is: homegoals + awaygoals"""
+    
+    def __init__(self, gameid, games=None):
+        self._gameid = gameid
+        if games is None:
+            self.name = "Total Goals {}".format(gameid)
+        else:
+            gamedf = games.to_dataframe(fit=True, predict=True)
+            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
+            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            self.name = '{} vs {} Total Goals'.format(hometeam, awayteam)
+        self.precompute = 'df'
+        self.type_ = 'ordinal'
+    
+    def __call__(self, df):
+        # This assumes there is only one row for every gameid
+        return df.loc[self._gameid,'homegoals'] + df.loc[self._gameid,'awaygoals']
 
 class LeaguePosition(object):
     """This class returns the team that is in the supplied position within 
@@ -122,6 +181,19 @@ class TeamPosition(object):
         t2 = t2.sort_values(['pts','gd','gf'], ascending=False)
         t2['rank'] = range(1,len(t2)+1)
         return t2.loc[self._team,'rank']
+
+class TeamPoints(object):
+    """This class is a stat that returns, for a given team, how many points
+    the team has total (Points are 3 for a win, 1 for a draw.)"""
+    
+    def __init__(self, team):
+        self._team = team
+        self.name = '{} points'.format(team)
+        self.precompute = 'table'
+        self.type_ = 'numeric'
+    
+    def __call__(self, t):
+        return t.loc[self._team,'HPts'] + t.loc[self._team,'APts']
 
 @stat('df','numeric')
 def homewinpct(g):
