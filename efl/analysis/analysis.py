@@ -10,6 +10,10 @@ import numpy
 import matplotlib.pyplot as plt
 import itertools
 
+###########################################################
+### FUNCTIONS TO CREATE LEAGUE TABLES AND WIN MATRICES ####
+###########################################################
+
 def make_table(df):
     """Take in a data frame of games and transform it into a league table.
     Columns in the resulting table follow the format (H|A)(GF|GA|Pts) for
@@ -50,6 +54,9 @@ def make_matrix(df):
             mat[teamidx[row['awayteam']],teamidx[row['hometeam']]] += 1
     return mat
 
+###########################################################
+### CLASS FOR MAKING PREDICTIONS ##########################
+###########################################################
 
 class EFLPredictor(object):
     """EFLPredictor - framework for computing summaries of posterior predictive
@@ -286,6 +293,10 @@ class EFLPredictor(object):
         ax.set_title(stat)
         ax.set_ylabel("Frequency")
         ax.set_xlabel(stat)
+        # If the combined length of the labels is too long, rotate the labels
+        if sum(len(str(x)) for x in s.index) > 40:
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(90)
         return ax
     
     def to_dataframe(self):
