@@ -185,22 +185,6 @@ def _save_season(games, year, sourcename):
     session.commit()
     session.close()
 
-def _clean_db():
-    """Run several database cleaning operations."""
-    session = db.Session()
-    
-    # Past games without results
-    today = datetime.date.today()
-    pastgames = session.query(orm.Game).filter(orm.Game.date < today).all()
-    print("\nPast games without results:")
-    for g in pastgames:
-        if g.result is None:
-            print("{}: {} {} vs {}".format(g.id, g.date.strftime("%Y-%m-%d"), 
-                  g.hometeam.shortname, g.awayteam.shortname))
-    
-    # Commit any (for now nonexistent) changes
-    session.commit()
-
 def save_games(games, sourcename):
     """Save a dataframe of EFL games in download format to the EFL games database."""
     for y,g in games.groupby('Season'):
@@ -234,7 +218,4 @@ def console_download_games():
         print("\nGetting data from fixturedownload.com")
         fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
         save_games(fixturedownload_games, sourcename='fixturedownload')
-    # Run the interactive data cleaning function
-    _clean_db()
-
 

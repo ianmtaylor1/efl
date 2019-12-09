@@ -38,6 +38,7 @@ setuptools.setup(
         entry_points={
             'console_scripts': [
                 'download-efl-games = efl.data.download:console_download_games',
+                'clean-efl-db = efl.data.clean:clean_db',
             ],
         }
 )
