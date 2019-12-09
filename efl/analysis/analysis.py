@@ -236,8 +236,9 @@ class EFLPredictor(object):
         return summ
     
     def _summary_numeric(self, stat):
-        """Summarize a statistic whose type is 'numeric'. Doesn't validate"""
-        return pandas.Series(self._stat_values[stat]).describe()
+        """Summarize a statistic whose type is 'numeric'. Doesn't validate."""
+        return pandas.Series(self._stat_values[stat])\
+            .describe(percentiles=[.025,.25,.5,.75,.975])
     
     def _summary_nominal(self, stat):
         """Summarize a statistic whose type is 'nominal'. Doesn't validate."""
