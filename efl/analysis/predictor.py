@@ -23,7 +23,6 @@ class EFLPredictor(object):
     def __init__(self, model, mode="mix", echo=True):
         """Parameters:
             model - subclass of EFLModel
-            games - EFLGames instance on which model was built
             mode - what mode this predictor will operate in. can be one of the
                 following values: (1) 'past', use predicted results for
                 observed games and nothing for unobserved games. (2) 'future',
