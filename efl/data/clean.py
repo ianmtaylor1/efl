@@ -34,6 +34,8 @@ def clean_db():
     """Run several database cleaning operations."""
     session = db.Session()
     
+    problems = False
+    
     # Within a league, within a season, search for duplicate home/away pairs
     print("\n** Potential duplicate matches...")
     seasons = session.query(orm.Season).order_by(orm.Season.start.desc())
@@ -44,6 +46,7 @@ def clean_db():
                        .order_by(orm.Game.date)
         for (g1,g2) in itertools.combinations(games, 2):
             if (g1.hometeamid == g2.hometeamid) and (g1.awayteamid == g2.awayteamid):
+                problems = True
                 _display_game(g1)
                 _display_game(g2)
     
@@ -53,12 +56,14 @@ def clean_db():
     print("\n** Past games without results...")
     for g in pastgames:
         if g.result is None:
+            problems = True
             _display_game(g)
     
     # Prompt for deleting games 
-    print("\n** Delete games...")
-    while _prompt_delete(session):
-        pass
+    if problems:
+        print("\n** Delete games...")
+        while _prompt_delete(session):
+            pass
     
     # Commit any (for now nonexistent) changes
     session.commit()
