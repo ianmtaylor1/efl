@@ -365,9 +365,6 @@ class EFLModel(object):
         if vert:
             for tick in axes[0].get_xticklabels():
                 tick.set_rotation(90)
-            figs[0].subplots_adjust(bottom=0.25)
-        else:
-            figs[0].subplots_adjust(left=0.2)
         # Return the figure (no list, since boxplot always is on one figure)
         return figs[0]
     
@@ -610,7 +607,6 @@ def _make_axes(num_plots, page, figsize, main_title):
     for i,f in enumerate(figs):
         if main_title is not None:
             f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
-        f.subplots_adjust(hspace=0.5, wspace=0.25)
     return figs, axes
 
 def _draw_densplot(ax, data, nout=220):

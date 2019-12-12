@@ -315,5 +315,4 @@ def _make_axes(num_plots, page, figsize, main_title):
     for i,f in enumerate(figs):
         if main_title is not None:
             f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
-        f.subplots_adjust(hspace=0.5, wspace=0.25)
     return figs, axes
