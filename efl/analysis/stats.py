@@ -158,8 +158,9 @@ class LeaguePosition(object):
         points = t['HPts'] + t['APts']
         gf = (t['HGF'] + t['AGF']).fillna(0)
         gd = (gf - t['HGA'] - t['AGA']).fillna(0)
-        t2 = pandas.DataFrame({'pts':points, 'gd':gd, 'gf':gf})
-        return t2.sort_values(['pts','gd','gf'],ascending=False).index[self._pos-1]
+        t2 = pandas.DataFrame({'pts':points, 'gd':gd, 'gf':gf,
+                               'rnd':numpy.random.normal(size=len(points))})
+        return t2.sort_values(['pts','gd','gf','rnd'],ascending=False).index[self._pos-1]
 
 class TeamPosition(object):
     """This class returns the position within the league of the specified
@@ -177,8 +178,9 @@ class TeamPosition(object):
         points = t['HPts'] + t['APts']
         gf = (t['HGF'] + t['AGF']).fillna(0)
         gd = (gf - t['HGA'] - t['AGA']).fillna(0)
-        t2 = pandas.DataFrame({'pts':points, 'gd':gd, 'gf':gf})
-        t2 = t2.sort_values(['pts','gd','gf'], ascending=False)
+        t2 = pandas.DataFrame({'pts':points, 'gd':gd, 'gf':gf,
+                               'rnd':numpy.random.normal(size=len(points))})
+        t2 = t2.sort_values(['pts','gd','gf','rnd'], ascending=False)
         t2['rank'] = range(1,len(t2)+1)
         return t2.loc[self._team,'rank']
 
