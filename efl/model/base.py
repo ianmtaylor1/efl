@@ -358,7 +358,7 @@ class EFLModel(object):
         # Create the figures and axes for plotting
         figs, axes = _make_axes(1, (1,1), figsize, None)
         # Draw the boxplots on these axes
-        axes[0].set_title("Parameter Boxplots")
+        axes[0].set_title("Parameter Boxplot")
         axes[0].boxplot(samples[eflpars].T, labels=eflpars, 
                         showmeans=True, showcaps=False, showfliers=False,
                         vert=vert)
