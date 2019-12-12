@@ -251,3 +251,22 @@ def numtriangles(M):
     """Calculates the number of 'triangles' (e.g. A > B > C > A)"""
     M3 = numpy.matmul(numpy.matmul(M, M), M)
     return M3.diagonal().sum() / 3
+
+@stat('df','numeric',name='Goals Index of Dispersion')
+def goals_ind_disp(df):
+    """Calculates the index of dispersion (var/mean) for all goals scored in
+    all games."""
+    allgoals = df['homegoals'].append(df['awaygoals'])
+    return allgoals.var()/allgoals.mean()
+
+@stat('df','numeric',name='Goals Coefficient of Variation')
+def goals_cv(df):
+    """Calculates the coefficient of variation (sd/mean) for all goals scored
+    in all games."""
+    allgoals = df['homegoals'].append(df['awaygoals'])
+    return allgoals.std()/allgoals.mean()
+
+@stat('df','numeric')
+def avghomemargin(df):
+    """Calculates the average home team margin of victory for all games."""
+    return (df['homegoals']-df['awaygoals']).mean()
