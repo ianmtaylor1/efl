@@ -98,7 +98,7 @@ def clean_db():
     # Create argument parser
     parser = argparse.ArgumentParser(description="Download and save EFL games.")
     parser.add_argument("-y", type=int, required=False,
-            help="The season to download (e.g. 2018 for 18-19 season).")
+            help="The season to check (e.g. 2018 for 18-19 season).")
     parser.add_argument("--config", "-c", type=str,
             help="Configuration file to override defaults.")
     # Parse args
