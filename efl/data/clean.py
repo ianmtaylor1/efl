@@ -114,7 +114,7 @@ def clean_db():
     if args.y is not None:
         _check_season(session, args.y)
     else:
-        years = [s.start for s in session.query(orm.Season).all()]
+        years = [s.start for s in session.query(orm.Season).order_by(orm.Season.start).all()]
         for y in years:
             _check_season(session, y)
     
