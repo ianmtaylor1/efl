@@ -45,8 +45,8 @@ class GameResult(object):
             self.name = "Result {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
-            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
-            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
             self.name = '{} vs {} Result'.format(hometeam, awayteam)
         self.precompute = 'df'
         self.type_ = 'ordinal'
@@ -77,8 +77,8 @@ class GameScore(object):
             self.name = "Score {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
-            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
-            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
             self.name = '{} vs {} Score'.format(hometeam, awayteam)
         self.precompute = 'df'
         self.type_ = 'ordinal'
@@ -107,8 +107,8 @@ class GameMargin(object):
             self.name = "Margin {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
-            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
-            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
             self.name = '{} vs {} Margin'.format(hometeam, awayteam)
         self.precompute = 'df'
         self.type_ = 'ordinal'
@@ -132,8 +132,8 @@ class GameTotalGoals(object):
             self.name = "Total Goals {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
-            hometeam = gamedf.loc[gameid, 'hometeam'].values[0]
-            awayteam = gamedf.loc[gameid, 'awayteam'].values[0]
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
             self.name = '{} vs {} Total Goals'.format(hometeam, awayteam)
         self.precompute = 'df'
         self.type_ = 'ordinal'
