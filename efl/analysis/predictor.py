@@ -213,7 +213,7 @@ class EFLPredictor(object):
     
     # Methods to plot statistics
     
-    def plot(self, stat=None, page=(1,1)):
+    def plot(self, stat=None, page=(1,1), figsize=None):
         """Make plots of desired statistic(s).
         Parameters:
             stat - either a string or a list of strings, name(s) of stats
@@ -228,7 +228,7 @@ class EFLPredictor(object):
         # For each stat, plot it on an axis
         if type(stat) == str:
             stat = list(stat)
-        figs, axes = _make_axes(len(stat), page, "Statistic Plots")
+        figs, axes = _make_axes(len(stat), page, figsize, "Statistic Plots")
         for ax,s in zip(axes,stat):
             if self._stat_types[s] == 'numeric':
                 self._plot_numeric(s, ax)
@@ -285,13 +285,15 @@ class EFLPredictor(object):
 ###############################################################################
 
  
-def _make_axes(num_plots, page, main_title):
+def _make_axes(num_plots, page, figsize, main_title):
     """Create figures and plots to be used by the plotting functions of
     EFLPredictor.
     Parameters:
         num_plots - number of plots that will be plotted
         page - a 2-tuple for the number of (rows, columns) that the axes will
             be arranged in per page.
+        figsize - figure size, passed to the matplotlib.pyplot.subplots
+            command. See matplotlib documentation.
         main_title - the title of each figure created. If None, no title will
             be added to the plot. Else, a title in the format
             'main_title #/#' will be added indicating the number of the plot
@@ -301,7 +303,7 @@ def _make_axes(num_plots, page, main_title):
         and the list axes contains all the axes to be plotted on.
     """
     numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
-    subplots = [plt.subplots(nrows=page[0], ncols=page[1]) for i in range(numfigs)]
+    subplots = [plt.subplots(nrows=page[0], ncols=page[1], figsize=figsize) for i in range(numfigs)]
     figs = [x[0] for x in subplots]
     if (page[0]*page[1] == 1):
         axes = [x[1] for x in subplots]

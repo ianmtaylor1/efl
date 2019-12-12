@@ -288,7 +288,7 @@ class EFLModel(object):
                 ac.loc[n,p] = samples[p].autocorr(n)
         return ac
     
-    def traceplot(self, pars=None, combine_chains=False, page=(2,2)):
+    def traceplot(self, pars=None, combine_chains=False, page=(2,2), figsize=None):
         """Create a traceplot of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
@@ -303,7 +303,7 @@ class EFLModel(object):
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, "Traceplot")
+        figs, axes = _make_axes(len(eflpars), page, figsize, "Traceplot")
         # Draw traceplots on all the axes objects
         for ax,p in zip(axes, eflpars):
             ax.set_title(p)
@@ -317,7 +317,7 @@ class EFLModel(object):
         # Return the list of figures
         return figs
     
-    def densplot(self, pars=None, combine_chains=False, page=(2,2)):
+    def densplot(self, pars=None, combine_chains=False, page=(2,2), figsize=None):
         """Create a density plot of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
@@ -332,7 +332,7 @@ class EFLModel(object):
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, "Density Plot")
+        figs, axes = _make_axes(len(eflpars), page, figsize, "Density Plot")
         # Draw density estimates on all of the axes
         for ax,p in zip(axes,eflpars):
             ax.set_title(p)
@@ -345,7 +345,7 @@ class EFLModel(object):
         # Return the list of figures
         return figs
     
-    def boxplot(self, pars=None, vert=True):
+    def boxplot(self, pars=None, vert=True, figsize=None):
         """Create side-by-side boxplots of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
@@ -356,7 +356,7 @@ class EFLModel(object):
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(1, (1,1), None)
+        figs, axes = _make_axes(1, (1,1), figsize, None)
         # Draw the boxplots on these axes
         axes[0].set_title("Parameter Boxplots")
         axes[0].boxplot(samples[eflpars].T, labels=eflpars, 
@@ -371,7 +371,7 @@ class EFLModel(object):
         # Return the figure (no list, since boxplot always is on one figure)
         return figs[0]
     
-    def acfplot(self, pars=None, maxlag=20, page=(2,2)):
+    def acfplot(self, pars=None, maxlag=20, page=(2,2), figsize=None):
         """Create an acf plot for the posterior samples of this model.
         Parameters:
             pars - the parameters to plot autocorrelation for. Default all.
@@ -384,7 +384,7 @@ class EFLModel(object):
         ac = self.autocorr(pars, range(maxlag+1))
         eflpars = list(ac.columns)
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, None)
+        figs, axes = _make_axes(len(eflpars), page, figsize, "Autocorrelation Plot")
         # Draw the autocorrelation plots
         for ax,p in zip(axes, eflpars):
             ax.set_title(p)
@@ -580,13 +580,15 @@ class EFL_ResultModel(EFLModel):
 ###############################################################################
         
 
-def _make_axes(num_plots, page, main_title):
+def _make_axes(num_plots, page, figsize, main_title):
     """Create figures and plots to be used by the plotting functions of
     EFLModel.
     Parameters:
         num_plots - number of plots that will be plotted
         page - a 2-tuple for the number of (rows, columns) that the axes will
             be arranged in per page.
+        figsize - figure size, passed to the matplotlib.pyplot.subplots
+            command. See matplotlib documentation.
         main_title - the title of each figure created. If None, no title will
             be added to the plot. Else, a title in the format
             'main_title #/#' will be added indicating the number of the plot
@@ -596,7 +598,7 @@ def _make_axes(num_plots, page, main_title):
         and the list axes contains all the axes to be plotted on.
     """
     numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
-    subplots = [plt.subplots(nrows=page[0], ncols=page[1]) for i in range(numfigs)]
+    subplots = [plt.subplots(nrows=page[0], ncols=page[1], figsize=figsize) for i in range(numfigs)]
     figs = [x[0] for x in subplots]
     if (page[0]*page[1] == 1):
         axes = [x[1] for x in subplots]
