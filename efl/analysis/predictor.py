@@ -124,19 +124,27 @@ class EFLPredictor(object):
             the default.
         """
         # If stat has a precompute attribute, override what was passed in
-        if 'precompute' in stat.__dict__:
+        try:
             precompute = stat.precompute
+        except AttributeError:
+            pass
         # If stat has a type_ attribute, override was was passed in
-        if 'type_' in stat.__dict__:
+        try:
             type_ = stat.type_
+        except AttributeError:
+            pass
         # If stat has a sort attribute, override what was passed in
-        if 'sort' in stat.__dict__:
+        try:
             sort = stat.sort
+        except AttributeError:
+            pass
         # If there was no name passed in, get it from the stat
         if name is None:
-            if 'name' in stat.__dict__: # Directly from a name attribute, or
+            try:
+                # Directly from a name attribute, or ...
                 name = stat.name
-            else:  # Just from the __name__
+            except AttributeError:
+                # ... just from the __name__
                 name = stat.__name__
         # Is this name already used?
         if name in self.stats:
