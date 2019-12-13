@@ -595,7 +595,8 @@ def _make_axes(num_plots, page, figsize, main_title):
         and the list axes contains all the axes to be plotted on.
     """
     numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
-    subplots = [plt.subplots(nrows=page[0], ncols=page[1], figsize=figsize) for i in range(numfigs)]
+    subplots = [plt.subplots(nrows=page[0], ncols=page[1], 
+                             figsize=figsize, constrained_layout=True) for i in range(numfigs)]
     figs = [x[0] for x in subplots]
     if (page[0]*page[1] == 1):
         axes = [x[1] for x in subplots]
