@@ -11,6 +11,51 @@ import functools
 import numpy
 import pandas
 
+
+###########################################################
+## BASE CLASS AND FUNCTION DECORATOR ######################
+###########################################################
+
+
+class BaseStat(object):
+    """Base class for stat classes. Implements common features and provides
+    a handy __init__ function."""
+    
+    def __init__(self, precompute, type_, name):
+        self.precompute = precompute
+        self.type_ = type_
+        self.name = name
+    
+    def _id(self):
+        """Returns identifying attributes of the object for hashing and
+        equality comparisons. Can be a single value or a tuple of values, but
+        needs to be hashable. Only needs to differentiate between members of
+        the same class - class comparison is automatically handled. Should be
+        equal for two instances that would result in the same computed values
+        of the statistic in __call__. It's okay to leave this unimplemented,
+        but it may result in lots of unnecessary repeated computation in the
+        EFLPredictor."""
+        raise NotImplementedError()
+    
+    def __call__(self, x):
+        """Computes the desired statistic on the data x."""
+        raise NotImplementedError()
+    
+    def __hash__(self):
+        try:
+            return hash((type(self), self._id()))
+        except NotImplementedError:
+            return super().__hash__()
+    
+    def __eq__(self, other):
+        if isinstance(other, BaseStat):
+            try:
+                return type(self) == type(other) and self._id() == other._id()
+            except NotImplementedError:
+                return super().__eq__(other)
+        return NotImplemented
+
+
 def stat(precompute, type_, name=None, sort=None):
     """Decorator for creating stat functions for use in EFLPredictor.
     Parameters:
@@ -27,64 +72,73 @@ def stat(precompute, type_, name=None, sort=None):
         @functools.wraps(func)
         def statwrapper(x):
             return func(x)
-        if name is not None:
-            statwrapper.name = name
         statwrapper.precompute = precompute
         statwrapper.type_ = type_
-        statwrapper.sort = sort
+        if name is not None:
+            statwrapper.name = name
+        if sort is not None:
+            statwrapper.sort = sort
         return statwrapper
     return stat_decorator
 
-class GameResult(object):
+
+###########################################################
+## DERIVED STAT CLASSES AND FUNCTIONS #####################
+###########################################################
+
+
+class GameResult(BaseStat):
     """This class is a stat that returns, for a given game id, what the
     result is. (Home, Draw, Away)"""
     
     def __init__(self, gameid, games=None):
-        self._gameid = gameid
+        # Determine the name
         if games is None:
-            self.name = "Result {}".format(gameid)
+            name = "Result {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
-            self.name = '{} vs {} Result'.format(hometeam, awayteam)
-        self.precompute = 'df'
-        self.type_ = 'ordinal'
+            name = '{} vs {} Result'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__('df', 'ordinal', name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
     
     def __call__(self, df):
-        # This assumes there is only one row for every gameid
         return df.loc[self._gameid, 'result']
     
     @staticmethod
     def sort(v):
         # Sorts in the order H,D,A
-        if v == 'H':
-            return 1
-        elif v == 'D':
-            return 2
-        elif v == 'A':
-            return 3
-        else:
-            return 4
+        return {'H':1, 'D':2, 'A':3}.get(v, 4)
 
-class GameScore(object):
+
+class GameScore(BaseStat):
     """This class is a stat that returns, for a given game id, what the
     score is as a tuple: (homegoals, awaygoals)"""
     
     def __init__(self, gameid, games=None):
-        self._gameid = gameid
+        # Determine the name
         if games is None:
-            self.name = "Score {}".format(gameid)
+            name = "Score {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
-            self.name = '{} vs {} Score'.format(hometeam, awayteam)
-        self.precompute = 'df'
-        self.type_ = 'ordinal'
+            name = '{} vs {} Score'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__('df', 'ordinal', name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
     
     def __call__(self, df):
-        # This assumes there is only one row for every gameid
         return (df.loc[self._gameid,'homegoals'], df.loc[self._gameid,'awaygoals'])
     
     @staticmethod
@@ -97,62 +151,76 @@ class GameScore(object):
             total = -(v[0] + v[1])
         return (-margin, -total)
 
-class GameMargin(object):
+
+class GameMargin(BaseStat):
     """This class is a stat that returns, for a given game id, what the
     margin is: homegoals - awaygoals"""
     
     def __init__(self, gameid, games=None):
-        self._gameid = gameid
+        # Determine the name
         if games is None:
-            self.name = "Margin {}".format(gameid)
+            name = "Margin {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
-            self.name = '{} vs {} Margin'.format(hometeam, awayteam)
-        self.precompute = 'df'
-        self.type_ = 'ordinal'
+            name = '{} vs {} Margin'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__('df', 'ordinal', name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
     
     def __call__(self, df):
-        # This assumes there is only one row for every gameid
         return df.loc[self._gameid,'homegoals'] - df.loc[self._gameid,'awaygoals']
     
     @staticmethod
     def sort(v):
         # Sorts from largest home win to largest away win
         return -v
-    
-class GameTotalGoals(object):
+
+
+class GameTotalGoals(BaseStat):
     """This class is a stat that returns, for a given game id, what the
     total score is: homegoals + awaygoals"""
     
     def __init__(self, gameid, games=None):
-        self._gameid = gameid
+        # Determine the name
         if games is None:
-            self.name = "Total Goals {}".format(gameid)
+            name = "Total Goals {}".format(gameid)
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
-            self.name = '{} vs {} Total Goals'.format(hometeam, awayteam)
-        self.precompute = 'df'
-        self.type_ = 'ordinal'
+            name = '{} vs {} Total Goals'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__('df', 'ordinal', name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
     
     def __call__(self, df):
         # This assumes there is only one row for every gameid
         return df.loc[self._gameid,'homegoals'] + df.loc[self._gameid,'awaygoals']
 
-class LeaguePosition(object):
+
+class LeaguePosition(BaseStat):
     """This class returns the team that is in the supplied position within 
     the league. (1 = Winner, 2 = runner-up, etc). Issues: Ties (points, goal
     difference, and goals for all equal) are arbitrarily decided. In real
     tables, teams share a rank."""
     
     def __init__(self, position):
+        super().__init__('table', 'nominal',
+                         "League Position {}".format(position))
         self._pos = position
-        self.name = "League Position {}".format(position)
-        self.precompute = 'table'
-        self.type_ = 'nominal'
+
+    def _id(self):
+        return self._pos
     
     def __call__(self, t):
         points = t['HPts'] + t['APts']
@@ -162,17 +230,19 @@ class LeaguePosition(object):
                                'rnd':numpy.random.normal(size=len(points))})
         return t2.sort_values(['pts','gd','gf','rnd'],ascending=False).index[self._pos-1]
 
-class TeamPosition(object):
+
+class TeamPosition(BaseStat):
     """This class returns the position within the league of the specified
     team. (1=Winner, 2=Runner-up, etc) Issues: Ties (points, goal
     difference, and goals for all equal) are arbitrarily decided. In real
     tables, teams share a rank."""
     
     def __init__(self, team):
+        super().__init__('table', 'ordinal', "{} Position".format(team))
         self._team = team
-        self.name = "{} Position".format(team)
-        self.precompute = 'table'
-        self.type_ = 'ordinal'
+        
+    def _id(self):
+        return self._team
     
     def __call__(self, t):
         points = t['HPts'] + t['APts']
@@ -184,18 +254,21 @@ class TeamPosition(object):
         t2['rank'] = range(1,len(t2)+1)
         return t2.loc[self._team,'rank']
 
-class TeamPoints(object):
+
+class TeamPoints(BaseStat):
     """This class is a stat that returns, for a given team, how many points
     the team has total (Points are 3 for a win, 1 for a draw.)"""
     
     def __init__(self, team):
+        super().__init__('table', 'numeric', '{} points'.format(team))
         self._team = team
-        self.name = '{} points'.format(team)
-        self.precompute = 'table'
-        self.type_ = 'numeric'
+
+    def _id(self):
+        return self._team
     
     def __call__(self, t):
         return t.loc[self._team,'HPts'] + t.loc[self._team,'APts']
+
 
 @stat('df','numeric')
 def homewinpct(g):
@@ -203,11 +276,13 @@ def homewinpct(g):
     by the home team."""
     return 100*sum(g['result'] == 'H')/g['result'].count()
 
+
 @stat('df','numeric')
 def drawpct(g):
     """Calculates the likelihood of a draw: what percentage of games resulted
     in a draw."""
     return 100*sum(g['result'] == 'D')/g['result'].count()
+
 
 @stat('table','numeric')
 def maxpoints(t):
@@ -215,11 +290,13 @@ def maxpoints(t):
     draw.)"""
     return numpy.max(t['HPts'] + t['APts'])
 
+
 @stat('table','numeric')
 def minpoints(t):
     """Calculates the min points by a team. (Points are 3 for a win, 1 for a
     draw.)"""
     return numpy.min(t['HPts'] + t['APts'])
+
 
 @stat('table','numeric')
 def sdpoints(t):
@@ -232,6 +309,7 @@ def sdhomeadv(t):
     """Calculates the standard deviation of the homefield advantage for all
     teams. Homefield advantage is defined as home points minus away points."""
     return numpy.std(t['HPts'] - t['APts'])
+
 
 @stat('table','numeric')
 def maxhomeadv(t):
@@ -246,11 +324,13 @@ def numrecip(M):
     M2 = numpy.matmul(M, M)
     return M2.diagonal().sum() / 2
 
+
 @stat('matrix','numeric')
 def numtriangles(M):
     """Calculates the number of 'triangles' (e.g. A > B > C > A)"""
     M3 = numpy.matmul(numpy.matmul(M, M), M)
     return M3.diagonal().sum() / 3
+
 
 @stat('df','numeric',name='Goals Index of Dispersion')
 def goals_ind_disp(df):
@@ -266,7 +346,9 @@ def goals_cv(df):
     allgoals = df['homegoals'].append(df['awaygoals'])
     return allgoals.std()/allgoals.mean()
 
+
 @stat('df','numeric')
 def avghomemargin(df):
     """Calculates the average home team margin of victory for all games."""
     return (df['homegoals']-df['awaygoals']).mean()
+
