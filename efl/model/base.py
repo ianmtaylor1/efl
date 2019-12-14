@@ -8,13 +8,13 @@ common features.
 """
 
 from . import cache
+from .. import util
 
 import numpy
 import pandas
 import itertools
 import re
-import matplotlib.pyplot as plt
-from scipy.stats import kde
+
 
 ###############################################################################
 ## BASE MODEL #################################################################
@@ -288,65 +288,76 @@ class EFLModel(object):
                 ac.loc[n,p] = samples[p].autocorr(n)
         return ac
     
-    def traceplot(self, pars=None, combine_chains=False, page=(2,2), figsize=None):
+    def traceplot(self, pars=None, combine_chains=False, 
+                  nrows=2, ncols=2, figsize=None):
         """Create a traceplot of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
             combine_chains - True: combine chains and plot one series per
                 graph. False: plot each chain as individual series on each
                 graph.
-            page - tuple describing how many plots to put in one figure, 
-                arranged in (rows, columns)
-        Returns: a list of matplotlib.pyplot figures, one for each page.        
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
+        Returns: a generator which yields figures one at a time        
         """
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
-        eflpars = [c for c in samples.columns if c in self.parameters]
+        numpars = sum(1 for c in samples.columns if c in self.parameters)
+        eflpars = (c for c in samples.columns if c in self.parameters)
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, figsize, "Traceplot")
-        # Draw traceplots on all the axes objects
-        for ax,p in zip(axes, eflpars):
-            ax.set_title(p)
-            if combine_chains:
-                ax.plot(range(len(samples[p])), samples[p], linewidth=1)
-            else:
-                nchains = samples['chain'].max() + 1
-                for c in samples['chain'].unique():
-                    chain = samples[samples['chain'] == c]
-                    ax.plot(range(len(chain[p])), chain[p], linewidth=1/nchains)
-        # Return the list of figures
-        return figs
+        figs = util.make_axes(numpars, nrows, ncols, figsize, "Traceplot")
+        for fig in figs:
+            # Draw traceplots on all the axes objects
+            # Since eflpars is a generator, this will pick up where it left
+            # off in the parameters with each new figure.
+            for ax,p in zip(fig.axes, eflpars):
+                ax.set_title(p)
+                if combine_chains:
+                    ax.plot(range(len(samples[p])), samples[p], linewidth=1)
+                else:
+                    nchains = samples['chain'].max() + 1
+                    for c in samples['chain'].unique():
+                        chain = samples.loc[samples['chain'] == c, p]
+                        ax.plot(range(len(chain)), chain, linewidth=1/nchains)
+            # Yield this figure once done drawing
+            yield fig
     
-    def densplot(self, pars=None, combine_chains=False, page=(2,2), figsize=None):
+    def densplot(self, pars=None, combine_chains=False,
+                 nrows=2, ncols=2, figsize=None):
         """Create a density plot of the samples from this model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
             combine_chains - True: combine chains and plot one series per
                 graph. False: plot each chain as individual series on each
                 graph.
-            page - tuple describing how many plots to put in one figure, 
-                arranged in (rows, columns)
-        Returns: a list of matplotlib.pyplot figures, one for each page.
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
+        Returns: a generator which yields figures one at a time
         """
         # Get the data for plotting
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
-        eflpars = [c for c in samples.columns if c in self.parameters]
+        numpars = sum(1 for c in samples.columns if c in self.parameters)
+        eflpars = (c for c in samples.columns if c in self.parameters)
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, figsize, "Density Plot")
-        # Draw density estimates on all of the axes
-        for ax,p in zip(axes,eflpars):
-            ax.set_title(p)
-            if combine_chains:
-                _draw_densplot(ax, samples[p])
-            else:
-                for c in samples['chain'].unique():
-                    chain = samples[samples['chain'] == c]
-                    _draw_densplot(ax, chain[p])
-        # Return the list of figures
-        return figs
+        figs = util.make_axes(numpars, nrows, ncols, figsize, "Density Plot")
+        for fig in figs:
+            # Draw density estimates on all of the axes
+            # Since eflpars is a generator, this will pick up where it left
+            # off in the parameters with each new figure.
+            for ax,p in zip(fig.axes, eflpars):
+                ax.set_title(p)
+                if combine_chains:
+                    util.draw_densplot(ax, samples[p])
+                else:
+                    for c in samples['chain'].unique():
+                        chain = samples.loc[samples['chain'] == c, p]
+                        util.draw_densplot(ax, chain)
+            # Return the list of figures
+            yield fig
     
     def boxplot(self, pars=None, vert=True, figsize=None):
-        """Create side-by-side boxplots of the samples from this model.
+        """Create side-by-side boxplots of the posterior samples from this
+        model.
         Parameters:
             pars - list of parameters to make plots for. Default all.
             vert - should the boxplots be vertical?
@@ -356,37 +367,45 @@ class EFLModel(object):
         samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
         eflpars = [c for c in samples.columns if c in self.parameters]
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(1, (1,1), figsize, None)
+        # Here, we know that this will only create exactly one figure with
+        # exactly one Axes object.
+        fig = next(util.make_axes(1, 1, 1, figsize, None))
+        ax = fig.axes[0]
         # Draw the boxplots on these axes
-        axes[0].set_title("Parameter Boxplot")
-        axes[0].boxplot(samples[eflpars].T, labels=eflpars, 
-                        showmeans=True, showcaps=False, showfliers=False,
-                        vert=vert)
+        ax.set_title("Parameter Boxplot")
+        ax.boxplot(samples[eflpars].T, labels=eflpars, 
+                   showmeans=True, showcaps=False, showfliers=False,
+                   whis=[2.5, 97.5], vert=vert)
         if vert:
-            for tick in axes[0].get_xticklabels():
+            for tick in ax.get_xticklabels():
                 tick.set_rotation(90)
         # Return the figure (no list, since boxplot always is on one figure)
-        return figs[0]
+        return fig
     
-    def acfplot(self, pars=None, maxlag=20, page=(2,2), figsize=None):
+    def acfplot(self, pars=None, maxlag=20, nrows=2, ncols=2, figsize=None):
         """Create an acf plot for the posterior samples of this model.
         Parameters:
             pars - the parameters to plot autocorrelation for. Default all.
             maxlag - the maximum lag to compute and plot autocorelation for.
-            page - tuple describing how many plots to put in one figure, 
-                arranged in (rows, columns)
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
         """
         # Find autocorrelations. Let autocorr do parameter parsing, and just
         # look at what columns it returns
         ac = self.autocorr(pars, range(maxlag+1))
-        eflpars = list(ac.columns)
+        numpars = len(ac.columns)
+        eflpars = (c for c in ac.columns)
         # Create the figures and axes for plotting
-        figs, axes = _make_axes(len(eflpars), page, figsize, "Autocorrelation Plot")
-        # Draw the autocorrelation plots
-        for ax,p in zip(axes, eflpars):
-            ax.set_title(p)
-            ax.bar(ac.index, ac[p])
-        return figs
+        figs = util.make_axes(numpars, nrows, ncols, figsize, 
+                              "Autocorrelation Plot")
+        for fig in figs:
+            # Draw the autocorrelation plots
+            # Since eflpars is a generator, this will pick up where it left
+            # off in the parameters with each new figure.
+            for ax,p in zip(fig.axes, eflpars):
+                ax.set_title(p)
+                ax.bar(ac.index, ac[p])
+            yield fig
         
 
 
@@ -571,55 +590,3 @@ class EFL_ResultModel(EFLModel):
         # Drop quantity and return
         return samples.drop(qtyname, axis=1)
 
-
-###############################################################################
-## UTILITY FUNCTIONS ##########################################################
-###############################################################################
-        
-
-def _make_axes(num_plots, page, figsize, main_title):
-    """Create figures and plots to be used by the plotting functions of
-    EFLModel.
-    Parameters:
-        num_plots - number of plots that will be plotted
-        page - a 2-tuple for the number of (rows, columns) that the axes will
-            be arranged in per page.
-        figsize - figure size, passed to the matplotlib.pyplot.subplots
-            command. See matplotlib documentation.
-        main_title - the title of each figure created. If None, no title will
-            be added to the plot. Else, a title in the format
-            'main_title #/#' will be added indicating the number of the plot
-            in the sequence
-    Returns: (figs, axes), a list of figures and a list of axes. figs contains
-        one figure per actual figure created. len(axes) is always num_plots,
-        and the list axes contains all the axes to be plotted on.
-    """
-    numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
-    subplots = [plt.subplots(nrows=page[0], ncols=page[1], 
-                             figsize=figsize, constrained_layout=True) for i in range(numfigs)]
-    figs = [x[0] for x in subplots]
-    if (page[0]*page[1] == 1):
-        axes = [x[1] for x in subplots]
-    else:
-        axes = list(itertools.chain.from_iterable(x[1].flatten() for x in subplots))
-    for ax in axes[num_plots:]:
-        ax.axis('off')
-    axes = axes[:num_plots]
-    for i,f in enumerate(figs):
-        if main_title is not None:
-            f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
-    return figs, axes
-
-def _draw_densplot(ax, data, nout=220):
-    """Draw a density plot on the axes provided.
-    Parameters:
-        ax - the axes to draw on
-        data - the data to estimate the density with
-        nout - number of points to use when drawing the density
-    """
-    density = kde.gaussian_kde(data)
-    xlow = min(data) - 0.05*(max(data) - min(data))
-    xhigh = max(data) + 0.05*(max(data) - min(data))
-    x = numpy.arange(xlow, xhigh, (xhigh-xlow)/nout)
-    y = density(x)
-    ax.plot(x,y)

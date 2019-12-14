@@ -7,10 +7,9 @@ predictive samples of game outcomes
 """
 
 from . import analysis
+from .. import util
 
 import pandas
-import matplotlib.pyplot as plt
-import itertools
 
 ###########################################################
 ### CLASS FOR MAKING PREDICTIONS ##########################
@@ -221,14 +220,14 @@ class EFLPredictor(object):
     
     # Methods to plot statistics
     
-    def plot(self, stat=None, page=(1,1), figsize=None):
+    def plot(self, stat=None, nrows=1, ncols=1, figsize=None):
         """Make plots of desired statistic(s).
         Parameters:
             stat - either a string or a list of strings, name(s) of stats
-            page - tuple describing how many plots to put in one figure, 
-                arranged in (rows, columns)
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
         Returns:
-            A list of matplotlib.pyplot figures for the plotted statistics.
+            A generator which yields figures one at a time.
         """
         # By default, summarize all stats
         if stat is None:
@@ -236,13 +235,17 @@ class EFLPredictor(object):
         # For each stat, plot it on an axis
         if type(stat) == str:
             stat = list(stat)
-        figs, axes = _make_axes(len(stat), page, figsize, "Statistic Plots")
-        for ax,s in zip(axes,stat):
-            if self._stat_types[s] == 'numeric':
-                self._plot_numeric(s, ax)
-            elif self._stat_types[s] in ['ordinal','nominal']:
-                self._plot_categorical(s, ax)
-        return figs
+        # Make a generator for statistics to zip with the axes
+        statgen = (s for s in stat)
+        # Get the generator for figures we will draw on
+        figs = util.make_axes(len(stat), nrows, ncols, figsize, "Statistic Plots")
+        for fig in figs:
+            for ax, s in zip(fig.axes, statgen):
+                if self._stat_types[s] == 'numeric':
+                    self._plot_numeric(s, ax)
+                elif self._stat_types[s] in ['ordinal','nominal']:
+                    self._plot_categorical(s, ax)
+            yield fig
     
     def _plot_numeric(self, stat, ax):
         """Plot a stat whose type is 'numeric'. Doesn't validate."""
@@ -287,41 +290,4 @@ class EFLPredictor(object):
         df['draw'] = [d for c,d in self._indices]
         return df.set_index(['chain','draw']).sort_index()
 
-
-###############################################################################
-## UTILITY FUNCTIONS ##########################################################
-###############################################################################
-
- 
-def _make_axes(num_plots, page, figsize, main_title):
-    """Create figures and plots to be used by the plotting functions of
-    EFLPredictor.
-    Parameters:
-        num_plots - number of plots that will be plotted
-        page - a 2-tuple for the number of (rows, columns) that the axes will
-            be arranged in per page.
-        figsize - figure size, passed to the matplotlib.pyplot.subplots
-            command. See matplotlib documentation.
-        main_title - the title of each figure created. If None, no title will
-            be added to the plot. Else, a title in the format
-            'main_title #/#' will be added indicating the number of the plot
-            in the sequence
-    Returns: (figs, axes), a list of figures and a list of axes. figs contains
-        one figure per actual figure created. len(axes) is always num_plots,
-        and the list axes contains all the axes to be plotted on.
-    """
-    numfigs = (num_plots // (page[0]*page[1])) + ((num_plots % (page[0]*page[1])) > 0)
-    subplots = [plt.subplots(nrows=page[0], ncols=page[1], 
-                             figsize=figsize, constrained_layout=True) for i in range(numfigs)]
-    figs = [x[0] for x in subplots]
-    if (page[0]*page[1] == 1):
-        axes = [x[1] for x in subplots]
-    else:
-        axes = list(itertools.chain.from_iterable(x[1].flatten() for x in subplots))
-    for ax in axes[num_plots:]:
-        ax.axis('off')
-    axes = axes[:num_plots]
-    for i,f in enumerate(figs):
-        if main_title is not None:
-            f.suptitle("{} {}/{}".format(main_title, i+1, numfigs))
-    return figs, axes
+        
