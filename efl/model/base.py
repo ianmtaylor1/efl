@@ -146,6 +146,14 @@ class EFLModel(object):
                 # This is the keyword "all". This check is second to allow
                 # models to override the 'all' keyword in _pargroups
                 eflparlist = self.parameters
+            elif pars == 'other':
+                # This is the keyword 'other'. This keyword references all
+                # parameters that are not part of any defined group. 
+                # Check is done here to allow models to override in _pargroups
+                tmppars = set(self.parameters)
+                for g in self.pargroups:
+                    tmppars -= set(self._pargroups[g])
+                eflparlist = list(tmppars)
             else:
                 # This is a parameter by itself
                 eflparlist = [pars]
