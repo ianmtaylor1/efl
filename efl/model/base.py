@@ -501,8 +501,8 @@ class EFL_GoalModel(EFLModel):
         samples = self.stanfit.to_dataframe(pars=[hg, ag], permuted=False,
                                             diagnostics=False)
         # Map to a result
-        samples['homegoals'] = samples[hg]
-        samples['awaygoals'] = samples[ag]
+        samples['homegoals'] = samples[hg].map(int)
+        samples['awaygoals'] = samples[ag].map(int)
         samples['result'] = 'D'
         samples.loc[(samples['homegoals']>samples['awaygoals']),'result'] = 'H'
         samples.loc[(samples['homegoals']<samples['awaygoals']),'result'] = 'A'

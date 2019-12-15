@@ -339,6 +339,7 @@ def goals_ind_disp(df):
     allgoals = df['homegoals'].append(df['awaygoals'])
     return allgoals.var()/allgoals.mean()
 
+
 @stat('df','numeric',name='Goals Coefficient of Variation')
 def goals_cv(df):
     """Calculates the coefficient of variation (sd/mean) for all goals scored
