@@ -48,7 +48,7 @@ class EFLPredictor(object):
             self._modeldf = model.predict("predict")
             self._gamesdf = model.gamedata.loc[model.fitgameids,:]
         else:
-            raise Exception("Invalid value for parameter 'mode'")
+            raise Exception("Invalid value for 'mode': '{}'".format(mode))
         # A list of all the unique index values (chain, draw)
         if self._echo:
             print("Assembling indices...")
@@ -57,6 +57,8 @@ class EFLPredictor(object):
         self._df_save = None
         self._table_save = None
         self._matrix_save = None
+        # Dict to map statistic names to stat keys
+        self._name2stat = {}
         # Dict to hold computed statistics
         self._stat_values = {}
         # Dict to hold the data types of computed statistics
@@ -102,7 +104,7 @@ class EFLPredictor(object):
     # Property that lists the stats that have been added
     @property
     def stats(self):
-        return list(self._stat_values.keys())
+        return list(self._name2stat.keys())
     
     def add_stat(self, stat, name=None, precompute="df", type_="nominal", sort=None):
         """Add a statistic to this Predictor.
@@ -146,73 +148,84 @@ class EFLPredictor(object):
                 # ... just from the __name__
                 name = stat.__name__
         # Is this name already used?
-        if name in self.stats:
+        if (name in self.stats) and (self._name2stat.get(name) != stat):
             raise Exception("Name {} already used by stat".format(name))
-        # Echo if needed
-        if self._echo:
-            print("Calculating {}...".format(name))
-        # Register the stat's type
-        self._stat_types[name] = type_
-        if type_ == 'ordinal':
-            self._stat_sort[name] = sort
-        # Compute and store the stat's values
-        if precompute == 'df':
-            self._stat_values[name] = [stat(df) for df in self._dataframes]
-        elif precompute == 'table':
-            self._stat_values[name] = [stat(t) for t in self._tables]
-        elif precompute == 'matrix':
-            self._stat_values[name] = [stat(m) for m in self._matrices]
-        else:
-            raise Exception("'{}' is invalid value for 'precompute'".format(precompute))
+        elif (name not in self.stats):
+            # Register the stat's name
+            self._name2stat[name] = stat
+        # Compute if we need to
+        if stat not in self._stat_values:
+            # Echo if needed
+            if self._echo:
+                print("Calculating {}...".format(name))
+            # Register the stat's type
+            self._stat_types[stat] = type_
+            if type_ == 'ordinal':
+                self._stat_sort[stat] = sort
+            # Compute and store the stat's values
+            if precompute == 'df':
+                self._stat_values[stat] = [stat(df) for df in self._dataframes]
+            elif precompute == 'table':
+                self._stat_values[stat] = [stat(t) for t in self._tables]
+            elif precompute == 'matrix':
+                self._stat_values[stat] = [stat(m) for m in self._matrices]
+            else:
+                raise Exception("Invalid value for 'precompute': '{}'".format(precompute))
     
     # Methods to summarize statistics
     
-    def summary(self, stat=None):
+    def summary(self, names=None):
         """Compute summaries of desired statistic(s).
         Parameters:
-            stat - either a string or a list of strings, name(s) of stats
+            names - either a string or a list of strings, name(s) of stats
         Returns:
             If stat is a string, a single pandas Series containing the summary.
             If stat is a list of strings, a dict with stat names as keys and
             summaries as values.
         """
         # By default, summarize all stats
-        if stat is None:
-            stat = self.stats
+        if names is None:
+            names = self.stats
         # Create summary
         summ = None
-        if type(stat) == str: # For single stat
-            if self._stat_types[stat] == 'numeric':
-                summ = self._summary_numeric(stat)
-            elif self._stat_types[stat] == 'ordinal':
-                summ = self._summary_ordinal(stat)
-            elif self._stat_types[stat] == 'nominal':
-                summ = self._summary_nominal(stat)
-        elif type(stat) == list: # For list of stats
+        if type(names) == str: # For single stat
+            if self._stat_types[self._name2stat[names]] == 'numeric':
+                summ = self._summary_numeric(names)
+            elif self._stat_types[self._name2stat[names]] == 'ordinal':
+                summ = self._summary_ordinal(names)
+            elif self._stat_types[self._name2stat[names]] == 'nominal':
+                summ = self._summary_nominal(names)
+        elif type(names) == list: # For list of stats
             summ = {}
-            for s in stat:
-                if self._stat_types[s] == 'numeric':
-                    summ[s] = self._summary_numeric(s)
-                elif self._stat_types[s] == 'ordinal':
-                    summ[s] = self._summary_ordinal(s)
-                elif self._stat_types[s] == 'nominal':
-                    summ[s] = self._summary_nominal(s)
+            for n in names:
+                if self._stat_types[self._name2stat[n]] == 'numeric':
+                    summ[n] = self._summary_numeric(self._name2stat[n])
+                elif self._stat_types[self._name2stat[n]] == 'ordinal':
+                    summ[n] = self._summary_ordinal(self._name2stat[n])
+                elif self._stat_types[self._name2stat[n]] == 'nominal':
+                    summ[n] = self._summary_nominal(self._name2stat[n])
         return summ
     
     def _summary_numeric(self, stat):
-        """Summarize a statistic whose type is 'numeric'. Doesn't validate."""
+        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict"""
         return pandas.Series(self._stat_values[stat])\
             .describe(percentiles=[.025,.25,.5,.75,.975])
     
     def _summary_nominal(self, stat):
-        """Summarize a statistic whose type is 'nominal'. Doesn't validate."""
+        """Summarize a statistic whose type is 'nominal'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict"""
         df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
         c = df.groupby(stat).count()['count']
         # Sort by count descending, normalize
         return c.sort_values(ascending=False) / len(df)
     
     def _summary_ordinal(self, stat):
-        """Summarize a statistic whose type is 'ordinal'. Doesn't validate."""
+        """Summarize a statistic whose type is 'ordinal'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict"""
         df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
         c = df.groupby(stat).count()['count']
         # Sort by category ascending, normalize
@@ -220,44 +233,49 @@ class EFLPredictor(object):
     
     # Methods to plot statistics
     
-    def plot(self, stat=None, nrows=1, ncols=1, figsize=None):
+    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
         """Make plots of desired statistic(s).
         Parameters:
-            stat - either a string or a list of strings, name(s) of stats
+            names - either a string or a list of strings, name(s) of stats
             nrows, ncols - the number of rows and columns to use to arrange
                 the axes in each figure.
+            figsize - a tuple for the figure size.
         Returns:
             A generator which yields figures one at a time.
         """
         # By default, summarize all stats
-        if stat is None:
-            stat = self.stats
+        if names is None:
+            names = self.stats
         # For each stat, plot it on an axis
-        if type(stat) == str:
-            stat = list(stat)
+        if type(names) == str:
+            names = list(names)
         # Make a generator for statistics to zip with the axes
-        statgen = (s for s in stat)
+        namegen = (n for n in names)
         # Get the generator for figures we will draw on
-        figs = util.make_axes(len(stat), nrows, ncols, figsize, "Statistic Plots")
+        figs = util.make_axes(len(names), nrows, ncols, figsize, "Statistic Plots")
         for fig in figs:
-            for ax, s in zip(fig.axes, statgen):
-                if self._stat_types[s] == 'numeric':
-                    self._plot_numeric(s, ax)
-                elif self._stat_types[s] in ['ordinal','nominal']:
-                    self._plot_categorical(s, ax)
+            for ax, n in zip(fig.axes, namegen):
+                if self._stat_types[self._name2stat[n]] == 'numeric':
+                    self._plot_numeric(n, ax)
+                elif self._stat_types[self._name2stat[n]] in ['ordinal','nominal']:
+                    self._plot_categorical(n, ax)
             yield fig
     
-    def _plot_numeric(self, stat, ax):
-        """Plot a stat whose type is 'numeric'. Doesn't validate."""
-        ax.hist(self._stat_values[stat], density=True)
-        ax.set_title(stat)
+    def _plot_numeric(self, name, ax):
+        """Plot a stat whose type is 'numeric'. Doesn't validate.
+        Parameters:
+            name - a stat name, a key in self._name2stat"""
+        ax.hist(self._stat_values[self._name2stat[name]], density=True)
+        ax.set_title(name)
         ax.set_ylabel("Frequency")
-        ax.set_xlabel(stat)
+        ax.set_xlabel(name)
         return ax
     
-    def _plot_categorical(self, stat, ax):
-        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate."""
-        s = self.summary(stat)
+    def _plot_categorical(self, name, ax):
+        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
+        Parameters:
+            name - a stat name, a key in self._name2stat"""
+        s = self.summary(name)
         bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
         maxtextlen = 40
         # Print relative frequencies over bars
@@ -272,9 +290,9 @@ class EFLPredictor(object):
             ax.text(x=xc, y=height, s=str(round(height,digits)),
                     ha='center', va='bottom', rotation=rotation)
         # Set titles and labels
-        ax.set_title(stat)
+        ax.set_title(name)
         ax.set_ylabel("Frequency")
-        ax.set_xlabel(stat)
+        ax.set_xlabel(name)
         # If the combined length of the labels is too long, rotate the labels
         if sum(len(str(x)) for x in s.index) > maxtextlen:
             for tick in ax.get_xticklabels():
@@ -285,7 +303,7 @@ class EFLPredictor(object):
         """Convert the statistics calculated by this predictor to a dataframe.
         Returns: a df with one row per posterior sample, with columns 'chain' 
         and 'draw' indicating the sample, and one column per statistic."""
-        df = pandas.DataFrame(self._stat_values)
+        df = pandas.DataFrame({n:self._stat_values[s] for n,s in self._name2stat.items()})
         df['chain'] = [c for c,d in self._indices]
         df['draw'] = [d for c,d in self._indices]
         return df.set_index(['chain','draw']).sort_index()
