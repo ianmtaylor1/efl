@@ -25,7 +25,19 @@ attributes:
 
 They can be created using this module in two ways: (1) by using the decorator
 @stat, or (2) by subclassing BaseStat and implementing __call__.
+
+There are also Groups - collections of statistics (substats) that are logically
+related and should be analyzed together. Substats are referred to within a
+group by subnames, which are unique within the group. Groups are essentially
+dict-like, mapping subnames as keys to substats as values. They have the
+following attributes:
+    name - the name of the group. Must be unique within the EFLPredictor it is
+        added to
+
+They can be created by subclassing StatGroup, or by creating a StatGroup
+directly.
 """
+
 
 import functools
 import numpy
@@ -47,8 +59,10 @@ class BaseStat(object):
                 self.precompute = tuple(precompute)
             except TypeError:
                 self.precompute = (precompute,)
-        self.type_ = type_
-        self.name = name
+        if type_ is not None:
+            self.type_ = type_
+        if name is not None:
+            self.name = name
     
     def _id(self):
         """Returns identifying attributes of the object for hashing and
@@ -80,15 +94,20 @@ class BaseStat(object):
         return NotImplemented
 
 
+class StatGroup(dict):
+    """Base class for stat groups."""
+
+
 def stat(_func=None, *, type_=None, precompute=None, name=None, sort=None):
     """Decorator for creating stat functions for use in EFLPredictor. Uses the
     paradigm of a decorator that can be used with or without arguments. (See
     https://realpython.com/primer-on-python-decorators/). Also means that it
     can be used as a decorator, or as a wrapper to decorate an existing
     function. E.g. either of these works:
-    >>> @stat(type_='nominal',name='My Cool Stat')
+    >>> @stat(type_='nominal', name='My Cool Stat')
         def mystat(df):
             ...
+            return ...
     >>> mystat2 = stat(some_existing_function, type_='numeric', name='Bingo!')
     
     Parameters:
@@ -336,7 +355,7 @@ class LeaguePosition(BaseStat):
         return self._pos
     
     def __call__(self, r):
-        return r.sort_values(ascending=False).index[self._pos-1]
+        return r.sort_values().index[self._pos-1]
 
 
 class TeamPosition(BaseStat):

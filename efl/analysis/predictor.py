@@ -6,10 +6,10 @@ Contains the base class for the prediction framework based on posterior
 predictive samples of game outcomes
 """
 
-from . import analysis
 from .. import util
 
 import pandas
+import warnings
 
 ###########################################################
 ### CLASS FOR MAKING PREDICTIONS ##########################
@@ -19,7 +19,7 @@ class EFLPredictor(object):
     """EFLPredictor - framework for computing summaries of posterior predictive
     samples from EFL models."""
     
-    def __init__(self, model, mode="mix", echo=True):
+    def __init__(self, model, mode=None):
         """Parameters:
             model - subclass of EFLModel
             mode - what mode this predictor will operate in. can be one of the
@@ -29,12 +29,21 @@ class EFLPredictor(object):
                 unobserved games. (3) 'full', use predicted results for both
                 observed and unobserved games. (4) 'mix', use observed results
                 for observed games, and predicted results for unobserved games.
+                If None, will be either 'mix', 'past', or 'future' depending
+                on whether model has fitgameids and/or predictgameids.
             echo - Should computation updates be printed? Improves user sanity
         """
-        self._echo = echo
+        # Determine default mode
+        if mode is None:
+            if len(model.fitgameids) > 0 and len(model.predictgameids) > 0:
+                mode = "mix"
+            elif len(model.fitgameids) > 0:
+                mode = "past"
+            elif len(model.predictgameids) > 0:
+                mode = "future"
+            else:
+                raise Exception("model has no games?")
         # Determine which results to use on which subsets of games
-        if self._echo:
-            print("Extracting predictions...")
         if mode == "past":
             self._modeldf = model.predict("fit")
             self._gamesdf = None
@@ -50,262 +59,312 @@ class EFLPredictor(object):
         else:
             raise Exception("Invalid value for 'mode': '{}'".format(mode))
         # A list of all the unique index values (chain, draw)
-        if self._echo:
-            print("Assembling indices...")
         self._indices = list(set((c,d) for c,d,_ in self._modeldf.index))
-        # Create lists to hold data frames, tables, and matrices
-        self._df_save = None
-        self._table_save = None
-        self._matrix_save = None
-        # Dict to map statistic names to stat keys
-        self._name2stat = {}
+        # Create list to hold one data frame per sampling iteration
+        self._samples_save = None
         # Dict to hold computed statistics
         self._stat_values = {}
+        # Dict to hold references to precomputes for stats
+        self._stat_precompute = {}
         # Dict to hold the data types of computed statistics
-        self._stat_types = {}
+        self._stat_type = {}
         # Dict to hold the sort keys for ordinal types
         self._stat_sort = {}
+        # Dict to map statistic names to stat keys
+        self._name2stat = {}
+        # Dict to map pair names to tuples of stat keys
+        self._group2stat = {}
+        # Dict to contain pair stat subnames
+        self._group_subnames = {}
     
-    # Properties to lazy compute and retrieve the data frames, tables, or
-    # matrices needed by stat functions
+    # Property to lazy compute and retrieve the data frames for each iteration
     
     @property
-    def _dataframes(self):
-        if self._df_save is None:
-            if self._echo:
-                print("Precomputing game lists...")
+    def _samples(self):
+        if self._samples_save is None:
             # For each posterior draw, take the predicted results and append
             # the observed results, if any
-            self._df_save = [self._modeldf.loc[i,:].append(self._gamesdf) for i in self._indices]
-            if self._echo:
-                print("Done precomputing lists...")
-        return self._df_save
-    
-    @property
-    def _tables(self):
-        if self._table_save is None:
-            if self._echo:
-                print("Precomputing league tables...")
-            self._table_save = [analysis.make_table(df) for df in self._dataframes]
-            if self._echo:
-                print("Done precomputing tables...")
-        return self._table_save
-    
-    @property
-    def _matrices(self):
-        if self._matrix_save is None:
-            if self._echo:
-                print("Precomputing directed win graphs...")
-            self._matrix_save = [analysis.make_matrix(df) for df in self._dataframes]
-            if self._echo:
-                print("Done precomputing graphs...")
-        return self._matrix_save
+            self._samples_save = [self._modeldf.loc[i,:].append(self._gamesdf) for i in self._indices]
+        return self._samples_save
     
     # Property that lists the stats that have been added
-    @property
-    def stats(self):
-        return list(self._name2stat.keys())
     
-    def add_stat(self, stat, name=None, precompute="df", type_="nominal", sort=None):
+    @property
+    def names(self):
+        return list(set(self._name2stat.keys()) | set(self._group2stat.keys()))
+    
+    # Methods to compute and add stats to this object
+    
+    def add_stat(self, stat, name=None, pool=None):
         """Add a statistic to this Predictor.
         Parameters:
             stat - a callable that will be used to compute the statistic
             name - The name to use when saving and referencing this stat
-            precompute - what needs to be precomputed and passed to this stat.
-                ('df', 'table' or 'matrix')
-            type_ - the return type of this stat ('ordinal', 'nominal', or
-                'numeric')
-            sort - if type_ is ordinal, a key function to sort the values
+            pool - An optional multiprocessing pool to split computation of
+                values between multiple cores/processes
         Notes:
             If stat has attributes "precompute", "type_", or "sort", those will
-            override what is passed to this function. Name behaves differently.
-            The name passed to this function is always used, if any. If stat 
-            has a "name" attribute, it will serve as the default name if none
-            is passed to this function. Otherwise, its __name__ attribute is
-            the default.
+            determine how this stat is handled. If the stat has a "substats"
+            attribute that evaluates to true, then stats will be computed from
+            an iterable in a "substats" attribute, with their names stored in a
+            "substat_names" iterable attribute. The name passed to this
+            function is always used, if any. If stat has a "name" attribute, it
+            will serve as the default name if none is passed to this function.
+            Otherwise, its __name__ attribute is the default.
         """
-        # If stat has a precompute attribute, override what was passed in
-        try:
-            precompute = stat.precompute
-        except AttributeError:
-            pass
-        # If stat has a type_ attribute, override was was passed in
-        try:
-            type_ = stat.type_
-        except AttributeError:
-            pass
-        # If stat has a sort attribute, override what was passed in
-        try:
-            sort = stat.sort
-        except AttributeError:
-            pass
         # If there was no name passed in, get it from the stat
-        if name is None:
-            try:
-                # Directly from a name attribute, or ...
-                name = stat.name
-            except AttributeError:
-                # ... just from the __name__
-                name = stat.__name__
+        name = self._determine_name(stat, name)
         # Is this name already used?
-        if (name in self.stats) and (self._name2stat.get(name) != stat):
-            raise Exception("Name {} already used by stat".format(name))
-        elif (name not in self.stats):
-            # Register the stat's name
-            self._name2stat[name] = stat
-        # Compute if we need to
-        if stat not in self._stat_values:
-            # Echo if needed
-            if self._echo:
-                print("Calculating {}...".format(name))
-            # Register the stat's type
-            self._stat_types[stat] = type_
-            if type_ == 'ordinal':
-                self._stat_sort[stat] = sort
-            # Compute and store the stat's values
-            if precompute == 'df':
-                self._stat_values[stat] = [stat(df) for df in self._dataframes]
-            elif precompute == 'table':
-                self._stat_values[stat] = [stat(t) for t in self._tables]
-            elif precompute == 'matrix':
-                self._stat_values[stat] = [stat(m) for m in self._matrices]
-            else:
-                raise Exception("Invalid value for 'precompute': '{}'".format(precompute))
-    
-    # Methods to summarize statistics
-    
-    def summary(self, names=None):
-        """Compute summaries of desired statistic(s).
-        Parameters:
-            names - either a string or a list of strings, name(s) of stats
-        Returns:
-            If stat is a string, a single pandas Series containing the summary.
-            If stat is a list of strings, a dict with stat names as keys and
-            summaries as values.
-        """
-        # By default, summarize all stats
-        if names is None:
-            names = self.stats
-        # Create summary
-        summ = None
-        if type(names) == str: # For single stat
-            if self._stat_types[self._name2stat[names]] == 'numeric':
-                summ = self._summary_numeric(names)
-            elif self._stat_types[self._name2stat[names]] == 'ordinal':
-                summ = self._summary_ordinal(names)
-            elif self._stat_types[self._name2stat[names]] == 'nominal':
-                summ = self._summary_nominal(names)
-        elif type(names) == list: # For list of stats
-            summ = {}
-            for n in names:
-                if self._stat_types[self._name2stat[n]] == 'numeric':
-                    summ[n] = self._summary_numeric(self._name2stat[n])
-                elif self._stat_types[self._name2stat[n]] == 'ordinal':
-                    summ[n] = self._summary_ordinal(self._name2stat[n])
-                elif self._stat_types[self._name2stat[n]] == 'nominal':
-                    summ[n] = self._summary_nominal(self._name2stat[n])
-        return summ
-    
-    def _summary_numeric(self, stat):
-        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
-        Parameters:
-            stat - a stat key to the self._stat_values dict"""
-        return pandas.Series(self._stat_values[stat])\
-            .describe(percentiles=[.025,.25,.5,.75,.975])
-    
-    def _summary_nominal(self, stat):
-        """Summarize a statistic whose type is 'nominal'. Doesn't validate.
-        Parameters:
-            stat - a stat key to the self._stat_values dict"""
-        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
-        c = df.groupby(stat).count()['count']
-        # Sort by count descending, normalize
-        return c.sort_values(ascending=False) / len(df)
-    
-    def _summary_ordinal(self, stat):
-        """Summarize a statistic whose type is 'ordinal'. Doesn't validate.
-        Parameters:
-            stat - a stat key to the self._stat_values dict"""
-        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
-        c = df.groupby(stat).count()['count']
-        # Sort by category ascending, normalize
-        return c[sorted(c.index, key=self._stat_sort[stat])] / len(df)
-    
-    # Methods to plot statistics
-    
-    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
-        """Make plots of desired statistic(s).
-        Parameters:
-            names - either a string or a list of strings, name(s) of stats
-            nrows, ncols - the number of rows and columns to use to arrange
-                the axes in each figure.
-            figsize - a tuple for the figure size.
-        Returns:
-            A generator which yields figures one at a time.
-        """
-        # By default, summarize all stats
-        if names is None:
-            names = self.stats
-        # For each stat, plot it on an axis
-        if type(names) == str:
-            names = list(names)
-        # Make a generator for statistics to zip with the axes
-        namegen = (n for n in names)
-        # Get the generator for figures we will draw on
-        figs = util.make_axes(len(names), nrows, ncols, figsize, "Statistic Plots")
-        for fig in figs:
-            for ax, n in zip(fig.axes, namegen):
-                if self._stat_types[self._name2stat[n]] == 'numeric':
-                    self._plot_numeric(n, ax)
-                elif self._stat_types[self._name2stat[n]] in ['ordinal','nominal']:
-                    self._plot_categorical(n, ax)
-            yield fig
-    
-    def _plot_numeric(self, name, ax):
-        """Plot a stat whose type is 'numeric'. Doesn't validate.
-        Parameters:
-            name - a stat name, a key in self._name2stat"""
-        ax.hist(self._stat_values[self._name2stat[name]], density=True)
-        ax.set_title(name)
-        ax.set_ylabel("Frequency")
-        ax.set_xlabel(name)
-        return ax
-    
-    def _plot_categorical(self, name, ax):
-        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
-        Parameters:
-            name - a stat name, a key in self._name2stat"""
-        s = self.summary(name)
-        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
-        maxtextlen = 40
-        # Print relative frequencies over bars
-        digits = 3
-        if (digits+2)*len(s) > maxtextlen:
-            rotation=90
+        if (name in self.names) and \
+                (self._name2stat.get(name) != stat) and \
+                (self._group2stat.get(name) != getattr(stat, 'substats', ())):
+            raise Exception("Name '{}' already used by another stat".format(name))
+        # Is this a grouped stat?
+        if getattr(stat, 'substats', False):
+            # Compute all of the substats, keep track of names
+            substat_names = getattr(stat, 'substat_names', None)
+            subnames_used = []
+            for i,s in enumerate(stat.substats):
+                # Determine the appropriate subname to use
+                if substat_names is not None:
+                    sn = self._determine_name(s, substat_names[i])
+                else:
+                    sn = self._determine_name(s, None)
+                subnames_used.append(sn)
+                # Compute the stat and any prerequisites
+                self._compute_stat(s, pool)
+                # Warn if stats do not have types
+                if self._stat_type.get(stat) is None:
+                    warnings.warn("Stat '{}/{}' has no type. It will not be able "
+                                  "to be plotted or summarized, but it may be "
+                                  "returned raw by to_dataframe()".format(name, sn))
+            # Store the substats and their names here
+            self._group2stat[name] = stat.substats
+            self._group_subnames[name] = tuple(subnames_used)
         else:
-            rotation=0
-        for bar in bars:
-            height = bar.get_height()
-            xc = bar.get_x() + bar.get_width()/2
-            ax.text(x=xc, y=height, s=str(round(height,digits)),
-                    ha='center', va='bottom', rotation=rotation)
-        # Set titles and labels
-        ax.set_title(name)
-        ax.set_ylabel("Frequency")
-        ax.set_xlabel(name)
-        # If the combined length of the labels is too long, rotate the labels
-        if sum(len(str(x)) for x in s.index) > maxtextlen:
-            for tick in ax.get_xticklabels():
-                tick.set_rotation(90)
-        return ax
+            # Compute if we need to, along with any prerequisites
+            self._compute_stat(stat, pool)
+            # Register the name. Note: okay if name already exists b/c to get here
+            # it must already refer to this stat
+            self._name2stat[name] = stat
+            # Check if this stat has a type, if not, warn
+            if self._stat_type.get(stat) is None:
+                warnings.warn("Stat '{}' has no type. It will not be able "
+                              "to be plotted or summarized, but it may be "
+                              "returned raw by to_dataframe()".format(name))
     
-    def to_dataframe(self):
+    @staticmethod
+    def _determine_name(x, name):
+        """Determine the appropriate name to use for a stat x, following the
+        standard hierarchy of priotity."""
+        if name is None:
+            if getattr(x, 'name', None) is not None:
+                name = x.name
+            else:
+                name = x.__name__
+        return name
+    
+    def _compute_stat(self, stat, pool=None):
+        """Computes a statistic and registers its type, precompute(s), and
+        sort key. Recursively calls itself for precomputes. Does not register
+        any names."""
+        # Only proceed if this stat hasn't been computed
+        if stat in self._stat_values:
+            return
+        # check for a precompute attribute
+        precompute = getattr(stat, 'precompute', None)
+        try:
+            precompute = tuple(precompute)
+        except TypeError:
+            if precompute is not None:
+                precompute = (precompute,)
+        # Check for a type_ attribute
+        type_ = getattr(stat, 'type_', None)
+        # Check for a sort attribute
+        sort = getattr(stat, 'sort', None)
+        # Now compute this statistic
+        if precompute is None:
+            if pool is None:
+                self._stat_values[stat] = [stat(df) for df in self._samples]
+            else:
+                self._stat_values[stat] = pool.map(stat, self._samples)
+        else:
+            # Compute all necessary prerequisites
+            for pc in precompute:
+                self._compute_stat(pc, pool)
+            # Zip together precomputed values and pass as positional arguments
+            pcvals = (self._stat_values[pc] for pc in precompute)
+            if pool is None:
+                self._stat_values[stat] = [stat(*args) for args in zip(*pcvals)]
+            else:
+                self._stat_values[stat] = pool.starmap(stat, zip(*pcvals))
+        # Save the precompute info
+        if precompute is not None:
+            self._stat_precompute[stat] = precompute
+        # Save the type info
+        if type_ is not None:
+            self._stat_type[stat] = type_
+        # Save the sort info
+        if (type_ == 'ordinal') and (sort is not None):
+            self._stat_sort[stat] = sort
+    
+    # Method to return samples as a dataframe
+    
+    def to_dataframe(self, names=None):
         """Convert the statistics calculated by this predictor to a dataframe.
         Returns: a df with one row per posterior sample, with columns 'chain' 
-        and 'draw' indicating the sample, and one column per statistic."""
-        df = pandas.DataFrame({n:self._stat_values[s] for n,s in self._name2stat.items()})
-        df['chain'] = [c for c,d in self._indices]
-        df['draw'] = [d for c,d in self._indices]
+        and 'draw' indicating the sample, and one column per statistic.
+        Parameters:
+            stats - a string or list of strings containing names of stats to
+                put in dataframe. Defaults to all.
+        """
+        # Convert stat parameter to list format, defaulting to all
+        if names is None:
+            names = self.names
+        elif type(names) == str:
+            names = [names]
+        # Check that all names are present in this Predictor
+        missing = list(set(names) - set(self.names))
+        if len(missing) > 0:
+            raise Exception("Stats ({}) are not present.".format(", ".join(missing)))
+        # Create DataFrame and set index
+        df = pandas.DataFrame({('chain',''):[c for c,d in self._indices],
+                               ('draw',''):[d for c,d in self._indices]})
+        for n in names:
+            if n in self._name2stat: # If a solo stat, add to DataFrame
+                df[(n,'')] = self._stat_values[self._name2stat[n]]
+            elif n in self._group2stat: # If a group, add each substat to DF
+                for ss,sn in zip(self._group2stat[n], self._group_subnames[n]):
+                    df[(n,sn)] = self._stat_values[ss]
         return df.set_index(['chain','draw']).sort_index()
+    
+#    # Methods to summarize statistics
+#    
+#    def summary(self, names=None):
+#        """Compute summaries of desired statistic(s).
+#        Parameters:
+#            names - either a string or a list of strings, name(s) of stats
+#        Returns:
+#            If stat is a string, a single pandas Series containing the summary.
+#            If stat is a list of strings, a dict with stat names as keys and
+#            summaries as values.
+#        """
+#        # By default, summarize all stats
+#        if names is None:
+#            names = self.stats
+#        # Create summary
+#        summ = None
+#        if type(names) == str: # For single stat
+#            if self._stat_types[self._name2stat[names]] == 'numeric':
+#                summ = self._summary_numeric(names)
+#            elif self._stat_types[self._name2stat[names]] == 'ordinal':
+#                summ = self._summary_ordinal(names)
+#            elif self._stat_types[self._name2stat[names]] == 'nominal':
+#                summ = self._summary_nominal(names)
+#        elif type(names) == list: # For list of stats
+#            summ = {}
+#            for n in names:
+#                if self._stat_types[self._name2stat[n]] == 'numeric':
+#                    summ[n] = self._summary_numeric(self._name2stat[n])
+#                elif self._stat_types[self._name2stat[n]] == 'ordinal':
+#                    summ[n] = self._summary_ordinal(self._name2stat[n])
+#                elif self._stat_types[self._name2stat[n]] == 'nominal':
+#                    summ[n] = self._summary_nominal(self._name2stat[n])
+#        return summ
+#    
+#    def _summary_numeric(self, stat):
+#        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
+#        Parameters:
+#            stat - a stat key to the self._stat_values dict"""
+#        return pandas.Series(self._stat_values[stat])\
+#            .describe(percentiles=[.025,.25,.5,.75,.975])
+#    
+#    def _summary_nominal(self, stat):
+#        """Summarize a statistic whose type is 'nominal'. Doesn't validate.
+#        Parameters:
+#            stat - a stat key to the self._stat_values dict"""
+#        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
+#        c = df.groupby(stat).count()['count']
+#        # Sort by count descending, normalize
+#        return c.sort_values(ascending=False) / len(df)
+#    
+#    def _summary_ordinal(self, stat):
+#        """Summarize a statistic whose type is 'ordinal'. Doesn't validate.
+#        Parameters:
+#            stat - a stat key to the self._stat_values dict"""
+#        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
+#        c = df.groupby(stat).count()['count']
+#        # Sort by category ascending, normalize
+#        return c[sorted(c.index, key=self._stat_sort[stat])] / len(df)
+#    
+#    # Methods to plot statistics
+#    
+#    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
+#        """Make plots of desired statistic(s).
+#        Parameters:
+#            names - either a string or a list of strings, name(s) of stats
+#            nrows, ncols - the number of rows and columns to use to arrange
+#                the axes in each figure.
+#            figsize - a tuple for the figure size.
+#        Returns:
+#            A generator which yields figures one at a time.
+#        """
+#        # By default, summarize all stats
+#        if names is None:
+#            names = self.stats
+#        # For each stat, plot it on an axis
+#        if type(names) == str:
+#            names = list(names)
+#        # Make a generator for statistics to zip with the axes
+#        namegen = (n for n in names)
+#        # Get the generator for figures we will draw on
+#        figs = util.make_axes(len(names), nrows, ncols, figsize, "Statistic Plots")
+#        for fig in figs:
+#            for ax, n in zip(fig.axes, namegen):
+#                if self._stat_types[self._name2stat[n]] == 'numeric':
+#                    self._plot_numeric(n, ax)
+#                elif self._stat_types[self._name2stat[n]] in ['ordinal','nominal']:
+#                    self._plot_categorical(n, ax)
+#            yield fig
+#    
+#    def _plot_numeric(self, name, ax):
+#        """Plot a stat whose type is 'numeric'. Doesn't validate.
+#        Parameters:
+#            name - a stat name, a key in self._name2stat"""
+#        ax.hist(self._stat_values[self._name2stat[name]], density=True)
+#        ax.set_title(name)
+#        ax.set_ylabel("Frequency")
+#        ax.set_xlabel(name)
+#        return ax
+#    
+#    def _plot_categorical(self, name, ax):
+#        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
+#        Parameters:
+#            name - a stat name, a key in self._name2stat"""
+#        s = self.summary(name)
+#        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
+#        maxtextlen = 40
+#        # Print relative frequencies over bars
+#        digits = 3
+#        if (digits+2)*len(s) > maxtextlen:
+#            rotation=90
+#        else:
+#            rotation=0
+#        for bar in bars:
+#            height = bar.get_height()
+#            xc = bar.get_x() + bar.get_width()/2
+#            ax.text(x=xc, y=height, s=str(round(height,digits)),
+#                    ha='center', va='bottom', rotation=rotation)
+#        # Set titles and labels
+#        ax.set_title(name)
+#        ax.set_ylabel("Frequency")
+#        ax.set_xlabel(name)
+#        # If the combined length of the labels is too long, rotate the labels
+#        if sum(len(str(x)) for x in s.index) > maxtextlen:
+#            for tick in ax.get_xticklabels():
+#                tick.set_rotation(90)
+#        return ax
+#    
+#    
 
         
