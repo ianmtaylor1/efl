@@ -72,10 +72,9 @@ class EFLPredictor(object):
         self._stat_sort = {}
         # Dict to map statistic names to stat keys
         self._name2stat = {}
-        # Dict to map pair names to tuples of stat keys
-        self._group2stat = {}
-        # Dict to contain pair stat subnames
-        self._group_subnames = {}
+        # Dict of dicts to map stat group names to their substats and substat
+        # names
+        self._groups = {}
     
     # Property to lazy compute and retrieve the data frames for each iteration
     
@@ -91,7 +90,7 @@ class EFLPredictor(object):
     
     @property
     def names(self):
-        return list(set(self._name2stat.keys()) | set(self._group2stat.keys()))
+        return list(set(self._name2stat.keys()) | set(self._groups.keys()))
     
     # Methods to compute and add stats to this object
     
@@ -103,45 +102,24 @@ class EFLPredictor(object):
             pool - An optional multiprocessing pool to split computation of
                 values between multiple cores/processes
         Notes:
-            If stat has attributes "precompute", "type_", or "sort", those will
-            determine how this stat is handled. If the stat has a "substats"
-            attribute that evaluates to true, then stats will be computed from
-            an iterable in a "substats" attribute, with their names stored in a
-            "substat_names" iterable attribute. The name passed to this
-            function is always used, if any. If stat has a "name" attribute, it
-            will serve as the default name if none is passed to this function.
-            Otherwise, its __name__ attribute is the default.
+            If stat is callable, it will be considered a single stat. If it has
+            attributes "precompute", "type_", or "sort", those will determine
+            how this stat is handled. If stat is not callable, then it is
+            assumed to be dict-like and considered a stat group. The name
+            passed to this function is always used, if any. If stat has a
+            "name" attribute, it will serve as the default name if none is
+            passed to this function. Otherwise, its __name__ attribute is the
+            default.
         """
         # If there was no name passed in, get it from the stat
         name = self._determine_name(stat, name)
         # Is this name already used?
         if (name in self.names) and \
                 (self._name2stat.get(name) != stat) and \
-                (self._group2stat.get(name) != getattr(stat, 'substats', ())):
+                (self._groups.get(name) != stat):
             raise Exception("Name '{}' already used by another stat".format(name))
-        # Is this a grouped stat?
-        if getattr(stat, 'substats', False):
-            # Compute all of the substats, keep track of names
-            substat_names = getattr(stat, 'substat_names', None)
-            subnames_used = []
-            for i,s in enumerate(stat.substats):
-                # Determine the appropriate subname to use
-                if substat_names is not None:
-                    sn = self._determine_name(s, substat_names[i])
-                else:
-                    sn = self._determine_name(s, None)
-                subnames_used.append(sn)
-                # Compute the stat and any prerequisites
-                self._compute_stat(s, pool)
-                # Warn if stats do not have types
-                if self._stat_type.get(stat) is None:
-                    warnings.warn("Stat '{}/{}' has no type. It will not be able "
-                                  "to be plotted or summarized, but it may be "
-                                  "returned raw by to_dataframe()".format(name, sn))
-            # Store the substats and their names here
-            self._group2stat[name] = stat.substats
-            self._group_subnames[name] = tuple(subnames_used)
-        else:
+        # Is this a grouped stat or a single stat? Use callability to decide
+        if callable(stat):
             # Compute if we need to, along with any prerequisites
             self._compute_stat(stat, pool)
             # Register the name. Note: okay if name already exists b/c to get here
@@ -152,6 +130,19 @@ class EFLPredictor(object):
                 warnings.warn("Stat '{}' has no type. It will not be able "
                               "to be plotted or summarized, but it may be "
                               "returned raw by to_dataframe()".format(name))
+        else:
+            # Assume this is a substat, dict-like
+            # Compute all of the substats
+            for subname,substat in stat.items():
+                # Compute the stat and any prerequisites
+                self._compute_stat(substat, pool)
+                # Warn if stats do not have types
+                if self._stat_type.get(substat) is None:
+                    warnings.warn("Stat '{}/{}' has no type. It will not be able "
+                                  "to be plotted or summarized, but it may be "
+                                  "returned raw by to_dataframe()".format(name, subname))
+            # Store statgroup itself as map
+            self._groups[name] = stat
     
     @staticmethod
     def _determine_name(x, name):
@@ -233,8 +224,8 @@ class EFLPredictor(object):
         for n in names:
             if n in self._name2stat: # If a solo stat, add to DataFrame
                 df[(n,'')] = self._stat_values[self._name2stat[n]]
-            elif n in self._group2stat: # If a group, add each substat to DF
-                for ss,sn in zip(self._group2stat[n], self._group_subnames[n]):
+            elif n in self._groups: # If a group, add each substat to DF
+                for sn,ss in self._groups[n].items():
                     df[(n,sn)] = self._stat_values[ss]
         return df.set_index(['chain','draw']).sort_index()
     

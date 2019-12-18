@@ -39,6 +39,7 @@ directly.
 """
 
 
+import collections
 import functools
 import numpy
 import pandas
@@ -94,8 +95,15 @@ class BaseStat(object):
         return NotImplemented
 
 
-class StatGroup(dict):
-    """Base class for stat groups."""
+class StatGroup(collections.OrderedDict):
+    """Base class for stat groups. (Necessary?)"""
+    
+    def __init__(self, name, *args, **kwargs):
+        """Constructor takes a name, and arguments that are passed directly to
+        the OrderedDict constructor.
+        """
+        super().__init__(*args, **kwargs)
+        self.name = name
 
 
 def stat(_func=None, *, type_=None, precompute=None, name=None, sort=None):
@@ -249,9 +257,59 @@ class GameResult(BaseStat):
         return {'H':1, 'D':2, 'A':3}.get(v, 4)
 
 
-class GameScore(BaseStat):
+class GameHomeGoals(BaseStat):
+    """This class is a stat that returns, for a given game id, how many goals
+    the home team scored."""
+    
+    def __init__(self, gameid, games=None):
+        # Determine the name
+        if games is None:
+            name = "Home Goals {}".format(gameid)
+        else:
+            gamedf = games.to_dataframe(fit=True, predict=True)
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
+            name = '{} vs {} Home Goals'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__(type_='ordinal', name=name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
+    
+    def __call__(self, df):
+        return df.loc[self._gameid, 'homegoals']
+
+
+class GameAwayGoals(BaseStat):
+    """This class is a stat that returns, for a given game id, how many goals
+    the away team scored."""
+    
+    def __init__(self, gameid, games=None):
+        # Determine the name
+        if games is None:
+            name = "Away Goals {}".format(gameid)
+        else:
+            gamedf = games.to_dataframe(fit=True, predict=True)
+            hometeam = gamedf.loc[gameid, 'hometeam']
+            awayteam = gamedf.loc[gameid, 'awayteam']
+            name = '{} vs {} Away Goals'.format(hometeam, awayteam)
+        # Construct the BaseStat
+        super().__init__(type_='ordinal', name=name)
+        # Save the game id
+        self._gameid = gameid
+    
+    def _id(self):
+        return self._gameid
+    
+    def __call__(self, df):
+        return df.loc[self._gameid, 'awaygoals']
+
+
+class GameScore(StatGroup):
     """This class is a stat that returns, for a given game id, what the
-    score is as a tuple: (homegoals, awaygoals)"""
+    score is as a stat group."""
     
     def __init__(self, gameid, games=None):
         # Determine the name
@@ -262,26 +320,12 @@ class GameScore(BaseStat):
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
             name = '{} vs {} Score'.format(hometeam, awayteam)
-        # Construct the BaseStat
-        super().__init__(type_='ordinal', name=name)
-        # Save the game id
-        self._gameid = gameid
-    
-    def _id(self):
-        return self._gameid
-    
-    def __call__(self, df):
-        return (df.loc[self._gameid,'homegoals'], df.loc[self._gameid,'awaygoals'])
-    
-    @staticmethod
-    def sort(v):
-        # Sorts from largest home win to largest away win
-        margin = v[0] - v[1]
-        if margin >= 0:
-            total = v[0] + v[1]
-        else:
-            total = -(v[0] + v[1])
-        return (-margin, -total)
+        # Construct the StatGroup
+        super().__init__(
+                name,
+                [('{} (H)'.format(hometeam), GameHomeGoals(gameid)),
+                 ('{} (A)'.format(awayteam), GameAwayGoals(gameid))]
+                )
 
 
 class GameMargin(BaseStat):
