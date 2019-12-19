@@ -10,6 +10,7 @@ from .. import util
 
 import pandas
 import warnings
+import itertools
 
 ###########################################################
 ### CLASS FOR MAKING PREDICTIONS ##########################
@@ -229,65 +230,80 @@ class EFLPredictor(object):
                     df[(n,sn)] = self._stat_values[ss]
         return df.set_index(['chain','draw']).sort_index()
     
+    # Methods to remove stats and clean the object
+    
+    def remove_stat(self, name):
+        raise NotImplementedError()
+    
+    def clean(self):
+        raise NotImplementedError()
+    
 #    # Methods to summarize statistics
-#    
-#    def summary(self, names=None):
-#        """Compute summaries of desired statistic(s).
-#        Parameters:
-#            names - either a string or a list of strings, name(s) of stats
-#        Returns:
-#            If stat is a string, a single pandas Series containing the summary.
-#            If stat is a list of strings, a dict with stat names as keys and
-#            summaries as values.
-#        """
-#        # By default, summarize all stats
-#        if names is None:
-#            names = self.stats
-#        # Create summary
-#        summ = None
-#        if type(names) == str: # For single stat
-#            if self._stat_types[self._name2stat[names]] == 'numeric':
-#                summ = self._summary_numeric(names)
-#            elif self._stat_types[self._name2stat[names]] == 'ordinal':
-#                summ = self._summary_ordinal(names)
-#            elif self._stat_types[self._name2stat[names]] == 'nominal':
-#                summ = self._summary_nominal(names)
-#        elif type(names) == list: # For list of stats
-#            summ = {}
-#            for n in names:
-#                if self._stat_types[self._name2stat[n]] == 'numeric':
-#                    summ[n] = self._summary_numeric(self._name2stat[n])
-#                elif self._stat_types[self._name2stat[n]] == 'ordinal':
-#                    summ[n] = self._summary_ordinal(self._name2stat[n])
-#                elif self._stat_types[self._name2stat[n]] == 'nominal':
-#                    summ[n] = self._summary_nominal(self._name2stat[n])
-#        return summ
-#    
-#    def _summary_numeric(self, stat):
-#        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
-#        Parameters:
-#            stat - a stat key to the self._stat_values dict"""
-#        return pandas.Series(self._stat_values[stat])\
-#            .describe(percentiles=[.025,.25,.5,.75,.975])
-#    
-#    def _summary_nominal(self, stat):
-#        """Summarize a statistic whose type is 'nominal'. Doesn't validate.
-#        Parameters:
-#            stat - a stat key to the self._stat_values dict"""
-#        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
-#        c = df.groupby(stat).count()['count']
-#        # Sort by count descending, normalize
-#        return c.sort_values(ascending=False) / len(df)
-#    
-#    def _summary_ordinal(self, stat):
-#        """Summarize a statistic whose type is 'ordinal'. Doesn't validate.
-#        Parameters:
-#            stat - a stat key to the self._stat_values dict"""
-#        df = pandas.DataFrame({stat:self._stat_values[stat], 'count':1})
-#        c = df.groupby(stat).count()['count']
-#        # Sort by category ascending, normalize
-#        return c[sorted(c.index, key=self._stat_sort[stat])] / len(df)
-#    
+    
+    def summary(self, names=None):
+        """Compute summaries of desired statistic(s).
+        Parameters:
+            names - either a string or a list of strings, name(s) of stats
+        Returns:
+            A dict with stat names as keys and summaries as values.
+        """
+        # By default, summarize all stats
+        if names is None:
+            names = self.stats
+        # If only one provided, make it a list
+        if type(names) == str:
+            names = [names]
+        # Create summary
+        summ = {}
+        for n in names:
+            if n in self._name2stat:
+                summ[n] = self._summary_single(self._name2stat[n], n)
+            elif n in self._groups:
+                # For groups, summarize each pair of substats together
+                # Combine into a dict
+                grpsum = {}
+                for sn1,sn2 in itertools.combinations(self._groups[n], 2):
+                    ss1 = self._groups[n][sn1]
+                    ss2 = self._groups[n][sn2]
+                    grpsum[(sn1, sn2)] = self._summary_pair(ss1, sn1, ss2, sn2)
+                summ[n] = grpsum
+        return summ
+    
+    def _summary_single(self, stat, name):
+        """Summarize a single stat, by name, and return its summary."""
+        if self._stat_types[stat] == 'numeric':
+            return self._summary_numeric(stat, name)
+        else:
+            return self._summary_categorical(stat, name)
+    
+    def _summary_numeric(self, stat, name):
+        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict
+            name - name by which to refer to the stat"""
+        return pandas.Series(self._stat_values[stat], name=name)\
+            .describe(percentiles=[.025,.25,.5,.75,.975])
+    
+    def _summary_categorical(self, stat, name):
+        """Summarize a statistic whose type is 'nominal' or 'ordinal'. Checks
+        type to determine how to sort the summary.
+        Parameters:
+            stat - a stat key to the self._stat_values dict
+            name - a name by which to refer to the stat"""
+        df = pandas.DataFrame({name:self._stat_values[stat], 'cnt':1})
+        c = df.groupby(name)['cnt'].count()
+        # Sort appropriately, return
+        if self._stat_type[stat] == 'nominal':
+            return c.sort_values(ascending=False) / len(df)
+        elif self._stat_type[stat] == 'ordinal':
+            return c[sorted(c.index, key=self._stat_sort.get(stat))] / len(df)
+        else:
+            raise Exception("Stat '{}' type neither nominal nor ordinal.".format(name))
+    
+    def _summary_pair(self, xstat, xname, ystat, yname):
+        """Summarize a pair of stats, by name, and return the summary."""
+        raise NotImplementedError()
+    
 #    # Methods to plot statistics
 #    
 #    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
@@ -318,44 +334,46 @@ class EFLPredictor(object):
 #                    self._plot_categorical(n, ax)
 #            yield fig
 #    
-#    def _plot_numeric(self, name, ax):
-#        """Plot a stat whose type is 'numeric'. Doesn't validate.
-#        Parameters:
-#            name - a stat name, a key in self._name2stat"""
-#        ax.hist(self._stat_values[self._name2stat[name]], density=True)
-#        ax.set_title(name)
-#        ax.set_ylabel("Frequency")
-#        ax.set_xlabel(name)
-#        return ax
-#    
-#    def _plot_categorical(self, name, ax):
-#        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
-#        Parameters:
-#            name - a stat name, a key in self._name2stat"""
-#        s = self.summary(name)
-#        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
-#        maxtextlen = 40
-#        # Print relative frequencies over bars
-#        digits = 3
-#        if (digits+2)*len(s) > maxtextlen:
-#            rotation=90
-#        else:
-#            rotation=0
-#        for bar in bars:
-#            height = bar.get_height()
-#            xc = bar.get_x() + bar.get_width()/2
-#            ax.text(x=xc, y=height, s=str(round(height,digits)),
-#                    ha='center', va='bottom', rotation=rotation)
-#        # Set titles and labels
-#        ax.set_title(name)
-#        ax.set_ylabel("Frequency")
-#        ax.set_xlabel(name)
-#        # If the combined length of the labels is too long, rotate the labels
-#        if sum(len(str(x)) for x in s.index) > maxtextlen:
-#            for tick in ax.get_xticklabels():
-#                tick.set_rotation(90)
-#        return ax
-#    
-#    
-
-        
+    def _plot_numeric(self, stat, name, ax):
+        """Plot a stat whose type is 'numeric'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict
+            name - a name by which to refer to the stat
+            ax - matplotlib Axes object on which to draw"""
+        ax.hist(self._stat_values[stat], density=True)
+        ax.set_title(name)
+        ax.set_ylabel("Frequency")
+        ax.set_xlabel(name)
+        return ax
+    
+    def _plot_categorical(self, stat, name, ax):
+        """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
+        Parameters:
+            stat - a stat key to the self._stat_values dict
+            name - a name by which to refer to the stat
+            ax - matplotlib Axes object on which to draw"""
+        # Get the appropriate summary
+        s = self._summary_categorical(stat, name)
+        # Make a bar plot out of the summary
+        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
+        maxtextlen = 40
+        # Print relative frequencies over bars
+        if 3*len(s) > maxtextlen:
+            rotation=90
+        else:
+            rotation=0
+        for bar in bars:
+            height = bar.get_height()
+            xc = bar.get_x() + bar.get_width()/2
+            ax.text(x=xc, y=height, s="{:.0%}".format(height),
+                    ha='center', va='bottom', rotation=rotation)
+        # Set titles and labels
+        ax.set_title(name)
+        ax.set_ylabel("Frequency")
+        ax.set_xlabel(name)
+        # If the combined length of the labels is too long, rotate the labels
+        if sum(len(str(x)) for x in s.index) > maxtextlen:
+            for tick in ax.get_xticklabels():
+                tick.set_rotation(90)
+        return ax
+    
