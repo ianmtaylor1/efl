@@ -44,7 +44,7 @@ def make_axes(num_plots, nrows, ncols, figsize, main_title):
         yield fig
 
 
-def draw_densplot(ax, data, nout=220):
+def draw_densplot(ax, data, nout=220, scale_height=1.0):
     """Draw a density plot on the axes provided.
     Parameters:
         ax - the axes to draw on
@@ -55,5 +55,5 @@ def draw_densplot(ax, data, nout=220):
     xlow = min(data) - 0.05*(max(data) - min(data))
     xhigh = max(data) + 0.05*(max(data) - min(data))
     x = numpy.arange(xlow, xhigh, (xhigh-xlow)/nout)
-    y = density(x)
+    y = density(x) * scale_height
     ax.plot(x,y)
