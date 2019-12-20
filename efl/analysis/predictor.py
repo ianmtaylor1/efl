@@ -302,10 +302,62 @@ class EFLPredictor(object):
     
     def _summary_pair(self, xstat, xname, ystat, yname):
         """Summarize a pair of stats, by name, and return the summary."""
-        raise NotImplementedError()
+        if self._stat_type[xstat] == 'numeric' and self._stat_type[ystat] == 'numeric':
+            return self._summary_num_num(xstat, xname, ystat, yname)
+        elif self._stat_type[xstat] == 'numeric':
+            return self._summary_num_cat(xstat, xname, ystat, yname)
+        elif self._stat_type[ystat] == 'numeric':
+            return self._summary_cat_num(xstat, xname, ystat, yname)
+        else:
+            return self._summary_cat_cat(xstat, xname, ystat, yname)
     
-#    # Methods to plot statistics
-#    
+    def _summary_num_num(self, xstat, xname, ystat, yname):
+        raise NotImplementedError("I need to decide how I want to do this.")
+        
+    def _summary_num_cat(self, xstat, xname, ystat, yname):
+        """Summarize a pair with one numeric stat and one categorical stat.
+        Return the summary so that the numeric stat is on the "x-axis" and
+        the categorical stat is on the "y-axis".
+        Parameters:
+            xstat, xname - the numeric stat in the pair
+            ystat, yname - the categorical stat in the pair
+        """
+        df = pandas.DataFrame({xname:self._stat_values[xstat],
+                               yname:self._stat_values[ystat]})
+        summ = df.groupby(ystat).describe(percentiles=[.025,.25,.5,.75,.975])
+        csumm = self._summary_cat(ystat, yname)
+        del summ[(xname,'count')]
+        df.insert(0, 'frequency', csumm)
+        # Sort in whatever order the categorical summary sorts in (it handles
+        # nominal vs ordinal)
+        return summ.loc[csumm.index,:]
+    
+    def _summary_cat_num(self, xstat, xname, ystat, yname):
+        """Summarize a pair with one numeric stat and one categorical stat.
+        Return the summary so that the categorical stat is on the "x-axis" and
+        the numeric stat is on the "y-axis".
+        Parameters:
+            xstat, xname - the categorical stat in the pair
+            ystat, yname - the numeric stat in the pair
+        """
+        return self._summary_num_cat(ystat, yname, xstat, xname).T
+    
+    def _summary_cat_cat(self, xstat, xname, ystat, yname):
+        """Summarize a pair with both categorical stats."""
+        df = pandas.DataFrame({xname:self._stat_values[xstat],
+                               yname:self._stat_values[ystat],
+                               'cnt':1})
+        summ = df.pivot_table(values='cnt', index=yname, columns=xname,
+                              aggfunc='count', fill_value=0) / len(df)
+        xsumm = self._summary_categorical(xstat, xname)
+        ysumm = self._summary_categorical(ystat, yname)
+        summ = summ.loc[ysumm.index, xsumm.index]
+        summ.loc['Total',:] = xsumm
+        summ.loc[:,'Total'] = ysumm
+        return summ
+
+    # Methods to plot statistics
+    
 #    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
 #        """Make plots of desired statistic(s).
 #        Parameters:
@@ -333,7 +385,7 @@ class EFLPredictor(object):
 #                elif self._stat_types[self._name2stat[n]] in ['ordinal','nominal']:
 #                    self._plot_categorical(n, ax)
 #            yield fig
-#    
+    
     def _plot_numeric(self, stat, name, ax):
         """Plot a stat whose type is 'numeric'. Doesn't validate.
         Parameters:
