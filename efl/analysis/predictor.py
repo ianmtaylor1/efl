@@ -358,33 +358,36 @@ class EFLPredictor(object):
 
     # Methods to plot statistics
     
-#    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
-#        """Make plots of desired statistic(s).
-#        Parameters:
-#            names - either a string or a list of strings, name(s) of stats
-#            nrows, ncols - the number of rows and columns to use to arrange
-#                the axes in each figure.
-#            figsize - a tuple for the figure size.
-#        Returns:
-#            A generator which yields figures one at a time.
-#        """
-#        # By default, summarize all stats
-#        if names is None:
-#            names = self.stats
-#        # For each stat, plot it on an axis
-#        if type(names) == str:
-#            names = list(names)
-#        # Make a generator for statistics to zip with the axes
-#        namegen = (n for n in names)
-#        # Get the generator for figures we will draw on
-#        figs = util.make_axes(len(names), nrows, ncols, figsize, "Statistic Plots")
-#        for fig in figs:
-#            for ax, n in zip(fig.axes, namegen):
-#                if self._stat_types[self._name2stat[n]] == 'numeric':
-#                    self._plot_numeric(n, ax)
-#                elif self._stat_types[self._name2stat[n]] in ['ordinal','nominal']:
-#                    self._plot_categorical(n, ax)
-#            yield fig
+    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
+        """Make plots of desired statistic(s).
+        Parameters:
+            names - either a string or a list of strings, name(s) of stats
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
+            figsize - a tuple for the figure size.
+        Returns:
+            A generator which yields figures one at a time.
+        """
+        # By default, summarize all stats
+        if names is None:
+            names = self.stats
+        # Make names a list for convenience
+        if type(names) == str:
+            names = list(names)
+        # How many plots are we going to have to make?
+        numplots = 0
+        for n in names:
+            if n in self._name2stat:
+                numplots += 1
+            elif n in self._groups:
+                num_ss = len(self._groups[n])
+                numplots += num_ss * (num_ss - 1) / 2
+        # Make a generator for statistics to zip with the axes
+        # TBD
+        # Get the generator for figures we will draw on
+        figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plots")
+        for fig in figs:
+            yield fig
     
     def _plot_numeric(self, stat, name, ax):
         """Plot a stat whose type is 'numeric'. Doesn't validate.
@@ -392,7 +395,7 @@ class EFLPredictor(object):
             stat - a stat key to the self._stat_values dict
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw"""
-        ax.hist(self._stat_values[stat], density=True)
+        ax.hist(self._stat_values[stat], density=True, bins="scott")
         ax.set_title(name)
         ax.set_ylabel("Frequency")
         ax.set_xlabel(name)
@@ -429,3 +432,14 @@ class EFLPredictor(object):
                 tick.set_rotation(90)
         return ax
     
+    def _plot_num_num(self, xstat, xname, ystat, yname, ax):
+        raise NotImplementedError()
+        
+    def _plot_num_cat(self, xstat, xname, ystat, yname, ax):
+        raise NotImplementedError()
+    
+    def _plot_cat_num(self, xstat, xname, ystat, yname, ax):
+        raise NotImplementedError()
+    
+    def _plot_cat_cat(self, xstat, xname, ystat, yname, ax):
+        raise NotImplementedError()
