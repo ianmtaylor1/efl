@@ -196,7 +196,9 @@ def table(df):
 @stat(precompute=table)
 def rankings(t):
     """Take in a table and return a series indicating the rankings of teams
-    according to that table. 1 = best, top of table, 2 = second best, etc."""
+    according to that table. 1 = best, top of table, 2 = second best, etc.
+    Issues: ties (points, goal diff, goals for all equal) are arbitrarily
+    decided. In real tables, teams share a rank."""
     t2 = pandas.DataFrame({'pts':t.loc[:,'Pts'],
                            'gd':t.loc[:,'GD'],
                            'gf':t.loc[:,'GF'],
@@ -342,15 +344,16 @@ class GameMargin(BaseStat):
             awayteam = gamedf.loc[gameid, 'awayteam']
             name = '{} vs {} Margin'.format(hometeam, awayteam)
         # Construct the BaseStat
-        super().__init__(type_='ordinal', name=name)
+        precompute = [GameHomeGoals(gameid), GameAwayGoals(gameid)]
+        super().__init__(type_='ordinal', name=name, precompute=precompute)
         # Save the game id
         self._gameid = gameid
     
     def _id(self):
         return self._gameid
     
-    def __call__(self, df):
-        return df.loc[self._gameid,'homegoals'] - df.loc[self._gameid,'awaygoals']
+    def __call__(self, h, a):
+        return h - a
     
     @staticmethod
     def sort(v):
@@ -372,23 +375,21 @@ class GameTotalGoals(BaseStat):
             awayteam = gamedf.loc[gameid, 'awayteam']
             name = '{} vs {} Total Goals'.format(hometeam, awayteam)
         # Construct the BaseStat
-        super().__init__(type_='ordinal', name=name)
+        precompute = [GameHomeGoals(gameid), GameAwayGoals(gameid)]
+        super().__init__(type_='ordinal', name=name, precompute=precompute)
         # Save the game id
         self._gameid = gameid
     
     def _id(self):
         return self._gameid
     
-    def __call__(self, df):
-        # This assumes there is only one row for every gameid
-        return df.loc[self._gameid,'homegoals'] + df.loc[self._gameid,'awaygoals']
+    def __call__(self, h, a):
+        return h + a
 
 
 class LeaguePosition(BaseStat):
     """This class returns the team that is in the supplied position within 
-    the league. (1 = Winner, 2 = runner-up, etc). Issues: Ties (points, goal
-    difference, and goals for all equal) are arbitrarily decided. In real
-    tables, teams share a rank."""
+    the league. (1 = Winner, 2 = runner-up, etc)."""
     
     def __init__(self, position):
         super().__init__(precompute=rankings, type_='nominal',
@@ -404,9 +405,7 @@ class LeaguePosition(BaseStat):
 
 class TeamPosition(BaseStat):
     """This class returns the position within the league of the specified
-    team. (1=Winner, 2=Runner-up, etc) Issues: Ties (points, goal
-    difference, and goals for all equal) are arbitrarily decided. In real
-    tables, teams share a rank."""
+    team. (1=Winner, 2=Runner-up, etc)"""
     
     def __init__(self, team):
         super().__init__(precompute=rankings, type_='ordinal', 
@@ -418,6 +417,23 @@ class TeamPosition(BaseStat):
     
     def __call__(self, r):
         return r.loc[self._team]
+
+
+class PositionPoints(BaseStat):
+    """This class returns the points at a given position in the league table.
+    (1=Winner, 2=Runner-up, etc)"""
+    
+    def __init__(self, position):
+        super().__init__(precompute=[table, LeaguePosition(position)],
+                         type_='numeric', 
+                         name="Points at Position {}".format(position))
+        self._position = position
+    
+    def _id(self):
+        return self._position
+    
+    def __call__(self, table, team):
+        return table.loc[team,"Pts"]
 
 
 class TeamPoints(BaseStat):
