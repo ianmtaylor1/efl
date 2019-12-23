@@ -54,7 +54,8 @@ def _check_season(session, year):
     # Past games without results
     today = datetime.date.today()
     pastgames = session.query(orm.Game).outerjoin(orm.GameResult).filter(
-            sqlalchemy.and_(orm.Game.date < today,
+            sqlalchemy.and_(orm.Game.seasonid == season.id,
+                            orm.Game.date < today,
                             orm.GameResult.id == None)
             ).all()
     print("\n* Past games without results...")
