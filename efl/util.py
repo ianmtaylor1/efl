@@ -13,7 +13,7 @@ from scipy.stats import kde
 
 def make_axes(num_plots, nrows, ncols, figsize, main_title):
     """Create figures and plots to be used by plotting functions that need to
-    plot multiple things, possible more than one to a figure.
+    plot multiple things, possibly more than one to a figure.
     Parameters:
         num_plots - number of plots that will be plotted. One Axes will be
             created for each.
@@ -45,19 +45,21 @@ def make_axes(num_plots, nrows, ncols, figsize, main_title):
         yield fig
 
 
-def draw_densplot(ax, data, nout=220, scale_height=1.0):
+def draw_densplot(ax, data, nout=220, scale_height=1.0, **kwargs):
     """Draw a density plot on the axes provided.
     Parameters:
         ax - the axes to draw on
         data - the data to estimate the density with
         nout - number of points to use when drawing the density
+        scale_height - scale the height of the density by this amount
+        **kwargs - passed to ax.plot()
     """
-    density = kde.gaussian_kde(data)
+    density = kde.gaussian_kde(data, bw_method="scott")
     xlow = min(data) - 0.05*(max(data) - min(data))
     xhigh = max(data) + 0.05*(max(data) - min(data))
     x = numpy.arange(xlow, xhigh, (xhigh-xlow)/nout)
     y = density(x) * scale_height
-    ax.plot(x,y)
+    return ax.plot(x, y, **kwargs)
 
 
 # The following functions were -stolen- borrowed from

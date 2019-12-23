@@ -419,7 +419,7 @@ class EFLPredictor(object):
             stat - a stat key to the self._stat_values dict
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw"""
-        ax.hist(self._stat_values[stat], density=True, bins="scott")
+        ax.hist(self._stat_values[stat], density=True, bins="fd")
         util.draw_densplot(ax, self._stat_values[stat])
         ax.set_title(name)
         ax.set_ylabel("Frequency")
