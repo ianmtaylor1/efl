@@ -302,7 +302,7 @@ class EFLPredictor(object):
     
     def _summary_pair(self, xstat, xname, ystat, yname):
         """Summarize a pair of stats, by name, and return the summary."""
-        if self._stat_type[xstat] == 'numeric' and self._stat_type[ystat] == 'numeric':
+        if self._stat_type[xstat] == self._stat_type[ystat] == 'numeric':
             return self._summary_num_num(xstat, xname, ystat, yname)
         elif self._stat_type[xstat] == 'numeric':
             return self._summary_num_cat(xstat, xname, ystat, yname)
@@ -312,7 +312,11 @@ class EFLPredictor(object):
             return self._summary_cat_cat(xstat, xname, ystat, yname)
     
     def _summary_num_num(self, xstat, xname, ystat, yname):
-        raise NotImplementedError("I need to decide how I want to do this.")
+        """Summarize a pair with both numeric stats."""
+        df = pandas.DataFrame({xname:self._stat_values[xstat],
+                               yname:self._stat_valeus[ystat]})
+        # TODO: add measures of correlation, etc.
+        return df.describe(percentiles=[.025,.25,.5,.75,.975])
         
     def _summary_num_cat(self, xstat, xname, ystat, yname):
         """Summarize a pair with one numeric stat and one categorical stat.
@@ -383,11 +387,31 @@ class EFLPredictor(object):
                 num_ss = len(self._groups[n])
                 numplots += num_ss * (num_ss - 1) / 2
         # Make a generator for statistics to zip with the axes
-        # TBD
+        def statgen_maker():
+            for n in names:
+                if n in self._name2stat:
+                    yield (self._name2stat[n], n)
+                else:
+                    for sn1,sn2 in itertools.combinations(self._groups[n], 2):
+                        yield (n, self._groups[n][sn1], sn1, 
+                               self._groups[n][sn2], sn2)
+        statgen = statgen_maker()
         # Get the generator for figures we will draw on
         figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plots")
         for fig in figs:
+            for args, ax in zip(statgen, fig.axes):
+                if len(args) == 2: # We want to plot a single stat
+                    self._plot_single(*args, ax)
+                else: # We have a pair to plot
+                    self._plot_pair(*args, ax)
             yield fig
+    
+    def _plot_single(self, stat, name, ax):
+        """Plot a single stat on the given axis, and return the axis."""
+        if self._stat_type[stat] == 'numeric':
+            return self._plot_numeric(stat, name, ax)
+        else:
+            return self._plot_categorical(stat, name, ax)
     
     def _plot_numeric(self, stat, name, ax):
         """Plot a stat whose type is 'numeric'. Doesn't validate.
@@ -396,6 +420,7 @@ class EFLPredictor(object):
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw"""
         ax.hist(self._stat_values[stat], density=True, bins="scott")
+        util.draw_densplot(ax, self._stat_values[stat])
         ax.set_title(name)
         ax.set_ylabel("Frequency")
         ax.set_xlabel(name)
@@ -406,12 +431,14 @@ class EFLPredictor(object):
         Parameters:
             stat - a stat key to the self._stat_values dict
             name - a name by which to refer to the stat
-            ax - matplotlib Axes object on which to draw"""
+            ax - matplotlib Axes object on which to draw
+        """
+        # Total text length of labels before rotating
+        maxtextlen = 40
         # Get the appropriate summary
         s = self._summary_categorical(stat, name)
         # Make a bar plot out of the summary
         bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
-        maxtextlen = 40
         # Print relative frequencies over bars
         if 3*len(s) > maxtextlen:
             rotation=90
@@ -432,14 +459,25 @@ class EFLPredictor(object):
                 tick.set_rotation(90)
         return ax
     
-    def _plot_num_num(self, xstat, xname, ystat, yname, ax):
+    def _plot_pair(self, title, xstat, xname, ystat, yname, ax):
+        """Plot a pair of stats on an axis and return the axis."""
+        if self._stat_type[xstat] == self._stat_type[ystat] == 'numeric':
+            return self._plot_num_num(title, xstat, xname, ystat, yname, ax)
+        elif self._stat_type[xstat] == 'numeric':
+            return self._plot_num_cat(title, xstat, xname, ystat, yname, ax)
+        elif self._stat_type[ystat] == 'numeric':
+            return self._plot_cat_num(title, xstat, xname, ystat, yname, ax)
+        else:
+            return self._plot_cat_cat(title, xstat, xname, ystat, yname, ax)
+    
+    def _plot_num_num(self, title, xstat, xname, ystat, yname, ax):
         raise NotImplementedError()
         
-    def _plot_num_cat(self, xstat, xname, ystat, yname, ax):
+    def _plot_num_cat(self, title, xstat, xname, ystat, yname, ax):
         raise NotImplementedError()
     
-    def _plot_cat_num(self, xstat, xname, ystat, yname, ax):
+    def _plot_cat_num(self, title, xstat, xname, ystat, yname, ax):
         raise NotImplementedError()
     
-    def _plot_cat_cat(self, xstat, xname, ystat, yname, ax):
+    def _plot_cat_cat(self, title, xstat, xname, ystat, yname, ax):
         raise NotImplementedError()
