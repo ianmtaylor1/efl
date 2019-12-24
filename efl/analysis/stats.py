@@ -281,7 +281,7 @@ class GameHomeGoals(BaseStat):
         return self._gameid
     
     def __call__(self, df):
-        return df.loc[self._gameid, 'homegoals']
+        return int(df.loc[self._gameid, 'homegoals'])
 
 
 class GameAwayGoals(BaseStat):
@@ -306,7 +306,7 @@ class GameAwayGoals(BaseStat):
         return self._gameid
     
     def __call__(self, df):
-        return df.loc[self._gameid, 'awaygoals']
+        return int(df.loc[self._gameid, 'awaygoals'])
 
 
 class GameScore(StatGroup):
