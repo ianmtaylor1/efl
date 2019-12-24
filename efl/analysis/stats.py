@@ -354,11 +354,6 @@ class GameMargin(BaseStat):
     
     def __call__(self, h, a):
         return h - a
-    
-    @staticmethod
-    def sort(v):
-        # Sorts from largest home win to largest away win
-        return -v
 
 
 class GameTotalGoals(BaseStat):
