@@ -68,7 +68,7 @@ def draw_densplot(ax, data, nout=220, scale_height=1.0, **kwargs):
 
 
 def heatmap(data, ax, row_labels=None, col_labels=None,
-            include_cbar=True, cbarlabel="", annotate=True, 
+            include_cbar=True, cbarlabel="", annotate=True, maxtextlen=40,
             valfmt='{x:.0%}', textcolors=["white", "black"], **kwargs):
     """Create a heatmap from a pandas DataFrame (most likely from pivot_table)
     
@@ -83,6 +83,8 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
             don't include a colorbar legend.
         cbarlabel - The label for the colorbar.  Optional.
         annotate - A bool. If true, annotate each square with its value.
+        maxtextlen - if the total length of the x-labels exceeds this value,
+            they will be rotated to avoid overlap.
         valfmt - A format string to use formatting both the annotated values
             (if any) and the colorbar ticks (if any)
         textcolors - A length-2 list-like with color names for the 
@@ -122,8 +124,10 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
                    labeltop=False, labelbottom=True)
     
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=30, ha="right",
-             rotation_mode="anchor")
+    total_xlab_len = sum(len(str(lb)) for lb in col_labels)
+    if total_xlab_len > maxtextlen:
+        plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
+                 rotation_mode="anchor")
 
     # Turn spines off and create white grid.
     for edge, spine in ax.spines.items():
