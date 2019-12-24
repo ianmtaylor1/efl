@@ -85,7 +85,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
         annotate - A bool. If true, annotate each square with its value.
         valfmt - A format string to use formatting both the annotated values
             (if any) and the colorbar ticks (if any)
-        textcolors - A length-2 list or whatever with color names for the 
+        textcolors - A length-2 list-like with color names for the 
             annotations on low and high values, respectively.
         **kwargs - any remaining arguments passed to imshow()
     
@@ -100,7 +100,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     data_array = numpy.array(data)
     
     # Plot the heatmap
-    im = ax.imshow(data_array, origin='lower', **kwargs)
+    im = ax.imshow(data_array, origin="lower", **kwargs)
     
     # Make the formatter for colorbar labels and annotations
     formatter = matplotlib.ticker.StrMethodFormatter(valfmt)

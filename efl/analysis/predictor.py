@@ -491,7 +491,7 @@ class EFLPredictor(object):
             ystat, yname - the stat in the pair that will end up in rows
         """
         data = self._summary_cat_cat(xstat, xname, ystat, yname, totals=False)
-        util.heatmap(data, ax)
+        util.heatmap(data, ax, aspect="auto")
         ax.set_title(title)
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
