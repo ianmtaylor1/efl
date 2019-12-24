@@ -75,6 +75,8 @@ class EFLPredictor(object):
         # Dict of dicts to map stat group names to their substats and substat
         # names
         self._groups = {}
+        # List to hold stat names in the order they were added
+        self._names = []
     
     # Property to lazy compute and retrieve the data frames for each iteration
     
@@ -90,7 +92,7 @@ class EFLPredictor(object):
     
     @property
     def names(self):
-        return list(set(self._name2stat.keys()) | set(self._groups.keys()))
+        return self._names.copy()
     
     # Methods to compute and add stats to this object
     
@@ -125,6 +127,7 @@ class EFLPredictor(object):
             # Register the name. Note: okay if name already exists b/c to get here
             # it must already refer to this stat
             self._name2stat[name] = stat
+            self._names.append(name)
             # Check if this stat has a type, if not, warn
             if self._stat_type.get(stat) is None:
                 warnings.warn("Stat '{}' has no type. It will not be able "
@@ -143,6 +146,7 @@ class EFLPredictor(object):
                                   "returned raw by to_dataframe()".format(name, subname))
             # Store statgroup itself as map
             self._groups[name] = stat
+            self._names.append(name)
     
     @staticmethod
     def _determine_name(x, name):
@@ -401,11 +405,12 @@ class EFLPredictor(object):
         # Make a generator of the stats we need to plot
         statgen = self._statgen_maker(names)
         # Get the generator for figures we will draw on
-        figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plots")
+        figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plot")
         for fig in figs:
-            # Bug fix: the order (fig.axes, statgen) is important as fig.axes
-            # is shorter and elements in statgen were getting "wasted" during
-            # zipping. https://docs.python.org/3/library/functions.html#zip
+            # Bug fix: the order (fig.axes, statgen) is important. fig.axes is
+            # always shorter, and elements in statgen were getting "wasted"
+            # during zipping. 
+            # https://docs.python.org/3/library/functions.html#zip
             for ax, args in zip(fig.axes, statgen):
                 if len(args) == 2: # We want to plot a single stat
                     self._plot_single(*args, ax)
