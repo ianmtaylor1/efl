@@ -62,57 +62,65 @@ def draw_densplot(ax, data, nout=220, scale_height=1.0, **kwargs):
     return ax.plot(x, y, **kwargs)
 
 
-# The following functions were -stolen- borrowed from
+# The following function was -stolen- borrowed from
 # https://matplotlib.org/3.1.0/gallery/images_contours_and_fields/image_annotated_heatmap.html
-# And then modified to fit my use case. Some additional code was taken from
-# https://matplotlib.org/3.1.1/gallery/axes_grid1/demo_axes_divider.html
+# And then modified to fit my use case.
 
 
-def heatmap(data, row_labels, col_labels, ax=None,
-            cbar_kw={}, cbarlabel="", **kwargs):
+def heatmap(data, ax, row_labels=None, col_labels=None,
+            include_cbar=False, cbarlabel="", annotate=True, 
+            valfmt='{x:.0%}', textcolors=["white", "black"], **kwargs):
+    """Create a heatmap from a pandas DataFrame (most likely from pivot_table)
+    
+    Parameters:
+        data - A NxM pandas DataFrame containing the data to plot
+        ax - matplotlib.axes.Axes on which to plot
+        row_labels - a list or array of length N with the labels for the rows.
+            If None, the index of data is used.
+        col_labels - a list or array of length M with the labels for the
+            columns. If None, the columns of data are used.
+        include_cbar - A bool. If true, include a colorbar legend. If false,
+            don't include a colorbar legend.
+        cbarlabel - The label for the colorbar.  Optional.
+        annotate - A bool. If true, annotate each square with its value.
+        valfmt - A format string to use formatting both the annotated values
+            (if any) and the colorbar ticks (if any)
+        textcolors - A length-2 list or whatever with color names for the 
+            annotations on low and high values, respectively.
+        **kwargs - any remaining arguments passed to imshow()
+    
+    Returns: the Axes object passed in ax.
     """
-    Create a heatmap from a numpy array and two lists of labels.
-
-    Parameters
-    ----------
-    data
-        A 2D numpy array of shape (N, M).
-    row_labels
-        A list or array of length N with the labels for the rows.
-    col_labels
-        A list or array of length M with the labels for the columns.
-    ax
-        A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
-        not provided, use current axes or create a new one.  Optional.
-    cbar_kw
-        A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
-    cbarlabel
-        The label for the colorbar.  Optional.
-    **kwargs
-        All other arguments are forwarded to `imshow`.
-    """
-
-    if not ax:
-        ax = plt.gca()
-
+    # Default values for row and column labels
+    if row_labels is None:
+        row_labels = list(data.index)
+    if col_labels is None:
+        col_labels = list(data.columns)
+    # Give ourselves a numpy array to work with
+    data_array = numpy.array(data)
+    
     # Plot the heatmap
-    im = ax.imshow(data, **kwargs)
-
-    # Create colorbar
-    cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-
+    im = ax.imshow(data_array, **kwargs)
+    
+    # Make the formatter for colorbar labels and annotations
+    formatter = matplotlib.ticker.StrMethodFormatter(valfmt)
+    
+    # Make the colorbar, if required
+    if include_cbar:
+        cbar = ax.figure.colorbar(im, ax=ax, format=formatter)
+        cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
+    
     # We want to show all ticks...
     ax.set_xticks(numpy.arange(data.shape[1]))
     ax.set_yticks(numpy.arange(data.shape[0]))
     # ... and label them with the respective list entries.
     ax.set_xticklabels(col_labels)
     ax.set_yticklabels(row_labels)
-
+    
     # Let the horizontal axes labeling appear on top.
     ax.tick_params(top=True, bottom=False,
                    labeltop=True, labelbottom=False)
-
+    
     # Rotate the tick labels and set their alignment.
     plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
              rotation_mode="anchor")
@@ -120,69 +128,24 @@ def heatmap(data, row_labels, col_labels, ax=None,
     # Turn spines off and create white grid.
     for edge, spine in ax.spines.items():
         spine.set_visible(False)
-
+    
+    # Draw ticks
     ax.set_xticks(numpy.arange(data.shape[1]+1)-.5, minor=True)
     ax.set_yticks(numpy.arange(data.shape[0]+1)-.5, minor=True)
     ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
     ax.tick_params(which="minor", bottom=False, left=False)
-
-    return im, cbar
-
-
-def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
-                     textcolors=["black", "white"],
-                     threshold=None, **textkw):
-    """
-    A function to annotate a heatmap.
-
-    Parameters
-    ----------
-    im
-        The AxesImage to be labeled.
-    data
-        Data used to annotate.  If None, the image's data is used.  Optional.
-    valfmt
-        The format of the annotations inside the heatmap.  This should either
-        use the string format method, e.g. "$ {x:.2f}", or be a
-        `matplotlib.ticker.Formatter`.  Optional.
-    textcolors
-        A list or array of two color specifications.  The first is used for
-        values below a threshold, the second for those above.  Optional.
-    threshold
-        Value in data units according to which the colors from textcolors are
-        applied.  If None (the default) uses the middle of the colormap as
-        separation.  Optional.
-    **kwargs
-        All other arguments are forwarded to each call to `text` used to create
-        the text labels.
-    """
-
-    if not isinstance(data, (list, numpy.ndarray)):
-        data = im.get_array()
-
-    # Normalize the threshold to the images color range.
-    if threshold is not None:
-        threshold = im.norm(threshold)
-    else:
-        threshold = im.norm(data.max())/2.
-
-    # Set default alignment to center, but allow it to be
-    # overwritten by textkw.
-    kw = dict(horizontalalignment="center",
-              verticalalignment="center")
-    kw.update(textkw)
-
-    # Get the formatter in case a string is supplied
-    if isinstance(valfmt, str):
-        valfmt = matplotlib.ticker.StrMethodFormatter(valfmt)
-
-    # Loop over the data and create a `Text` for each "pixel".
-    # Change the text's color depending on the data.
-    texts = []
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-            text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
-            texts.append(text)
-
-    return texts
+    
+    # Annotate, if required
+    if annotate:
+        # Normalize the threshold to the images color range.
+        threshold = im.norm(data.max())/2
+        # Annotate each cell
+        for i in range(data.shape[0]):
+            for j in range(data.shape[1]):
+                textcolor = textcolors[int(im.norm(data[i, j]) > threshold)]
+                im.axes.text(j, i, formatter(data[i, j], None),
+                             color=textcolor, horizontalalignment="center", 
+                             verticalalignment="center")
+    
+    # Return the axes we just drew on
+    return ax
