@@ -68,7 +68,7 @@ def draw_densplot(ax, data, nout=220, scale_height=1.0, **kwargs):
 
 
 def heatmap(data, ax, row_labels=None, col_labels=None,
-            include_cbar=False, cbarlabel="", annotate=True, 
+            include_cbar=True, cbarlabel="", annotate=True, 
             valfmt='{x:.0%}', textcolors=["white", "black"], **kwargs):
     """Create a heatmap from a pandas DataFrame (most likely from pivot_table)
     
@@ -100,7 +100,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     data_array = numpy.array(data)
     
     # Plot the heatmap
-    im = ax.imshow(data_array, **kwargs)
+    im = ax.imshow(data_array, origin='lower', **kwargs)
     
     # Make the formatter for colorbar labels and annotations
     formatter = matplotlib.ticker.StrMethodFormatter(valfmt)
@@ -111,18 +111,18 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
         cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
     
     # We want to show all ticks...
-    ax.set_xticks(numpy.arange(data.shape[1]))
-    ax.set_yticks(numpy.arange(data.shape[0]))
+    ax.set_xticks(numpy.arange(data_array.shape[1]))
+    ax.set_yticks(numpy.arange(data_array.shape[0]))
     # ... and label them with the respective list entries.
     ax.set_xticklabels(col_labels)
     ax.set_yticklabels(row_labels)
     
     # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
+    ax.tick_params(top=False, bottom=True,
+                   labeltop=False, labelbottom=True)
     
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
+    plt.setp(ax.get_xticklabels(), rotation=30, ha="right",
              rotation_mode="anchor")
 
     # Turn spines off and create white grid.
@@ -130,20 +130,20 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
         spine.set_visible(False)
     
     # Draw ticks
-    ax.set_xticks(numpy.arange(data.shape[1]+1)-.5, minor=True)
-    ax.set_yticks(numpy.arange(data.shape[0]+1)-.5, minor=True)
+    ax.set_xticks(numpy.arange(data_array.shape[1]+1)-.5, minor=True)
+    ax.set_yticks(numpy.arange(data_array.shape[0]+1)-.5, minor=True)
     ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
     ax.tick_params(which="minor", bottom=False, left=False)
     
     # Annotate, if required
     if annotate:
         # Normalize the threshold to the images color range.
-        threshold = im.norm(data.max())/2
+        threshold = im.norm(data_array.max())/2
         # Annotate each cell
-        for i in range(data.shape[0]):
-            for j in range(data.shape[1]):
-                textcolor = textcolors[int(im.norm(data[i, j]) > threshold)]
-                im.axes.text(j, i, formatter(data[i, j], None),
+        for i in range(data_array.shape[0]):
+            for j in range(data_array.shape[1]):
+                textcolor = textcolors[int(im.norm(data_array[i, j]) > threshold)]
+                im.axes.text(j, i, formatter(data_array[i, j], None),
                              color=textcolor, horizontalalignment="center", 
                              verticalalignment="center")
     

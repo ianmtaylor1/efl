@@ -32,7 +32,6 @@ class EFLPredictor(object):
                 for observed games, and predicted results for unobserved games.
                 If None, will be either 'mix', 'past', or 'future' depending
                 on whether model has fitgameids and/or predictgameids.
-            echo - Should computation updates be printed? Improves user sanity
         """
         # Determine default mode
         if mode is None:
@@ -249,7 +248,7 @@ class EFLPredictor(object):
         """
         # By default, summarize all stats
         if names is None:
-            names = self.stats
+            names = self.names
         # If only one provided, make it a list
         if type(names) == str:
             names = [names]
@@ -271,7 +270,7 @@ class EFLPredictor(object):
     
     def _summary_single(self, stat, name):
         """Summarize a single stat, by name, and return its summary."""
-        if self._stat_types[stat] == 'numeric':
+        if self._stat_type[stat] == 'numeric':
             return self._summary_numeric(stat, name)
         else:
             return self._summary_categorical(stat, name)
@@ -346,7 +345,7 @@ class EFLPredictor(object):
         """
         return self._summary_num_cat(ystat, yname, xstat, xname).T
     
-    def _summary_cat_cat(self, xstat, xname, ystat, yname):
+    def _summary_cat_cat(self, xstat, xname, ystat, yname, totals=True):
         """Summarize a pair with both categorical stats."""
         df = pandas.DataFrame({xname:self._stat_values[xstat],
                                yname:self._stat_values[ystat],
@@ -356,11 +355,24 @@ class EFLPredictor(object):
         xsumm = self._summary_categorical(xstat, xname)
         ysumm = self._summary_categorical(ystat, yname)
         summ = summ.loc[ysumm.index, xsumm.index]
-        summ.loc['Total',:] = xsumm
-        summ.loc[:,'Total'] = ysumm
+        if totals:
+            summ.loc['Total',:] = xsumm
+            summ.loc[:,'Total'] = ysumm
+            summ.loc['Total','Total'] = 1.0
         return summ
 
     # Methods to plot statistics
+    
+    def _statgen_maker(self, names2gen):
+        """Take a supplied list of names and return tuples giving instructions
+        to plot() about what to plot on an axis."""
+        for n in names2gen:
+            if n in self._name2stat:
+                yield (self._name2stat[n], n)
+            else:
+                for sn1,sn2 in itertools.combinations(self._groups[n], 2):
+                    yield (n, self._groups[n][sn1], sn1, 
+                           self._groups[n][sn2], sn2)
     
     def plot(self, names=None, nrows=1, ncols=1, figsize=None):
         """Make plots of desired statistic(s).
@@ -374,7 +386,7 @@ class EFLPredictor(object):
         """
         # By default, summarize all stats
         if names is None:
-            names = self.stats
+            names = self.names
         # Make names a list for convenience
         if type(names) == str:
             names = list(names)
@@ -385,21 +397,16 @@ class EFLPredictor(object):
                 numplots += 1
             elif n in self._groups:
                 num_ss = len(self._groups[n])
-                numplots += num_ss * (num_ss - 1) / 2
-        # Make a generator for statistics to zip with the axes
-        def statgen_maker():
-            for n in names:
-                if n in self._name2stat:
-                    yield (self._name2stat[n], n)
-                else:
-                    for sn1,sn2 in itertools.combinations(self._groups[n], 2):
-                        yield (n, self._groups[n][sn1], sn1, 
-                               self._groups[n][sn2], sn2)
-        statgen = statgen_maker()
+                numplots += num_ss * (num_ss - 1) // 2
+        # Make a generator of the stats we need to plot
+        statgen = self._statgen_maker(names)
         # Get the generator for figures we will draw on
         figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plots")
         for fig in figs:
-            for args, ax in zip(statgen, fig.axes):
+            # Bug fix: the order (fig.axes, statgen) is important as fig.axes
+            # is shorter and elements in statgen were getting "wasted" during
+            # zipping. https://docs.python.org/3/library/functions.html#zip
+            for ax, args in zip(fig.axes, statgen):
                 if len(args) == 2: # We want to plot a single stat
                     self._plot_single(*args, ax)
                 else: # We have a pair to plot
@@ -423,7 +430,6 @@ class EFLPredictor(object):
         util.draw_densplot(ax, self._stat_values[stat])
         ax.set_title(name)
         ax.set_ylabel("Frequency")
-        ax.set_xlabel(name)
         return ax
     
     def _plot_categorical(self, stat, name, ax):
@@ -452,7 +458,6 @@ class EFLPredictor(object):
         # Set titles and labels
         ax.set_title(name)
         ax.set_ylabel("Frequency")
-        ax.set_xlabel(name)
         # If the combined length of the labels is too long, rotate the labels
         if sum(len(str(x)) for x in s.index) > maxtextlen:
             for tick in ax.get_xticklabels():
@@ -480,4 +485,14 @@ class EFLPredictor(object):
         raise NotImplementedError()
     
     def _plot_cat_cat(self, title, xstat, xname, ystat, yname, ax):
-        raise NotImplementedError()
+        """Plot two categorical variables as an imagemap.
+        Parameters:
+            xstat, xname - the stat in the pair that will end up in columns
+            ystat, yname - the stat in the pair that will end up in rows
+        """
+        data = self._summary_cat_cat(xstat, xname, ystat, yname, totals=False)
+        util.heatmap(data, ax)
+        ax.set_title(title)
+        ax.set_xlabel(xname)
+        ax.set_ylabel(yname)
+        return ax
