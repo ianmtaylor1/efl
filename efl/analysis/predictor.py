@@ -297,6 +297,7 @@ class EFLPredictor(object):
                 if ordinal) to group into an other category. Default 0.0, no
                 grouping is done.
         """
+        # Get data for this variable and do an initial count
         df = pandas.DataFrame({name:self._stat_values[stat], 'cnt':1})
         c = df.groupby(name)['cnt'].count()
         # From here, we need to break out by type
@@ -311,18 +312,19 @@ class EFLPredictor(object):
                 other = None
             s = pandas.concat([s.drop(tidx), other])
         elif self._stat_type[stat] == 'ordinal':
+            # Sort and normalize
             s = c[sorted(c.index, key=self._stat_sort.get(stat))] / c.sum()
             # Find any left tail entries to group
             lidx = util.ltail(s, tail)
             if len(lidx) > 0:
-                lname = "< {}".format(lidx[-1])
+                lname = "<= {}".format(lidx[-1])
                 lcat = pandas.Series(data=[s[lidx].sum()], index=[lname])
             else:
                 lcat = None
             # Find any right tail entries to group
             ridx = util.rtail(s, tail)
             if len(ridx) > 0:
-                rname = "> {}".format(ridx[0])
+                rname = ">= {}".format(ridx[0])
                 rcat = pandas.Series(data=[s[ridx].sum()], index=[rname])
             else:
                 rcat = None
@@ -378,20 +380,33 @@ class EFLPredictor(object):
         """
         return self._summary_num_cat(ystat, yname, xstat, xname).T
     
-    def _summary_cat_cat(self, xstat, xname, ystat, yname, totals=True):
-        """Summarize a pair with both categorical stats."""
+    def _summary_cat_cat(self, xstat, xname, ystat, yname,
+                         totals=True, tail=0.0):
+        """Summarize a pair with both categorical stats.
+        Parameters:
+            xstat, xname, ystat, yname - stats and names associated with them
+            totals - whether to include a Total row/column
+            tail - cumulative tail mass (right only if nominal, left and right
+                if ordinal) to group into an other category. Default 0.0, no
+                grouping is done. Applied to both stats.
+        """
+        # Pull the data for these stats
         df = pandas.DataFrame({xname:self._stat_values[xstat],
                                yname:self._stat_values[ystat],
                                'cnt':1})
+        # Count and normalize
         summ = df.pivot_table(values='cnt', index=yname, columns=xname,
                               aggfunc='count', fill_value=0) / len(df)
+        # Get univariate summaries for sorting and totaling
         xsumm = self._summary_categorical(xstat, xname)
         ysumm = self._summary_categorical(ystat, yname)
         summ = summ.loc[ysumm.index, xsumm.index]
+        # Total, if necessary
         if totals:
             summ.loc['Total',:] = xsumm
             summ.loc[:,'Total'] = ysumm
             summ.loc['Total','Total'] = 1.0
+        # Return the sorted, optionally totaled, summary
         return summ
 
     # Methods to plot statistics
@@ -399,6 +414,8 @@ class EFLPredictor(object):
     def _statgen_maker(self, names2gen):
         """Take a supplied list of names and return tuples giving instructions
         to plot() about what to plot on an axis."""
+        # Does this need to be a method instead of inside plot()? Probably not
+        # But does it work? Yes. So I'm not moving it.
         for n in names2gen:
             if n in self._name2stat:
                 yield (self._name2stat[n], n)
@@ -476,7 +493,7 @@ class EFLPredictor(object):
         # Total text length of labels before rotating
         maxtextlen = 40
         # Get the appropriate summary
-        s = self._summary_categorical(stat, name)
+        s = self._summary_categorical(stat, name, tail=0.01)
         # Make a bar plot out of the summary
         bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
         # Print relative frequencies over bars
