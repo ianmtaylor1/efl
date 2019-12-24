@@ -287,21 +287,50 @@ class EFLPredictor(object):
         return pandas.Series(self._stat_values[stat], name=name)\
             .describe(percentiles=[.025,.25,.5,.75,.975])
     
-    def _summary_categorical(self, stat, name):
+    def _summary_categorical(self, stat, name, tail=0.0):
         """Summarize a statistic whose type is 'nominal' or 'ordinal'. Checks
         type to determine how to sort the summary.
         Parameters:
             stat - a stat key to the self._stat_values dict
-            name - a name by which to refer to the stat"""
+            name - a name by which to refer to the stat
+            tail - cumulative tail mass (right only if nominal, left and right
+                if ordinal) to group into an other category. Default 0.0, no
+                grouping is done.
+        """
         df = pandas.DataFrame({name:self._stat_values[stat], 'cnt':1})
         c = df.groupby(name)['cnt'].count()
-        # Sort appropriately, return
+        # From here, we need to break out by type
         if self._stat_type[stat] == 'nominal':
-            return c.sort_values(ascending=False) / len(df)
+            # Sort and normalize
+            s = c.sort_values(ascending=False) / c.sum()
+            # Find any tail entries to group
+            tidx = util.rtail(s, tail)
+            if len(tidx) > 0:
+                other = pandas.Series(data=[s[tidx].sum()], index=['Other'])
+            else:
+                other = None
+            s = pandas.concat([s.drop(tidx), other])
         elif self._stat_type[stat] == 'ordinal':
-            return c[sorted(c.index, key=self._stat_sort.get(stat))] / len(df)
+            s = c[sorted(c.index, key=self._stat_sort.get(stat))] / c.sum()
+            # Find any left tail entries to group
+            lidx = util.ltail(s, tail)
+            if len(lidx) > 0:
+                lname = "< {}".format(lidx[-1])
+                lcat = pandas.Series(data=[s[lidx].sum()], index=[lname])
+            else:
+                lcat = None
+            # Find any right tail entries to group
+            ridx = util.rtail(s, tail)
+            if len(ridx) > 0:
+                rname = "> {}".format(ridx[0])
+                rcat = pandas.Series(data=[s[ridx].sum()], index=[rname])
+            else:
+                rcat = None
+            s = pandas.concat([lcat, s.drop(set(lidx)|set(ridx)), rcat])
         else:
             raise Exception("Stat '{}' type neither nominal nor ordinal.".format(name))
+        # Return the sorted, normalized, (optionally trimmed) summary
+        return s
     
     def _summary_pair(self, xstat, xname, ystat, yname):
         """Summarize a pair of stats, by name, and return the summary."""

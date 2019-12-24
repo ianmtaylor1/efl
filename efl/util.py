@@ -153,3 +153,31 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     
     # Return the axes we just drew on
     return ax
+
+
+def rtail(series, threshold):
+    """Returns the right-most (i.e. towards the end) indices of the given
+    series such that the sum of their values is less than threshold. Useful
+    for creating 'other' categories from nominal summaries or '>x' categories
+    from ordinal summaries.
+    
+    Parameters:
+        series - a pandas Series
+        threshold - the desired cumulative weight for the tail
+    """
+    # Create a "reversed" cumulative sum, from back to front
+    rev_cumsum = series - series.cumsum() + series.sum()
+    return series.index[rev_cumsum < threshold]
+
+
+def ltail(series, threshold):
+    """Returns the left-most (i.e. towards the beginning) indices of the given
+    series such that the sum of their values is less than threshold. Useful
+    for creating '<x' categories from ordinal summaries.
+    
+    Parameters:
+        series - a pandas Series
+        threshold - the desired cumulative weight for the tail
+    """
+    return series.index[series.cumsum() < threshold]
+
