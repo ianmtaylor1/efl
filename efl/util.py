@@ -9,6 +9,7 @@ fit into any particular sub-package.
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy
+import pandas
 from scipy.stats import kde
 
 def make_axes(num_plots, nrows, ncols, figsize, main_title):
@@ -155,7 +156,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     return ax
 
 
-def rtail(series, threshold):
+def _rtail(series, threshold):
     """Returns the right-most (i.e. towards the end) indices of the given
     series such that the sum of their values is less than threshold. Useful
     for creating 'other' categories from nominal summaries or '>x' categories
@@ -170,7 +171,7 @@ def rtail(series, threshold):
     return series.index[rev_cumsum < threshold]
 
 
-def ltail(series, threshold):
+def _ltail(series, threshold):
     """Returns the left-most (i.e. towards the beginning) indices of the given
     series such that the sum of their values is less than threshold. Useful
     for creating '<x' categories from ordinal summaries.
@@ -180,4 +181,84 @@ def ltail(series, threshold):
         threshold - the desired cumulative weight for the tail
     """
     return series.index[series.cumsum() < threshold]
+
+
+def s_trim_l(series, threshold, newcat=None):
+    """Trim the left end of a series. Find the left-most elements whose sum
+    is less than 'threshold', remove them, and then add their total under a
+    new index called 'newcat' at the beginning of the series. If one or fewer
+    elements woudld be trimmed, don't do anything."""
+    tidx = _ltail(series, threshold) # Tail InDeXes
+    # Only do anything if there's more than one index to combine
+    if len(tidx) > 1:
+        # Default new category name is "<= (last index removed)"
+        if newcat is None:
+            newcat = "<= {}".format(tidx[-1])
+        cap = pandas.Series(data=[series[tidx].sum()], index=[newcat])
+        return pandas.concat([cap, series.drop(tidx)])
+    else:
+        return series
+
+
+def s_trim_r(series, threshold, newcat=None):
+    """Trim the right end of a series. Find the right-most elements whose sum
+    is less than 'threshold', remove them, and then add their total under a
+    new index called 'newcat' at the end of the series. If one or fewer
+    elements woudld be trimmed, don't do anything."""
+    tidx = _rtail(series, threshold) # Tail InDeXes
+    # Only do anything if there's more than one index to combine
+    if len(tidx) > 1:
+        # Default new category name is ">= (first index removed)"
+        if newcat is None:
+            newcat = ">= {}".format(tidx[0])
+        cap = pandas.Series(data=[series[tidx].sum()], index=[newcat])
+        return pandas.concat([series.drop(tidx), cap])
+    else:
+        return series
+
+
+def df_trim_i_l(df, threshold, newcat=None):
+    """Trim the top rows of a dataframe. Find the top-most row indices, for
+    which the sum of all elements in those rows is less than 'threshold',
+    remove them, and add their column totals as a new row called 'newcat' at
+    the top of the dataframe. If one or fewer rows would be triemmed,
+    don't do anything."""
+    tidx = _ltail(df.sum(axis=1), threshold) # Tail InDeXes
+    # Only do anything if there's more than one index to combine
+    if len(tidx) > 1:
+        if newcat is None:
+            newcat = "<= {}".format(tidx[-1])
+        # Column sums for all the dropped rows
+        to_add = df.loc[tidx,:].sum(axis=0)
+        to_add.name = newcat
+        return pandas.concat([pandas.DataFrame(to_add).T, df.drop(tidx, axis=0)])
+    else:
+        return df
+
+
+def df_trim_i_r(df, threshold, newcat=None):
+    """Trim the bottom rows of a dataframe. Find the bottom-most row indices,
+    for which the sum of all elements in those rows is less than 'threshold',
+    remove them, and add their column totals as a new row called 'newcat' at
+    the bottom of the dataframe. If one or fewer rows would be triemmed,
+    don't do anything."""
+    tidx = _rtail(df.sum(axis=1), threshold) # Tail InDeXes
+    # Only do anything if there's more than one index to combine
+    if len(tidx) > 1:
+        if newcat is None:
+            newcat = ">= {}".format(tidx[0])
+        # Column sums for all the dropped rows
+        to_add = df.loc[tidx,:].sum(axis=0)
+        to_add.name = newcat
+        return df.drop(tidx, axis=0).append(to_add)
+    else:
+        return df
+
+
+def df_trim_c_l(df, threshold, newcat=None):
+    return df_trim_i_l(df.T, threshold, newcat=newcat).T
+
+
+def df_trim_c_r(df, threshold, newcat=None):
+    return df_trim_i_l(df.T, threshold, newcat=newcat).T
 

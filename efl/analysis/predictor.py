@@ -304,31 +304,13 @@ class EFLPredictor(object):
         if self._stat_type[stat] == 'nominal':
             # Sort and normalize
             s = c.sort_values(ascending=False) / c.sum()
-            # Find any tail entries to group
-            tidx = util.rtail(s, tail)
-            if len(tidx) > 0:
-                other = pandas.Series(data=[s[tidx].sum()], index=['Other'])
-            else:
-                other = None
-            s = pandas.concat([s.drop(tidx), other])
+            # Trim if required
+            s = util.s_trim_r(s, tail, newcat="Other")
         elif self._stat_type[stat] == 'ordinal':
             # Sort and normalize
             s = c[sorted(c.index, key=self._stat_sort.get(stat))] / c.sum()
-            # Find any left tail entries to group
-            lidx = util.ltail(s, tail)
-            if len(lidx) > 0:
-                lname = "<= {}".format(lidx[-1])
-                lcat = pandas.Series(data=[s[lidx].sum()], index=[lname])
-            else:
-                lcat = None
-            # Find any right tail entries to group
-            ridx = util.rtail(s, tail)
-            if len(ridx) > 0:
-                rname = ">= {}".format(ridx[0])
-                rcat = pandas.Series(data=[s[ridx].sum()], index=[rname])
-            else:
-                rcat = None
-            s = pandas.concat([lcat, s.drop(set(lidx)|set(ridx)), rcat])
+            # Trim if required
+            s = util.s_trim_l(util.s_trim_r(s, tail), tail)
         else:
             raise Exception("Stat '{}' type neither nominal nor ordinal.".format(name))
         # Return the sorted, normalized, (optionally trimmed) summary
@@ -382,9 +364,14 @@ class EFLPredictor(object):
     
     def _summary_cat_cat(self, xstat, xname, ystat, yname,
                          totals=True, tail=0.0):
-        """Summarize a pair with both categorical stats.
+        """Summarize a pair with both categorical stats. Does not verify the
+        stat types.
+        
         Parameters:
-            xstat, xname, ystat, yname - stats and names associated with them
+            xstat, xname - stat, and associated name, that will define the
+                x axis, or columns of the resulting summary
+            ystat, yname - stat, and associated name, that will define the
+                y axis, or rows/index, of the resulting summary
             totals - whether to include a Total row/column
             tail - cumulative tail mass (right only if nominal, left and right
                 if ordinal) to group into an other category. Default 0.0, no
@@ -397,16 +384,25 @@ class EFLPredictor(object):
         # Count and normalize
         summ = df.pivot_table(values='cnt', index=yname, columns=xname,
                               aggfunc='count', fill_value=0) / len(df)
+        # Trim, if required
+        if self._stat_type[xstat] == 'nominal':
+            summ = util.df_trim_c_r(df, tail, newcat="Other")
+        elif self._stat_type[xstat] == 'ordinal':
+            summ = util.df_trim_c_l(util.df_trim_c_r(df, tail), tail)
+        if self._stat_type[ystat] == 'nominal':
+            summ = util.df_trim_i_r(df, tail, newcat="Other")
+        elif self._stat_type[ystat] == 'ordinal':
+            summ = util.df_trim_i_l(util.df_trim_i_r(df, tail), tail)
         # Get univariate summaries for sorting and totaling
-        xsumm = self._summary_categorical(xstat, xname)
-        ysumm = self._summary_categorical(ystat, yname)
+        xsumm = self._summary_categorical(xstat, xname, tail=tail)
+        ysumm = self._summary_categorical(ystat, yname, tail=tail)
         summ = summ.loc[ysumm.index, xsumm.index]
         # Total, if necessary
         if totals:
             summ.loc['Total',:] = xsumm
             summ.loc[:,'Total'] = ysumm
             summ.loc['Total','Total'] = 1.0
-        # Return the sorted, optionally totaled, summary
+        # Return the sorted, optionally totaled, optionally trimmed, summary
         return summ
 
     # Methods to plot statistics
@@ -541,7 +537,8 @@ class EFLPredictor(object):
             xstat, xname - the stat in the pair that will end up in columns
             ystat, yname - the stat in the pair that will end up in rows
         """
-        data = self._summary_cat_cat(xstat, xname, ystat, yname, totals=False)
+        data = self._summary_cat_cat(xstat, xname, ystat, yname,
+                                     totals=False, tail=0.01)
         util.heatmap(data, ax, aspect="auto")
         ax.set_title(title)
         ax.set_xlabel(xname)
