@@ -12,6 +12,11 @@ import numpy
 import pandas
 from scipy.stats import kde
 
+
+###########################################################
+## PLOTTING HELPER FUNCTIONS ##############################
+###########################################################
+
 def make_axes(num_plots, nrows, ncols, figsize, main_title):
     """Create figures and plots to be used by plotting functions that need to
     plot multiple things, possibly more than one to a figure.
@@ -156,6 +161,11 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     return ax
 
 
+###########################################################
+## FUNCTIONS FOR CREATING "OTHER" CATEGORIES IN SUMMARIES #
+###########################################################
+
+
 def _rtail(series, threshold):
     """Returns the right-most (i.e. towards the end) indices of the given
     series such that the sum of their values is less than threshold. Useful
@@ -260,5 +270,5 @@ def df_trim_c_l(df, threshold, newcat=None):
 
 
 def df_trim_c_r(df, threshold, newcat=None):
-    return df_trim_i_l(df.T, threshold, newcat=newcat).T
+    return df_trim_i_r(df.T, threshold, newcat=newcat).T
 
