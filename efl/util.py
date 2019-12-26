@@ -204,7 +204,7 @@ def s_trim_l(series, threshold, newcat=None):
         # Default new category name is "<= (last index removed)"
         if newcat is None:
             newcat = "<= {}".format(tidx[-1])
-        cap = pandas.Series(data=[series[tidx].sum()], index=[newcat])
+        cap = pandas.Series(data=[series.loc[tidx].sum()], index=[newcat])
         return pandas.concat([cap, series.drop(tidx)])
     else:
         return series
@@ -221,7 +221,7 @@ def s_trim_r(series, threshold, newcat=None):
         # Default new category name is ">= (first index removed)"
         if newcat is None:
             newcat = ">= {}".format(tidx[0])
-        cap = pandas.Series(data=[series[tidx].sum()], index=[newcat])
+        cap = pandas.Series(data=[series.loc[tidx].sum()], index=[newcat])
         return pandas.concat([series.drop(tidx), cap])
     else:
         return series
