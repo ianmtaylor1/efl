@@ -384,6 +384,10 @@ class EFLPredictor(object):
         # Count and normalize
         summ = df.pivot_table(values='cnt', index=yname, columns=xname,
                               aggfunc='count', fill_value=0) / len(df)
+        # Get univariate summaries for sorting
+        xsumm = self._summary_categorical(xstat, xname)
+        ysumm = self._summary_categorical(ystat, yname)
+        summ = summ.loc[ysumm.index, xsumm.index]
         # Trim, if required
         if self._stat_type[xstat] == 'nominal':
             summ = util.df_trim_c_r(df, tail, newcat="Other")
@@ -393,14 +397,13 @@ class EFLPredictor(object):
             summ = util.df_trim_i_r(df, tail, newcat="Other")
         elif self._stat_type[ystat] == 'ordinal':
             summ = util.df_trim_i_l(util.df_trim_i_r(df, tail), tail)
-        # Get univariate summaries for sorting and totaling
-        xsumm = self._summary_categorical(xstat, xname, tail=tail)
-        ysumm = self._summary_categorical(ystat, yname, tail=tail)
-        summ = summ.loc[ysumm.index, xsumm.index]
         # Total, if necessary
         if totals:
-            summ.loc['Total',:] = xsumm
-            summ.loc[:,'Total'] = ysumm
+            # Get univariate summaries for totaling
+            xsumm_trim = self._summary_categorical(xstat, xname, tail=tail)
+            ysumm_trim = self._summary_categorical(ystat, yname, tail=tail)
+            summ.loc['Total',:] = xsumm_trim
+            summ.loc[:,'Total'] = ysumm_trim
             summ.loc['Total','Total'] = 1.0
         # Return the sorted, optionally totaled, optionally trimmed, summary
         return summ
