@@ -390,13 +390,13 @@ class EFLPredictor(object):
         summ = summ.loc[ysumm.index, xsumm.index]
         # Trim, if required
         if self._stat_type[xstat] == 'nominal':
-            summ = util.df_trim_c_r(df, tail, newcat="Other")
+            summ = util.df_trim_c_r(summ, tail, newcat="Other")
         elif self._stat_type[xstat] == 'ordinal':
-            summ = util.df_trim_c_l(util.df_trim_c_r(df, tail), tail)
+            summ = util.df_trim_c_l(util.df_trim_c_r(summ, tail), tail)
         if self._stat_type[ystat] == 'nominal':
-            summ = util.df_trim_i_r(df, tail, newcat="Other")
+            summ = util.df_trim_i_r(summ, tail, newcat="Other")
         elif self._stat_type[ystat] == 'ordinal':
-            summ = util.df_trim_i_l(util.df_trim_i_r(df, tail), tail)
+            summ = util.df_trim_i_l(util.df_trim_i_r(summ, tail), tail)
         # Total, if necessary
         if totals:
             # Get univariate summaries for totaling
