@@ -241,6 +241,13 @@ class EFLModel(object):
         df.columns = [self._stan2efl.get(c, c) for c in df.columns]
         return df
     
+    def diagnostics(self, **kwargs):
+        """Return per-sample diagnostics for the underlying stanfit. Wraps
+        the stanfit's to_dataframe method with no pars and diagnostics=True.
+        All other keyword arguments (e.g. permuted, inc_warmup) are passed to
+        to_dataframe."""
+        return self.stanfit.to_dataframe(pars=[], diagnostics=True, **kwargs)
+    
     def predict(self, gameids="all", **kwargs):
         """Predicts the outcome of a group of games. 
         Parameters:
