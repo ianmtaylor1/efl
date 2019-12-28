@@ -35,7 +35,7 @@ class EFLSymOrdReg(base.EFL_ResultModel):
         efl2stan = {'DrawBoundary':'theta', 'HomeField':'home'}
         for i,t in enumerate(team_names):
             efl2stan[t] = 'teams[{}]'.format(i+1)
-        pargroups = {'teams':team_names}
+        pargroups = {'other':['DrawBoundary', 'HomeField'], 'teams':team_names}
         # Call super init
         super().__init__(
                 modelfile      = 'symordreg',
