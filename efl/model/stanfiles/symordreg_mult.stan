@@ -13,8 +13,8 @@ data {
     int<lower=1,upper=nTeams> hometeamidx_new[nGames_new];
     int<lower=1,upper=nTeams> awayteamidx_new[nGames_new];
     
-    // Dimension of multiplicative team matchup effects
-    int<lower=1> uvdim;
+    // Dimenstion of multiplicative matchup effects
+    int<lower=2,upper=nTeams> uvdim;
     
     // Prior mean and variance for teams parameters
     vector[nTeams] teams_prior_mean;
@@ -27,6 +27,10 @@ data {
     // Prior mean and sd for homefield advantage parameter
     real home_prior_mean;
     real<lower=0> home_prior_sd;
+    
+    // Prior parameters for lognormal matchup_scale
+    vector[nTeams] matchup_scale_prior_mu;
+    vector<lower=0>[nTeams] matchup_scale_prior_sigma;
 }
 transformed data {
     // Cholesky decomposition of prior teams variance
@@ -40,35 +44,44 @@ parameters {
     real home;
     // Boundary parameter for draws
     real<lower=0> theta;
-    // Variance parameters for multiplicative effects
-    positive_ordered[uvdim] uvscale;
-    cholesky_factor_corr[2*uvdim] uvcorr_chol;
-    // Multiplicative effect matrices
-    matrix[nTeams,uvdim] U; // "offense styles" sort of
-    matrix[nTeams,uvdim] V; // "defense styles" sort of
+    // Multiplicative effects
+    cholesky_factor_corr[uvdim] U_tri; // "offense styles" sort of
+    unit_vector[uvdim] U_vec[nTeams - uvdim];
+    unit_vector[uvdim] V_vec[nTeams]; // "defense styles" sort of
+    vector<lower=0>[nTeams] matchup_scale; // scale for each team
 }
 transformed parameters {
     // Full team strengths, constrained to sum to zero
-    vector[nTeams] teams = append_row(teams_raw, -sum(teams_raw));
+    vector[nTeams] teams;
+    // Matrices containing offense and defense multiplicative effects
+    matrix[nTeams,uvdim] U;
+    matrix[nTeams,uvdim] V;
     // Multiplicative matchup effects. Equals the negative of its transpose.
-    matrix[nTeams,nTeams] matchup = (U * V') - (V * U');
+    matrix[nTeams,nTeams] matchup;
+    
+    teams = append_row(teams_raw, -sum(teams_raw));
+    for (i in 1:nTeams) {
+        if (i <= uvdim) {
+            U[i] = U_tri[i]';
+        } else {
+            U[i] = U_vec[i-uvdim]';
+        }
+        V[i] = V_vec[i]';
+    }
+    matchup = quad_form_diag((U * V') - (V * U'), matchup_scale);
 }
 model {
-    matrix[2*uvdim,2*uvdim] uvcov_chol;
-    row_vector[2*uvdim] uv_vec[nTeams];
     vector[nGames] apply_matchup;
     // Priors
     theta ~ logistic(theta_prior_loc, theta_prior_scale) T[0,];
     home ~ normal(home_prior_mean, home_prior_sd);
     teams ~ multi_normal_cholesky(teams_prior_mean, teams_prior_var_chol);
     // Multiplicative matchup effect priors
-    uvscale ~ cauchy(0.0, 1.0);
-    uvcorr_chol ~ lkj_corr_cholesky(1.0);
-    uvcov_chol = diag_pre_multiply(append_row(uvscale,uvscale), uvcorr_chol);
-    for (i in 1:nTeams) {
-        uv_vec[i] = append_col(U[i], V[i]);
-    }
-    uv_vec ~ multi_normal_cholesky(rep_row_vector(0.0, 2*uvdim), uvcov_chol);
+    // LKJ(0.5) results in the same distribution of 'angles' as would have
+    // from just uniformly distributed unit vectors
+    U_tri ~ lkj_corr_cholesky(0.5);
+    // Give matchup_scale half-cauchy distributions
+    matchup_scale ~ lognormal(matchup_scale_prior_mu, matchup_scale_prior_sigma);
     // Model
     for (i in 1:nGames) {
         apply_matchup[i] = matchup[hometeamidx[i], awayteamidx[i]];
@@ -78,12 +91,13 @@ model {
                 teams[hometeamidx] - teams[awayteamidx] + apply_matchup + home, 
                 [ -theta, theta ]'
                 );
-    };
+    }
 }
 generated quantities {
     int<lower=1,upper=3> result_pred[nGames];
     int<lower=1,upper=3> result_new_pred[nGames_new];
-    corr_matrix[2*uvdim] uvcorr;
+    matrix[nTeams, nTeams] offense_similarity;
+    matrix[nTeams, nTeams] defense_similarity;
     // Posterior predictions for observed games
     for (i in 1:nGames) {
         result_pred[i] = ordered_logistic_rng(
@@ -98,6 +112,7 @@ generated quantities {
                 [ -theta, theta ]'
                 );
     };
-    // Correlation matrix for components of matchup effects
-    uvcorr = multiply_lower_tri_self_transpose(uvcorr_chol);
+    // Create offense and defense similarity
+    offense_similarity = tcrossprod(U);
+    defense_similarity = tcrossprod(V);
 }
