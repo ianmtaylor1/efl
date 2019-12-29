@@ -224,6 +224,14 @@ def matrix(df):
     return mat
 
 
+def df_passthrough(df):
+    """Do nothing. Just return the df as is. Why would I want to do this? This
+    makes the dataframe accessible as a stat, which means that it can be passed
+    to stats that also have other precomputes. In reality, this is an ugly
+    hack and should probably be done away with in favor of something else. But
+    whatever."""
+    return df
+
 ###########################################################
 ## DERIVED STAT CLASSES AND FUNCTIONS #####################
 ###########################################################
@@ -511,6 +519,16 @@ def numtriangles(M):
     return M3.diagonal().sum() / 3
 
 
+@stat(type_='numeric', precompute=(rankings, df_passthrough))
+def uptable_wins(r, df):
+    """Compute the number of wins 'up table', i.e. a lower team beat a higher
+    team."""
+    homerank = df.loc[:,'hometeam'].apply(lambda x: r.loc[x])
+    awayrank = df.loc[:,'awayteam'].apply(lambda x: r.loc[x])
+    return sum(  ((homerank > awayrank) & (df.loc[:,'result']=='H'))
+               | ((homerank < awayrank) & (df.loc[:,'result']=='A')))
+
+
 @stat(type_='numeric', name='Goals Index of Dispersion')
 def goals_ind_disp(df):
     """Calculates the index of dispersion (var/mean) for all goals scored in
@@ -527,8 +545,59 @@ def goals_cv(df):
     return allgoals.std()/allgoals.mean()
 
 
+@stat(type_='numeric', name='Home Goals Index of Dispersion')
+def homegoals_ind_disp(df):
+    """Calculates the index of dispersion (var/mean) for the home goals scored
+    in all games."""
+    return df['homegoals'].var()/df['homegoals'].mean()
+
+
+@stat(type_='numeric', name='Home Goals Coefficient of Variation')
+def homegoals_cv(df):
+    """Calculates the coefficient of variation (sd/mean) for the home goals
+    scored in all games."""
+    return df['homegoals'].std()/df['homegoals'].mean()
+
+
+@stat(type_='numeric', name='Away Goals Index of Dispersion')
+def awaygoals_ind_disp(df):
+    """Calculates the index of dispersion (var/mean) for the away goals scored
+    in all games."""
+    return df['awaygoals'].var()/df['awaygoals'].mean()
+
+
+@stat(type_='numeric', name='Away Goals Coefficient of Variation')
+def awaygoals_cv(df):
+    """Calculates the coefficient of variation (sd/mean) for the away goals 
+    scored in all games."""
+    return df['awaygoals'].std()/df['awaygoals'].mean()
+
+
+@stat(type_='numeric', name='Total Goals Index of Dispersion')
+def totalgoals_ind_disp(df):
+    """Calculates the index of dispersion (var/mean) for the total goals scored
+    in all games."""
+    total = df['homegoals'] + df['awaygoals']
+    return total.var()/total.mean()
+
+
+@stat(type_='numeric', name='Total Goals Coefficient of Variation')
+def totalgoals_cv(df):
+    """Calculates the coefficient of variation (sd/mean) for the total goals
+    scored in all games."""
+    total = df['homegoals'] + df['awaygoals']
+    return total.std()/total.mean()
+
+
 @stat(type_='numeric')
 def avghomemargin(df):
     """Calculates the average home team margin of victory for all games."""
     return (df['homegoals']-df['awaygoals']).mean()
+
+
+@stat(type_='numeric')
+def goals_corr(df):
+    """Calculates the correlation between home goals and away goals over
+    all games."""
+    return numpy.corrcoef(df[['homegoals','awaygoals']].T)[0,1]
 
