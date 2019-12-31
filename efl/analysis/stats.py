@@ -459,14 +459,21 @@ class TeamPoints(BaseStat):
 def homewinpct(g):
     """Calculates the homefield advantage: what percentage of games were won
     by the home team."""
-    return 100*sum(g['result'] == 'H')/g['result'].count()
+    return 100.0*sum(g['result'] == 'H')/g['result'].count()
 
 
 @stat(type_='numeric')
 def drawpct(g):
     """Calculates the likelihood of a draw: what percentage of games resulted
     in a draw."""
-    return 100*sum(g['result'] == 'D')/g['result'].count()
+    return 100.0*sum(g['result'] == 'D')/g['result'].count()
+
+
+@stat(type_='numeric')
+def awaywinpct(g):
+    """Calculates the likelihood of an away win: what percentage of games
+    resulted in a win by the away team."""
+    return 100.0*sum(g['result'] == 'A')/g['result'].count()
 
 
 @stat(type_='numeric', precompute=table)
@@ -527,6 +534,20 @@ def uptable_wins(r, df):
     awayrank = df.loc[:,'awayteam'].apply(lambda x: r.loc[x])
     return sum(  ((homerank > awayrank) & (df.loc[:,'result']=='H'))
                | ((homerank < awayrank) & (df.loc[:,'result']=='A')))
+
+
+@stat(type_='numeric', precompute=(rankings, df_passthrough))
+def uptable_wins_weighted(r, df):
+    """Compute the weighted number of wins 'up table', i.e. a lower team beat
+    a higher team. The larger the difference in their rank, the more it counts.
+    E.g. if team ranked 7th beats team ranked 2nd, +5 is added to this stat.
+    """
+    homerank = df.loc[:,'hometeam'].apply(lambda x: r.loc[x])
+    awayrank = df.loc[:,'awayteam'].apply(lambda x: r.loc[x])
+    home_utw = (homerank > awayrank) & (df.loc[:,'result']=='H')
+    away_utw = (homerank < awayrank) & (df.loc[:,'result']=='A')
+    return (sum(homerank.loc[home_utw] - awayrank.loc[home_utw])
+           + sum(awayrank.loc[away_utw] - homerank.loc[away_utw]))
 
 
 @stat(type_='numeric', name='Goals Index of Dispersion')
@@ -600,4 +621,12 @@ def goals_corr(df):
     """Calculates the correlation between home goals and away goals over
     all games."""
     return numpy.corrcoef(df[['homegoals','awaygoals']].T)[0,1]
+
+
+@stat(type_='numeric')
+def squared_margin(df):
+    """Calculates the average squared margin of all games in the dataframe.
+    Low values mean games were on average pretty competitive, high values
+    mean games were on average less competitive."""
+    return ((df['homegoals'] - df['awaygoals'])**2).mean()
 
