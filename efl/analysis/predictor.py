@@ -72,8 +72,7 @@ class EFLPredictor(object):
         self._stat_sort = {}
         # Dict to map statistic names to stat keys
         self._name2stat = {}
-        # Dict of dicts to map stat group names to their substats and substat
-        # names
+        # Dict of dicts to map stat group names to their substats and subnames
         self._groups = {}
         # List to hold stat names in the order they were added
         self._names = []
@@ -241,51 +240,7 @@ class EFLPredictor(object):
     def clean(self):
         raise NotImplementedError()
     
-#    # Methods to summarize statistics
-    
-    def summary(self, names=None):
-        """Compute summaries of desired statistic(s).
-        Parameters:
-            names - either a string or a list of strings, name(s) of stats
-        Returns:
-            A dict with stat names as keys and summaries as values.
-        """
-        # By default, summarize all stats
-        if names is None:
-            names = self.names
-        # If only one provided, make it a list
-        if type(names) == str:
-            names = [names]
-        # Create summary
-        summ = {}
-        for n in names:
-            if n in self._name2stat:
-                summ[n] = self._summary_single(self._name2stat[n], n)
-            elif n in self._groups:
-                # For groups, summarize each pair of substats together
-                # Combine into a dict
-                grpsum = {}
-                for sn1,sn2 in itertools.combinations(self._groups[n], 2):
-                    ss1 = self._groups[n][sn1]
-                    ss2 = self._groups[n][sn2]
-                    grpsum[(sn1, sn2)] = self._summary_pair(ss1, sn1, ss2, sn2)
-                summ[n] = grpsum
-        return summ
-    
-    def _summary_single(self, stat, name):
-        """Summarize a single stat, by name, and return its summary."""
-        if self._stat_type[stat] == 'numeric':
-            return self._summary_numeric(stat, name)
-        else:
-            return self._summary_categorical(stat, name)
-    
-    def _summary_numeric(self, stat, name):
-        """Summarize a statistic whose type is 'numeric'. Doesn't validate.
-        Parameters:
-            stat - a stat key to the self._stat_values dict
-            name - name by which to refer to the stat"""
-        return pandas.Series(self._stat_values[stat], name=name)\
-            .describe(percentiles=[.025,.25,.5,.75,.975])
+    # Methods to summarize categorical statistics
     
     def _summary_categorical(self, stat, name, tail=0.0):
         """Summarize a statistic whose type is 'nominal' or 'ordinal'. Checks
@@ -315,52 +270,6 @@ class EFLPredictor(object):
             raise Exception("Stat '{}' type neither nominal nor ordinal.".format(name))
         # Return the sorted, normalized, (optionally trimmed) summary
         return s
-    
-    def _summary_pair(self, xstat, xname, ystat, yname):
-        """Summarize a pair of stats, by name, and return the summary."""
-        if self._stat_type[xstat] == self._stat_type[ystat] == 'numeric':
-            return self._summary_num_num(xstat, xname, ystat, yname)
-        elif self._stat_type[xstat] == 'numeric':
-            return self._summary_num_cat(xstat, xname, ystat, yname)
-        elif self._stat_type[ystat] == 'numeric':
-            return self._summary_cat_num(xstat, xname, ystat, yname)
-        else:
-            return self._summary_cat_cat(xstat, xname, ystat, yname)
-    
-    def _summary_num_num(self, xstat, xname, ystat, yname):
-        """Summarize a pair with both numeric stats."""
-        df = pandas.DataFrame({xname:self._stat_values[xstat],
-                               yname:self._stat_valeus[ystat]})
-        # TODO: add measures of correlation, etc.
-        return df.describe(percentiles=[.025,.25,.5,.75,.975])
-        
-    def _summary_num_cat(self, xstat, xname, ystat, yname):
-        """Summarize a pair with one numeric stat and one categorical stat.
-        Return the summary so that the numeric stat is on the "x-axis" and
-        the categorical stat is on the "y-axis".
-        Parameters:
-            xstat, xname - the numeric stat in the pair
-            ystat, yname - the categorical stat in the pair
-        """
-        df = pandas.DataFrame({xname:self._stat_values[xstat],
-                               yname:self._stat_values[ystat]})
-        summ = df.groupby(ystat).describe(percentiles=[.025,.25,.5,.75,.975])
-        csumm = self._summary_cat(ystat, yname)
-        del summ[(xname,'count')]
-        df.insert(0, 'frequency', csumm)
-        # Sort in whatever order the categorical summary sorts in (it handles
-        # nominal vs ordinal)
-        return summ.loc[csumm.index,:]
-    
-    def _summary_cat_num(self, xstat, xname, ystat, yname):
-        """Summarize a pair with one numeric stat and one categorical stat.
-        Return the summary so that the categorical stat is on the "x-axis" and
-        the numeric stat is on the "y-axis".
-        Parameters:
-            xstat, xname - the categorical stat in the pair
-            ystat, yname - the numeric stat in the pair
-        """
-        return self._summary_num_cat(ystat, yname, xstat, xname).T
     
     def _summary_cat_cat(self, xstat, xname, ystat, yname,
                          totals=True, tail=0.0):
@@ -476,7 +385,7 @@ class EFLPredictor(object):
             stat - a stat key to the self._stat_values dict
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw"""
-        ax.hist(self._stat_values[stat], density=True, bins="fd")
+        ax.hist(self._stat_values[stat], density=True, bins="auto")
         util.draw_densplot(ax, self._stat_values[stat])
         ax.set_title(name)
         ax.set_ylabel("Frequency")
