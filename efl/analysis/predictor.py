@@ -385,11 +385,10 @@ class EFLPredictor(object):
             stat - a stat key to the self._stat_values dict
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw"""
-        ax.hist(self._stat_values[stat], density=True, bins="auto")
-        util.draw_densplot(ax, self._stat_values[stat])
+        hist = ax.hist(self._stat_values[stat], density=True, bins="auto")
         ax.set_title(name)
         ax.set_ylabel("Frequency")
-        return ax
+        return hist
     
     def _plot_categorical(self, stat, name, ax):
         """Plot a stat whose type is 'nominal' or 'ordinal'. Doesn't validate.
@@ -421,7 +420,7 @@ class EFLPredictor(object):
         if sum(len(str(x)) for x in s.index) > maxtextlen:
             for tick in ax.get_xticklabels():
                 tick.set_rotation(90)
-        return ax
+        return bars
     
     def _plot_pair(self, title, xstat, xname, ystat, yname, ax):
         """Plot a pair of stats on an axis and return the axis."""
@@ -451,8 +450,9 @@ class EFLPredictor(object):
         """
         data = self._summary_cat_cat(xstat, xname, ystat, yname,
                                      totals=False, tail=0.01)
-        util.heatmap(data, ax, aspect="auto")
+        im = util.heatmap(data, ax, aspect="auto", cmap="Blues",
+                          textcolors=['black','white'])
         ax.set_title(title)
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
-        return ax
+        return im

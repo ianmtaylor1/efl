@@ -158,7 +158,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
                              verticalalignment="center")
     
     # Return the axes we just drew on
-    return ax
+    return im
 
 
 ###########################################################
