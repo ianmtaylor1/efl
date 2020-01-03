@@ -332,7 +332,8 @@ class EFLPredictor(object):
                     yield (n, self._groups[n][sn1], sn1, 
                            self._groups[n][sn2], sn2)
     
-    def plot(self, names=None, nrows=1, ncols=1, figsize=None):
+    def plot(self, names=None, nrows=1, ncols=1, figsize=None,
+             title="Statistic Plot"):
         """Make plots of desired statistic(s).
         Parameters:
             names - either a string or a list of strings, name(s) of stats
@@ -359,7 +360,7 @@ class EFLPredictor(object):
         # Make a generator of the stats we need to plot
         statgen = self._statgen_maker(names)
         # Get the generator for figures we will draw on
-        figs = util.make_axes(numplots, nrows, ncols, figsize, "Statistic Plot")
+        figs = util.make_axes(numplots, nrows, ncols, figsize, title)
         for fig in figs:
             # Bug fix: the order (fig.axes, statgen) is important. fig.axes is
             # always shorter, and elements in statgen were getting "wasted"
