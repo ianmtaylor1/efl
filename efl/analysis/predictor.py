@@ -397,30 +397,14 @@ class EFLPredictor(object):
             name - a name by which to refer to the stat
             ax - matplotlib Axes object on which to draw
         """
-        # Total text length of labels before rotating
-        maxtextlen = 40
         # Get the appropriate summary
         s = self._summary_categorical(stat, name, tail=0.01)
         # Make a bar plot out of the summary
-        bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
-        ax.set_ylim(bottom=0.0, top=max(s)*1.2)
-        # Print relative frequencies over bars
-        if 3*len(s) > maxtextlen:
-            rotation=90
-        else:
-            rotation=0
-        for bar in bars:
-            height = bar.get_height()
-            xc = bar.get_x() + bar.get_width()/2
-            ax.text(x=xc, y=height, s="{:.0%}".format(height),
-                    ha='center', va='bottom', rotation=rotation)
+        bars = util.barplot(s, ax)
         # Set titles and labels
         ax.set_title(name)
         ax.set_ylabel("Frequency")
-        # If the combined length of the labels is too long, rotate the labels
-        if sum(len(str(x)) for x in s.index) > maxtextlen:
-            for tick in ax.get_xticklabels():
-                tick.set_rotation(90)
+        # Return the bars
         return bars
     
     def _plot_pair(self, title, xstat, xname, ystat, yname, ax):

@@ -161,6 +161,51 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     return im
 
 
+def barplot(data, ax, xlabels=None, annotate=True, maxtextlen=40,
+            valfmt='{x:.0%}', **kwargs):
+    """Draw a bar plot of the given data on the given axes.
+    Parameters:
+        data - a pandas.Series containing the data to plot
+        ax - the matplotlib axes object on which to plot
+        xlabels - the labels to draw on the x axis. If None, the index of the
+            data series will be used.
+        annotate - if True, write percentages above bars
+        maxtextlen - if total length of text of xlabels is greater than this
+            number, rotate labels 90 degrees
+        valfmt - A format string to use formatting both the annotated values
+            (if any) and y axis ticks.
+    """
+    # Default labels
+    if xlabels is None:
+        xlabels = [str(x) for x in data.index]
+    # Draw bars
+    bars = ax.bar(x=range(len(data)), height=data, tick_label=xlabels)
+    # Format values
+    formatter = matplotlib.ticker.StrMethodFormatter(valfmt)
+    ax.yaxis.set_major_formatter(formatter)
+    # Annotations
+    if annotate:
+        # Print relative frequencies over bars
+        # Rotate if necessary
+        if 3*len(data) > maxtextlen:
+            rotation=90
+        else:
+            rotation=0
+        for bar in bars:
+            height = bar.get_height()
+            xc = bar.get_x() + bar.get_width()/2
+            ax.text(x=xc, y=height, s=formatter(height),
+                    ha='center', va='bottom', rotation=rotation)
+        # Extend the y limit to accomodate bars
+        ax.set_ylim(bottom=0.0, top=max(data)*1.2)
+    # If the combined length of the labels is too long, rotate the labels
+    if sum(len(str(x)) for x in xlabels) > maxtextlen:
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(90)
+    # Return the bars
+    return bars
+
+
 ###########################################################
 ## FUNCTIONS FOR CREATING "OTHER" CATEGORIES IN SUMMARIES #
 ###########################################################
