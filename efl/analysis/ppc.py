@@ -79,23 +79,27 @@ class EFLPPC(predictor.EFLPredictor):
     
     def _plot_categorical(self, stat, name, ax, *args, **kwargs):
         # Draw the base bar plot on the axis
-        bars = super()._plot_numeric(stat, name, ax, *args, **kwargs)
+        bars = super()._plot_categorical(stat, name, ax, *args, **kwargs)
         # Figure out which bar needs to be highlighted
         hltidx = None
         labels = [l.get_text() for l in ax.get_xticklabels()]
-        if self._observed_values[stat] in labels:
-            hltidx = labels.index(self._observed_values[stat])
+        if str(self._observed_values[stat]) in labels:
+            hltidx = labels.index(str(self._observed_values[stat]))
         # Hightlight that bar
         if hltidx is not None:
             bars[hltidx].set_color("red")
             bars[hltidx].set_label("Observed Value")
             ax.legend()
         else:
-            t = ax.text(ax.get_xlim()[1], ax.get_ylim()[1],
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
+            xpos = xlim[0] + 0.92*(xlim[1] - xlim[0])
+            ypos = ylim[0] + 0.92*(ylim[1] - ylim[0])
+            t = ax.text(xpos, ypos,
                         "Observed: {}".format(self._observed_values[stat]),
-                        ha="right", va="top")
-            bb = t.get_bbox_patch()
-            bb.set_boxstyle('square', pad=0.3)
+                        fontsize=12, ha="right", va="top")
+            t.set_bbox(dict(boxstyle='square', edgecolor="red", 
+                            facecolor="white", pad=0.3))
         # Return the original value
         return bars
     

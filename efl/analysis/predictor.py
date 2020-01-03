@@ -403,6 +403,7 @@ class EFLPredictor(object):
         s = self._summary_categorical(stat, name, tail=0.01)
         # Make a bar plot out of the summary
         bars = ax.bar(x=range(1,len(s)+1), height=s, tick_label=s.index)
+        ax.set_ylim(bottom=0.0, top=max(s)*1.2)
         # Print relative frequencies over bars
         if 3*len(s) > maxtextlen:
             rotation=90

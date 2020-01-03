@@ -203,7 +203,8 @@ def s_trim_l(series, threshold, newcat=None):
     if len(tidx) > 1:
         # Default new category name is "<= (last index removed)"
         if newcat is None:
-            newcat = "<= {}".format(tidx[-1])
+            # Unicode less-than-or-equal
+            newcat = "\u2264 {}".format(tidx[-1])
         cap = pandas.Series(data=[series.loc[tidx].sum()], index=[newcat])
         return pandas.concat([cap, series.drop(tidx)])
     else:
@@ -220,7 +221,8 @@ def s_trim_r(series, threshold, newcat=None):
     if len(tidx) > 1:
         # Default new category name is ">= (first index removed)"
         if newcat is None:
-            newcat = ">= {}".format(tidx[0])
+            # Unicode greater-than-or-equal
+            newcat = "\u2265 {}".format(tidx[0])
         cap = pandas.Series(data=[series.loc[tidx].sum()], index=[newcat])
         return pandas.concat([series.drop(tidx), cap])
     else:
@@ -237,7 +239,8 @@ def df_trim_i_l(df, threshold, newcat=None):
     # Only do anything if there's more than one index to combine
     if len(tidx) > 1:
         if newcat is None:
-            newcat = "<= {}".format(tidx[-1])
+            # Unicode less-than-or-equal
+            newcat = "\u2264 {}".format(tidx[-1])
         # Column sums for all the dropped rows
         to_add = df.loc[tidx,:].sum(axis=0)
         to_add.name = newcat
@@ -256,7 +259,8 @@ def df_trim_i_r(df, threshold, newcat=None):
     # Only do anything if there's more than one index to combine
     if len(tidx) > 1:
         if newcat is None:
-            newcat = ">= {}".format(tidx[0])
+            # Unicode greater-than-or-equal
+            newcat = "\u2265 {}".format(tidx[0])
         # Column sums for all the dropped rows
         to_add = df.loc[tidx,:].sum(axis=0)
         to_add.name = newcat

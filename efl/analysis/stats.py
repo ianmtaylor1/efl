@@ -624,9 +624,16 @@ def goals_corr(df):
 
 
 @stat(type_='numeric')
-def squared_margin(df):
+def avg_squared_margin(df):
     """Calculates the average squared margin of all games in the dataframe.
     Low values mean games were on average pretty competitive, high values
     mean games were on average less competitive."""
     return ((df['homegoals'] - df['awaygoals'])**2).mean()
+
+
+@stat(type_='numeric')
+def avg_abs_margin(df):
+    """Calculates the average absolute margin of all games in the dataframe.
+    """
+    return (df['homegoals'] - df['awaygoals']).abs().mean()
 
