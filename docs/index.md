@@ -7,7 +7,7 @@ The purpose of this project is to create Bayesian models that forecast English f
 
 ### Outline of this Documentation
 
-* Code overview
+* [Code overview](code/)
 * [Model descriptions](models/)
 * Background information
 * Posts with findings and updates
