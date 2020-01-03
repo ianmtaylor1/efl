@@ -6,7 +6,7 @@ layout: main
 # Symmetric Ordinal Regression
 
 This is the first and the simplest model that I wrote. The model centers around
-a "strength" for each team. The difference between two teams' strengths
+a "strength" for each team, where the difference between two teams' strengths
 determines the probability of a win, draw, or loss. For example, if Wolves'
 strength is much higher than Leicester City's strength, Wolves will have a high
 proability of a win, and a lower probability of a draw or a loss.
@@ -26,7 +26,7 @@ This model is an
 or regression with an ordered outcome. Here the outcome is the game result,
 Win, Draw, or Loss, which are naturally ordered from better to worse.
 
-The model is defined by 22 parameters: 
+The model is defined by 22 parameters (for the Premier League): 
 * 20 representing the strength of each of the 20 teams, written
 $$s_i$$ for $$i=1,\dots,20$$.
 * 1 representing a homefield advantage, written $$h$$.

@@ -637,3 +637,14 @@ def avg_abs_margin(df):
     """
     return (df['homegoals'] - df['awaygoals']).abs().mean()
 
+
+@stat(type_='numeric')
+def pct_clean_sheets(df):
+    """Calculates the percent of scores which were zero."""
+    return sum(df['homegoals'] == 0) + sum(df['awaygoals'] == 0)
+
+
+@stat(type_='numeric')
+def pct_nil_nil(df):
+    """Calculates the percent of games which were nil-nil draws."""
+    return sum((df['homegoals'] == 0) & (df['awaygoals'] == 0))

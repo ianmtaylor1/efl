@@ -10,10 +10,9 @@ This page contains descriptions of the different models implemented in this pack
 ## Result Models
 
 * [Symmetric Ordinal Regression](symordreg.html)
+* Symmetric Ordinal Regression HTI (home/team interaction)
 
 ## Goal Models
 
 * [Numberphile Model](numberphile.html)
 * Simplified Model
-* Hierarchical Model
-
