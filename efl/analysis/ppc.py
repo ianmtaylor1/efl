@@ -8,6 +8,7 @@ a model. It is based on an EFLPredictor, but highlights and compares the stat
 values on the observed data with what is generated from the model predictions.
 """
 
+import numpy
 import pandas
 
 from . import predictor
@@ -71,8 +72,12 @@ class EFLPPC(predictor.EFLPredictor):
         # Draw the base histogram plot on the axis
         hist = super()._plot_numeric(stat, name, ax, *args, **kwargs)
         # Draw a vertical line where the observed value is
-        ax.axvline(self._observed_values[stat], color="red",
-                   label="Observed Value")
+        leq = 100.0 * (
+                numpy.array(self._stat_values[stat]) 
+                <= self._observed_values[stat]
+                ).mean()
+        lab = "Observed: {:.0f} pctile".format(leq)
+        ax.axvline(self._observed_values[stat], color="red", label=lab)
         ax.legend()
         # Pass through the original return value
         return hist
