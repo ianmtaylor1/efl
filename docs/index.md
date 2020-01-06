@@ -10,4 +10,3 @@ The purpose of this project is to create Bayesian models that forecast English f
 * [Code overview](code/)
 * [Model descriptions](models/)
 * Background information
-* Posts with findings and updates
