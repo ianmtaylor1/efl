@@ -511,6 +511,21 @@ def maxhomeadv(t):
     return numpy.max(t['HPts'] - t['APts'])
 
 
+@stat(type_='numeric', precompute=table)
+def sdhomeadv_goals(t):
+    """Calculates the standard deviation of the homefield advantage for all
+    teams. Homefield advantage is defined as home goal diff minus away goal
+    diff."""
+    return numpy.std(t['HGD'] - t['AGD'])
+
+
+@stat(type_='numeric', precompute=table)
+def maxhomeadv_goals(t):
+    """Calculates the maximum homefield advantage for all teams. Homefield
+    advantage is defined as home goal diff minus away goal diff."""
+    return numpy.max(t['HGD'] - t['AGD'])
+
+
 @stat(type_='numeric', precompute=matrix)
 def numrecip(M):
     """Calculates the number of reciprocal game pairs. (e.g. Team A beats
