@@ -76,7 +76,7 @@ class EFLPPC(predictor.EFLPredictor):
                 numpy.array(self._stat_values[stat]) 
                 <= self._observed_values[stat]
                 ).mean()
-        lab = "Observed: {:.0f} pctile".format(leq)
+        lab = "Observed %ile: {:.0f}".format(leq)
         ax.axvline(self._observed_values[stat], color="red", label=lab)
         ax.legend()
         # Pass through the original return value
