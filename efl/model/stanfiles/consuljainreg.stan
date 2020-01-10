@@ -113,9 +113,6 @@ transformed parameters {
     vector[nTeams] defense = append_row(defense_raw, -sum(defense_raw));
 }
 model {
-    // local variable to hold means
-    vector[nGames] mu_home;
-    vector[nGames] mu_away;
     // Prior contribution from home/away goals
     log_home_goals ~ normal(log_home_goals_prior_mean, log_home_goals_prior_sd);
     log_away_goals ~ normal(log_away_goals_prior_mean, log_away_goals_prior_sd);
@@ -125,10 +122,15 @@ model {
     // Prior index of dispersion
     dispersion ~ normal(dispersion_prior_mean, dispersion_prior_sd) T[0.25,];
     // Model, goals follow Consul-Jain generalized Poisson distribution
-    mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
-    mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
-    homegoals ~ consuljain_vv(mu_home/sqrt(dispersion), 1 - 1/sqrt(dispersion));
-    awaygoals ~ consuljain_vv(mu_away/sqrt(dispersion), 1 - 1/sqrt(dispersion));
+    if (nGames > 0) {
+        // local variable to hold means
+        vector[nGames] mu_home;
+        vector[nGames] mu_away;
+        mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
+        mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
+        homegoals ~ consuljain_vv(mu_home/sqrt(dispersion), 1 - 1/sqrt(dispersion));
+        awaygoals ~ consuljain_vv(mu_away/sqrt(dispersion), 1 - 1/sqrt(dispersion));
+    }
 }
 generated quantities {
     int<lower=0> homegoals_pred[nGames];

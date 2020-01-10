@@ -653,6 +653,13 @@ def avg_abs_margin(df):
     return (df['homegoals'] - df['awaygoals']).abs().mean()
 
 
+@stat(type_='ordinal')
+def max_goals(df):
+    """Calculates the maximum goals scored by a team in any match in the
+    season."""
+    return max(df['homegoals'].max(), df['awaygoals'].max())
+
+
 @stat(type_='numeric')
 def pct_clean_sheets(df):
     """Calculates the percent of scores which were zero."""
