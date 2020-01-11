@@ -2,13 +2,15 @@ import pystan
 import importlib.resources as resources
 import os
 import pickle
+import argparse
 
 from . import stanfiles
 from .. import config
 
-"""Get a StanModel object, checking first in local cache and recompiling
-if necessary"""
+
 def get_model(model_name):
+    """Get a StanModel object, checking first in local cache and recompiling
+    if necessary."""
     modelfile = '{}.stan'.format(model_name)
     cachefile = os.path.join(config.modelcache, '{}.pkl'.format(model_name))
     # Check if package exists, get model code.
@@ -30,8 +32,39 @@ def get_model(model_name):
         model = pystan.StanModel(model_code=modelcode, model_name=model_name)
         os.makedirs(config.modelcache, exist_ok=True)
         with open(cachefile, 'wb') as f:
-            pickle.dump(model, f, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    return(model)
+            pickle.dump(model, f, protocol=pickle.HIGHEST_PROTOCOL)    
+    return model 
 
+
+def clear():
+    """Delete all files from the cache directory so that they will be
+    recompiled the next time they are needed. Returns the list of files that
+    were removed."""
+    files = os.listdir(config.modelcache)
+    removed = []
+    for f in files:
+        fullpath = os.path.join(config.modelcache, f)
+        if os.path.isfile(fullpath):
+            removed.append(f)
+            os.remove(fullpath)
+    return removed
+
+
+def console_clear_cache():
+    """Function to be run as a console command entry point, initiates clearing
+    of compiled model cache."""
+    # Create argument parser
+    parser = argparse.ArgumentParser(description="Download and save EFL games.")
+    parser.add_argument("--config", "-c", type=str,
+            help="Configuration file to override defaults.")
+    # Parse args
+    args = parser.parse_args()
+    # Read the optionally supplied configuration file
+    if args.config is not None:
+        from .. import config
+        config.parse(args.config)
+    # Delete cache and display which files were deleted
+    print("Deleting compiled model cache:")
+    for f in clear():
+        print(f)
 
