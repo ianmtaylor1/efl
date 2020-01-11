@@ -20,7 +20,7 @@ import numpy
 class EFLSymOrdMulReg(base.EFL_ResultModel):
     """*Sym*metric *Ord*inal *Mul*tiplicative *Reg*ression model for EFL data."""
     
-    def __init__(self, eflgames, prior=None, muldim=1, **kwargs):
+    def __init__(self, eflgames, prior=None, muldim=2, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
             prior - an EFLSymOrdReg_Prior instance, or None for diffuse priors
@@ -49,11 +49,11 @@ class EFLSymOrdMulReg(base.EFL_ResultModel):
             pargroups['{} vs'.format(t1)] = teampars
         pargroups['matchups'] = matchups
         scales = []
-        for i in range(muldim):
-            parname = 'mulscale[{}]'.format(i+1)
-            efl2stan[parname] = 'uvscale[{}]'.format(i+1)
+        for i,t in enumerate(team_names):
+            parname = 'matchup_scale[{}]'.format(t)
+            efl2stan[parname] = 'matchup_scale[{}]'.format(i+1)
             scales.append(parname)
-        pargroups['mulscale'] = scales
+        pargroups['matchup_scale'] = scales
         # Call super init
         super().__init__(
                 modelfile      = 'symordreg_mult',
