@@ -12,18 +12,19 @@ import numpy
 
 
 ############################################################
-## EFLSymOrdReg ############################################
-## Simplest Symmetric Ordinal Regression Model #############
+## EFLSymOrdMulReg #########################################
+## Symmetric Ordinal Regression with Multiplicative Effects
 ############################################################
 
 
-class EFLSymOrdReg(base.EFL_ResultModel):
-    """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
+class EFLSymOrdMulReg(base.EFL_ResultModel):
+    """*Sym*metric *Ord*inal *Mul*tiplicative *Reg*ression model for EFL data."""
     
-    def __init__(self, eflgames, prior=None, **kwargs):
+    def __init__(self, eflgames, prior=None, muldim=1, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
             prior - an EFLSymOrdReg_Prior instance, or None for diffuse priors
+            muldim - the dimension of the multiplicative effects
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """
@@ -35,12 +36,30 @@ class EFLSymOrdReg(base.EFL_ResultModel):
         efl2stan = {'DrawBoundary':'theta', 'HomeField':'home'}
         for i,t in enumerate(team_names):
             efl2stan[t] = 'teams[{}]'.format(i+1)
-        pargroups = {'other':['DrawBoundary', 'HomeField'], 'teams':team_names}
+        pargroups = {'teams':team_names}
+        matchups = []
+        for i1,t1 in enumerate(team_names):
+            teampars = []
+            for i2,t2 in enumerate(team_names):
+                if i1 != i2:
+                    parname = '{} vs {}'.format(t1,t2)
+                    efl2stan[parname] = 'matchup[{},{}]'.format(i1+1,i2+1)
+                    teampars.append(parname)
+                    matchups.append(parname)
+            pargroups['{} vs'.format(t1)] = teampars
+        pargroups['matchups'] = matchups
+        scales = []
+        for i in range(muldim):
+            parname = 'mulscale[{}]'.format(i+1)
+            efl2stan[parname] = 'uvscale[{}]'.format(i+1)
+            scales.append(parname)
+        pargroups['mulscale'] = scales
         # Call super init
         super().__init__(
-                modelfile      = 'symordreg',
+                modelfile      = 'symordreg_mult',
                 eflgames       = eflgames,
-                extramodeldata = prior.get_params(team_names),
+                extramodeldata = {'uvdim':muldim, 
+                                  **prior.get_params(team_names)},
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
                 **kwargs)
@@ -49,6 +68,7 @@ class EFLSymOrdReg(base.EFL_ResultModel):
         """Draw from a multivariate normal distribution and a logistic
         distribution to produce prior values for beta and theta."""
         P = self._modeldata['teams_prior_mean'].shape[0]
+        K = self._modeldata['uvdim']
         teams = numpy.random.multivariate_normal(
                 self._modeldata['teams_prior_mean'], 
                 self._modeldata['teams_prior_var'])
@@ -59,7 +79,15 @@ class EFLSymOrdReg(base.EFL_ResultModel):
         theta = abs(numpy.random.logistic(
                 self._modeldata['theta_prior_loc'], 
                 self._modeldata['theta_prior_scale']))
-        return {'teams_raw':teams_raw, 'home':home, 'theta':theta}
+        uvscale = numpy.array(sorted(abs(numpy.random.normal(size=K))))
+        uvcorr = numpy.identity(2*K)
+        UV = numpy.random.multivariate_normal(
+                numpy.zeros(2*K),
+                numpy.diag(numpy.append(uvscale,uvscale)),
+                size=P)
+        return {'teams_raw':teams_raw, 'home':home, 'theta':theta,
+                'uvscale':uvscale, 'uvcorr_chol':uvcorr,
+                'U':UV[:,:K], 'V':UV[:,K:]}
 
 
 ############################################################
