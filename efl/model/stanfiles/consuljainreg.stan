@@ -26,13 +26,13 @@ functions {
         // calculate and return log pmf
         xv = to_vector(x);
         delta = 1 - 1 / sqrt(theta);
-        lambda = mu * (1 - delta);
+        lambda = mu / sqrt(theta);
         lxd = lambda + xv * delta;
         if (min(lxd) <= 0) {
             // Any x's such that this condition holds have probability zero
             return negative_infinity();
         } else {
-            return sum(-lxd + log(lambda) + (xv - 1) .* log(lxd) - lgamma(xv + 1));
+            return sum(-lxd + log(lambda) - lgamma(xv + 1)) + dot_product((xv - 1), log(lxd));
         }
     }
     // Generate random numbers from the Consul-Jain generalized Poisson distribution
