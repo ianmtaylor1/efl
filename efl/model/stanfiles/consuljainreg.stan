@@ -1,45 +1,47 @@
 functions {
-    // Log PMF functions for the Consul-Jain generalized Poisson distribution
-    real consuljain_lpmf(int x, real lambda, real delta) {
+    // Log PMF function for the Consul-Jain generalized Poisson distribution
+    // See Consul and Jain (1973)
+    real consuljain_lpmf(int[] x, vector mu, real theta) {
+        // how many elements do we have?
+        int n = num_elements(x);
+        vector[n] xv; // vectorized x for math
+        // comverted parameters
+        real delta;
+        vector[n] lambda;
+        // convenient precomputation
+        vector[n] lxd;
         // the gamut of integrity checks on parameters, etc
-        if (!(x >= 0)) {
-            reject("consuljain_lpmf: x must be positive (found x=",x,")");
+        if (!(min(x) >= 0)) {
+            reject("consuljain_lpmf: x must be positive. ",
+                   "(found x=", min(x), ")");
         }
-        if (!(lambda > 0)) {
-            reject("consuljain_lpmf: lambda must be positive (found lambda=",lambda,")");
+        if (!(min(mu) > 0)) {
+            reject("consuljain_lpmf: mu must be positive. ",
+                   "(found mu=", min(mu), ")");
         }
-        if (!((delta < 1)&&(delta > -1))) {
-            reject("consuljain_lpmf: |delta| must be less than 1 (found delta=",delta,")");
+        if (!(theta > 0.25)) {
+            reject("consuljain_lpmf: theta must be greater than 0.25. ",
+                   " (found theta=", theta, ")");
         }
         // calculate and return log pmf
-        if (lambda + x * delta <= 0) {
+        xv = to_vector(x);
+        delta = 1 - 1 / sqrt(theta);
+        lambda = mu * (1 - delta);
+        lxd = lambda + xv * delta;
+        if (min(lxd) <= 0) {
             // Any x's such that this condition holds have probability zero
             return negative_infinity();
         } else {
-            return -lambda - delta*x + log(lambda) + (x-1) * log(lambda + delta*x) - lgamma(x+1);
+            return sum(-lxd + log(lambda) + (xv - 1) .* log(lxd) - lgamma(xv + 1));
         }
-    }
-    real consuljain_v_lpmf(int[] x, real lambda, real delta) {
-        int n = num_elements(x);
-        vector[n] lp;
-        for (i in 1:n) {
-            lp[i] = consuljain_lpmf(x[i] | lambda, delta);
-        }
-        return sum(lp);
-    }
-    real consuljain_vv_lpmf(int[] x, vector lambda, real delta) {
-        int n = num_elements(x);
-        vector[n] lp;
-        for (i in 1:n) {
-            lp[i] = consuljain_lpmf(x[i] | lambda[i], delta);
-        }
-        return sum(lp);
     }
     // Generate random numbers from the Consul-Jain generalized Poisson distribution
-    int consuljain_rng(real lambda, real delta) {
+    int consuljain_rng(real mu, real theta) {
         real u; // Uniform random variable to be used
         real cdf = 0.0; // Keep track of total probability
         int x = 0; // Value that will eventually be returned
+        real delta = 1 - 1 / sqrt(theta); // Standard second parameter
+        real lambda = mu * (1 - delta); // Standard first parameter
         real m = positive_infinity(); // Maximum allowable x value
         // Draw from uniform
         u = uniform_rng(0.0,1.0);
@@ -123,13 +125,13 @@ model {
     dispersion ~ normal(dispersion_prior_mean, dispersion_prior_sd) T[0.25,];
     // Model, goals follow Consul-Jain generalized Poisson distribution
     if (nGames > 0) {
-        // local variable to hold means
+        // local variables to hold means
         vector[nGames] mu_home;
         vector[nGames] mu_away;
         mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
         mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
-        homegoals ~ consuljain_vv(mu_home/sqrt(dispersion), 1 - 1/sqrt(dispersion));
-        awaygoals ~ consuljain_vv(mu_away/sqrt(dispersion), 1 - 1/sqrt(dispersion));
+        homegoals ~ consuljain(mu_home, dispersion);
+        awaygoals ~ consuljain(mu_away, dispersion);
     }
 }
 generated quantities {
@@ -137,18 +139,21 @@ generated quantities {
     int<lower=0> awaygoals_pred[nGames];
     int<lower=0> homegoals_new_pred[nGames_new];
     int<lower=0> awaygoals_new_pred[nGames_new];
-    // Generate home/away scores for observed games
-    for (i in 1:nGames) {
-        real mu_home = exp(offense[hometeamidx[i]] - defense[awayteamidx[i]] + log_home_goals);
-        real mu_away = exp(offense[awayteamidx[i]] - defense[hometeamidx[i]] + log_away_goals);
-        homegoals_pred[i] = consuljain_rng(mu_home/sqrt(dispersion), 1 - 1/sqrt(dispersion));
-        awaygoals_pred[i] = consuljain_rng(mu_away/sqrt(dispersion), 1 - 1/sqrt(dispersion));
+    {
+        vector[nGames] mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
+        vector[nGames] mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
+        vector[nGames_new] mu_home_new = exp(offense[hometeamidx_new] - defense[awayteamidx_new] + log_home_goals);
+        vector[nGames_new] mu_away_new = exp(offense[awayteamidx_new] - defense[hometeamidx_new] + log_away_goals);
+        // Generate home/away scores for observed games
+        for (i in 1:nGames) {
+            homegoals_pred[i] = consuljain_rng(mu_home[i], dispersion);
+            awaygoals_pred[i] = consuljain_rng(mu_away[i], dispersion);
+        }
+        // Generate home/away scores for unobserved games
+        for (i in 1:nGames_new) {
+            homegoals_new_pred[i] = consuljain_rng(mu_home_new[i], dispersion);
+            awaygoals_new_pred[i] = consuljain_rng(mu_away_new[i], dispersion);
+        }
     }
-    // Generate home/away scores for unobserved games
-    for (i in 1:nGames_new) {
-        real mu_home = exp(offense[hometeamidx_new[i]] - defense[awayteamidx_new[i]] + log_home_goals);
-        real mu_away = exp(offense[awayteamidx_new[i]] - defense[hometeamidx_new[i]] + log_away_goals);
-        homegoals_new_pred[i] = consuljain_rng(mu_home/sqrt(dispersion), 1 - 1/sqrt(dispersion));
-        awaygoals_new_pred[i] = consuljain_rng(mu_away/sqrt(dispersion), 1 - 1/sqrt(dispersion));
-    }
+    
 }
