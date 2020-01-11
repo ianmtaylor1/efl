@@ -39,7 +39,7 @@ setuptools.setup(
             'console_scripts': [
                 'download-efl-games = efl.data.download:console_download_games',
                 'clean-efl-db = efl.data.clean:clean_db',
-                'clear-efl-modelcache = efl.model.cache:console_clear_cache'
+                'clear-efl-modelcache = efl.model.cache:console_clear_cache',
             ],
         }
 )
