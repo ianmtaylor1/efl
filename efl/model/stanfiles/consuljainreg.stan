@@ -37,26 +37,32 @@ functions {
     }
     // Generate random numbers from the Consul-Jain generalized Poisson distribution
     int consuljain_rng(real mu, real theta) {
-        real u; // Uniform random variable to be used
-        real cdf = 0.0; // Keep track of total probability
+        real lu; // log of Uniform random variable
+        real lcdf; // Keep track of total probability
         int x = 0; // Value that will eventually be returned
         real delta = 1 - 1 / sqrt(theta); // Standard second parameter
         real lambda = mu * (1 - delta); // Standard first parameter
         real m = positive_infinity(); // Maximum allowable x value
         // Draw from uniform
-        u = uniform_rng(0.0,1.0);
+        lu = log(uniform_rng(0.0,1.0));
         // Do we have a max?
         if (delta < 0) {
             m = -lambda/delta;
         }
+        // Term for x=0
+        lcdf = -lambda;
         // Accumulate probability until we're above u, then we stop
-        while ((cdf < u) && (x < m)) {
-            real lprob = -lambda - delta*x + log(lambda) + (x-1) * log(lambda + delta*x) - lgamma(x+1);
-            cdf += exp(lprob);
-            x += 1; 
+        {
+            real lfac = 0.0; // log factorial tracker
+            while ((lcdf < lu) && (x + 1 < m)) {
+                x += 1; 
+                lfac += log(x);
+                real lprob = -lambda - delta*x + log(lambda) + (x-1) * log(lambda + delta*x) - lfac;
+                lcdf = log_sum_exp(lcdf, lprob);
+            }
         }
-        // Go back one and return
-        return x - 1;
+        // Return the value
+        return x;
     }
 }
 data {

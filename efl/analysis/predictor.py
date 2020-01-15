@@ -442,3 +442,4 @@ class EFLPredictor(object):
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
         return im
+
