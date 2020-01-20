@@ -3,7 +3,7 @@
 """
 poisregnumberphile.py
 
-Contains the EFLPoisRegNumberphile model and associated other classes.
+Contains the PoisRegNumberphile model and associated other classes.
 """
 
 from . import base
@@ -11,15 +11,15 @@ from . import base
 import numpy
 
 
-class EFLPoisRegNumberphile(base.EFL_GoalModel):
+class PoisRegNumberphile(base.GoalModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     """
     
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
-            eflgames - an EFLGames instance
-            prior - instance of EFLPoisRegNumberphile_Prior, or None for 
+            eflgames - a Games instance
+            prior - instance of PoisRegNumberphile_Prior, or None for 
                 a diffuse prior
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
@@ -27,7 +27,7 @@ class EFLPoisRegNumberphile(base.EFL_GoalModel):
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = EFLPoisRegNumberphile_Prior.default_prior(team_names)
+            prior = PoisRegNumberphile_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'HomeGoals':'log_home_goals', 'AwayGoals':'log_away_goals'}
         for i,t in enumerate(team_names):
@@ -84,8 +84,8 @@ class EFLPoisRegNumberphile(base.EFL_GoalModel):
                 'awaydef_raw':awaydef_raw}
     
 
-class EFLPoisRegNumberphile_Prior(object):
-    """A class holding a prior for the EFLPoisRegNumberphile model."""
+class PoisRegNumberphile_Prior(object):
+    """A class holding a prior for the PoisRegNumberphile model."""
     
     def __init__(self, homeoff_prior_mean, homeoff_prior_var, 
                  homedef_prior_mean, homedef_prior_var,
@@ -192,9 +192,9 @@ class EFLPoisRegNumberphile_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous EFLPoisRegNumberphile fit.
+        """Create a prior from the posterior of a previous PoisRegNumberphile fit.
         Parameters:
-            fit - the previous instance of EFLPoisRegNumberphile
+            fit - the previous instance of PoisRegNumberphile
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.

@@ -7,7 +7,7 @@ from sqlalchemy import and_
 import pandas
 import numpy
 
-class EFLGames(object):
+class Games(object):
     """Class representing a read-only view of a subset of EFL games, for 
     model building.
     

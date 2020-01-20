@@ -4,7 +4,7 @@
 ppc.py
 
 File containing a class for conducting posterior predictive checks of
-a model. It is based on an EFLPredictor, but highlights and compares the stat
+a model. It is based on Predictor, but highlights and compares the stat
 values on the observed data with what is generated from the model predictions.
 """
 
@@ -13,8 +13,8 @@ import pandas
 
 from . import predictor
 
-class EFLPPC(predictor.EFLPredictor):
-    """EFLPPC - class built to conduct posterior predictive checks on a
+class PPC(predictor.Predictor):
+    """PPC - class built to conduct posterior predictive checks on a
     model."""
     
     # Modify init to add places for observed data and statistics

@@ -3,7 +3,7 @@
 """
 symordreg.py
 
-Contains the EFLSymOrdReg model and associated other classes.
+Contains the SymOrdRegHTI model and associated other classes.
 """
 
 from . import base
@@ -17,20 +17,21 @@ import numpy
 ##############################################################################
 
 
-class EFLSymOrdRegHTI(base.EFL_ResultModel):
-    """*Sym*metric *Ord*inal *Reg*ression model for EFL data."""
+class SymOrdRegHTI(base.ResultModel):
+    """*Sym*metric *Ord*inal *Reg*ression model for EFL data, with
+    *H*ome/*T*eam *I*nteraction."""
     
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
-            prior - an EFLSymOrdReg_Prior instance, or None for diffuse priors
+            prior - a SymOrdRegHTI_Prior instance, or None for diffuse priors
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = EFLSymOrdRegHTI_Prior.default_prior(team_names)
+            prior = SymOrdRegHTI_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'DrawBoundary':'theta', 'HomeField':'homefield'}
         pargroups = {'other':['DrawBoundary', 'HomeField']}
@@ -72,13 +73,13 @@ class EFLSymOrdRegHTI(base.EFL_ResultModel):
 
 
 ############################################################
-## EFLSymOrdRegHTI_Prior ###################################
+## SymOrdRegHTI_Prior ######################################
 ## Prior for the above model ###############################
 ############################################################
 
 
-class EFLSymOrdRegHTI_Prior(object):
-    """A class holding a prior for the EFLSymOrdReg model."""
+class SymOrdRegHTI_Prior(object):
+    """A class holding a prior for the SymOrdRegHTI model."""
     
     def __init__(self, home_prior_mean, home_prior_var,
                  away_prior_mean, away_prior_var, team_names,
@@ -157,9 +158,9 @@ class EFLSymOrdRegHTI_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous EFLSymOrdReg fit.
+        """Create a prior from the posterior of a previous SymOrdRegHTI fit.
         Parameters:
-            fit - the previous instance of EFLSymOrdReg
+            fit - the previous instance of SymOrdRegHTI
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.

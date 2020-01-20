@@ -3,7 +3,7 @@
 """
 consuljainreg.py
 
-Contains the EFLConsulJainReg model and associated other classes.
+Contains the ConsulJainReg model and associated other classes.
 """
 
 from . import base
@@ -11,17 +11,17 @@ from . import base
 import numpy
 
 
-class EFLConsulJainReg(base.EFL_GoalModel):
+class ConsulJainReg(base.GoalModel):
     """Generalized Poisson Regression model using the distribution from 
     Consul and Jain (1973) https://www.jstor.org/stable/1267389
     With no separate homefield advantage effects (more similar to
-    EFLPoisRegSimple than EFLPoisRegNumberphile)
+    PoisRegSimple than PoisRegNumberphile)
     """
     
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
-            eflgames - an EFLGames instance
-            prior - instance of EFLPoisRegSimple_Prior, or None for a diffuse 
+            eflgames - a Games instance
+            prior - instance of ConsulJainReg_Prior, or None for a diffuse 
                 prior (default)
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
@@ -29,7 +29,7 @@ class EFLConsulJainReg(base.EFL_GoalModel):
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = EFLConsulJainReg_Prior.default_prior(team_names)
+            prior = ConsulJainReg_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'HomeGoals':'log_home_goals', 'AwayGoals':'log_away_goals',
                     'GoalDispersion':'dispersion'}
@@ -79,8 +79,8 @@ class EFLConsulJainReg(base.EFL_GoalModel):
                 'dispersion':dispersion}
 
 
-class EFLConsulJainReg_Prior(object):
-    """A class holding a prior for the EFLPoisRegSimple model."""
+class ConsulJainReg_Prior(object):
+    """A class holding a prior for the ConsulJainReg model."""
     
     def __init__(self, offense_prior_mean, offense_prior_var, 
                  defense_prior_mean, defense_prior_var, team_names,
@@ -172,9 +172,9 @@ class EFLConsulJainReg_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous EFLPoisRegSimple fit.
+        """Create a prior from the posterior of a previous ConsulJainReg fit.
         Parameters:
-            fit - the previous instance of EFLPoisRegSimple
+            fit - the previous instance of ConsulJainReg
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.

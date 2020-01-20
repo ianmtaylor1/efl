@@ -3,7 +3,7 @@
 """
 poisregsimple.py
 
-Contains the EFLPoisRegSimple model and associated other classes.
+Contains the PoisRegSimple model and associated other classes.
 """
 
 from . import base
@@ -11,15 +11,15 @@ from . import base
 import numpy
 
 
-class EFLPoisRegHier(base.EFL_GoalModel):
+class PoisRegHier(base.GoalModel):
     """Class for a poisson regression model where the team's 'sub-parameters'
     e.g. home offense, away defense, etc. are hierarchically determined by a
     latent team strength parameter."""
     
     def __init__(self, eflgames, prior = None, **kwargs):
         """Parameters:
-            eflgames - an EFLGames instance
-            prior - an instance of EFLPoisRegHier_Prior, or None for a diffuse
+            eflgames - an Games instance
+            prior - an instance of PoisRegHier_Prior, or None for a diffuse
                 prior (default)
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
@@ -28,7 +28,7 @@ class EFLPoisRegHier(base.EFL_GoalModel):
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = EFLPoisRegHier_Prior.default_prior(team_names)
+            prior = PoisRegHier_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'LogAvgGoals':'log_goals', 'HomeField':'home',
                     'TeamSkillSD':'sigma'}
@@ -92,8 +92,8 @@ class EFLPoisRegHier(base.EFL_GoalModel):
                 'awayoff':awayoff, 'awaydef':awaydef}
 
 
-class EFLPoisRegHier_Prior(object):
-    """A class holding a prior for the EFLPoisRegHier model."""
+class PoisRegHier_Prior(object):
+    """A class holding a prior for the PoisRegHier model."""
     
     def __init__(self, team_names, 
                  teams_prior_mean, teams_prior_var, 
@@ -172,9 +172,9 @@ class EFLPoisRegHier_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous EFLPoisRegNumberphile fit.
+        """Create a prior from the posterior of a previous PoisRegHier fit.
         Parameters:
-            fit - the previous instance of EFLPoisRegNumberphile
+            fit - the previous instance of PoisRegHier
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.

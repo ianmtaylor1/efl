@@ -3,7 +3,7 @@
 """
 poisregsimple.py
 
-Contains the EFLPoisRegSimple model and associated other classes.
+Contains the PoisRegSimple model and associated other classes.
 """
 
 from . import base
@@ -11,7 +11,7 @@ from . import base
 import numpy
 
 
-class EFLPoisRegSimple(base.EFL_GoalModel):
+class PoisRegSimple(base.GoalModel):
     """Poisson Regression model based on Numberphile video with Tony Padilla
     https://www.numberphile.com/videos/a-million-simulated-seasons
     **But simplified, by assuming equal homefield advantage for all teams.
@@ -20,7 +20,7 @@ class EFLPoisRegSimple(base.EFL_GoalModel):
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
             eflgames - an EFLGames instance
-            prior - instance of EFLPoisRegSimple_Prior, or None for a diffuse 
+            prior - instance of PoisRegSimple_Prior, or None for a diffuse 
                 prior (default)
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
@@ -28,7 +28,7 @@ class EFLPoisRegSimple(base.EFL_GoalModel):
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = EFLPoisRegSimple_Prior.default_prior(team_names)
+            prior = PoisRegSimple_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'HomeGoals':'log_home_goals', 'AwayGoals':'log_away_goals'}
         for i,t in enumerate(team_names):
@@ -71,7 +71,7 @@ class EFLPoisRegSimple(base.EFL_GoalModel):
                 'defense_raw':defense_raw}
 
 
-class EFLPoisRegSimple_Prior(object):
+class PoisRegSimple_Prior(object):
     """A class holding a prior for the EFLPoisRegSimple model."""
     
     def __init__(self, offense_prior_mean, offense_prior_var, 
@@ -154,9 +154,9 @@ class EFLPoisRegSimple_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous EFLPoisRegSimple fit.
+        """Create a prior from the posterior of a previous PoisRegSimple fit.
         Parameters:
-            fit - the previous instance of EFLPoisRegSimple
+            fit - the previous instance of PoisRegSimple
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.

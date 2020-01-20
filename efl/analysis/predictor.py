@@ -16,13 +16,13 @@ import itertools
 ### CLASS FOR MAKING PREDICTIONS ##########################
 ###########################################################
 
-class EFLPredictor(object):
-    """EFLPredictor - framework for computing summaries of posterior predictive
+class Predictor(object):
+    """Predictor - framework for computing summaries of posterior predictive
     samples from EFL models."""
     
     def __init__(self, model, mode=None):
         """Parameters:
-            model - subclass of EFLModel
+            model - subclass of Model
             mode - what mode this predictor will operate in. can be one of the
                 following values: (1) 'past', use predicted results for
                 observed games and nothing for unobserved games. (2) 'future',

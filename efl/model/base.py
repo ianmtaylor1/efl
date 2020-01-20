@@ -21,7 +21,7 @@ import re
 ###############################################################################
 
 
-class EFLModel(object):
+class Model(object):
     """Base class for EFL models. Mostly handles wrapping of the StanFit
     object, since inheritance is hard.
     
@@ -429,7 +429,7 @@ class EFLModel(object):
 ###############################################################################
 
 
-class EFL_GoalModel(EFLModel):
+class GoalModel(Model):
     """Base class for models that predict home/away goals of games."""
     
     def __init__(self, eflgames, extramodeldata={}, **kwargs):
@@ -517,7 +517,7 @@ class EFL_GoalModel(EFLModel):
         return samples.drop([hg, ag], axis=1)
 
 
-class EFL_ResultModel(EFLModel):
+class ResultModel(Model):
     """Base class for models that predict just game results."""
     
     def __init__(self, eflgames, extramodeldata={}, **kwargs):
