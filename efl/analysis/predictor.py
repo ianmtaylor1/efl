@@ -348,7 +348,7 @@ class Predictor(object):
             names = self.names
         # Make names a list for convenience
         if type(names) == str:
-            names = list(names)
+            names = [names]
         # How many plots are we going to have to make?
         numplots = 0
         for n in names:
