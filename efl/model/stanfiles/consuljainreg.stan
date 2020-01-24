@@ -38,7 +38,7 @@ functions {
     // Generate random numbers from the Consul-Jain generalized Poisson distribution
     int consuljain_rng(real mu, real theta) {
         real lu; // log of Uniform random variable
-        real lcdf; // Keep track of total probability
+        real lcdf = negative_infinity(); // Keep track of total probability
         int x = 0; // Value that will eventually be returned
         real delta = 1 - 1 / sqrt(theta); // Standard second parameter
         real lambda = mu * (1 - delta); // Standard first parameter
