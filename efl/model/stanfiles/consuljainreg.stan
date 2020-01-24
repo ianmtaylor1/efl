@@ -55,9 +55,10 @@ functions {
         {
             real lfac = 0.0; // log factorial tracker
             while ((lcdf < lu) && (x + 1 < m)) {
+                real lprob;
                 x += 1; 
                 lfac += log(x);
-                real lprob = -lambda - delta*x + log(lambda) + (x-1) * log(lambda + delta*x) - lfac;
+                lprob = -lambda - delta*x + log(lambda) + (x-1) * log(lambda + delta*x) - lfac;
                 lcdf = log_sum_exp(lcdf, lprob);
             }
         }
