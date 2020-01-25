@@ -1,47 +1,75 @@
 functions {
+    // Log normalizing constant for the Consul-Jain generalized Poisson
+    // distribution, due to truncation when delta < 0
+    // See Consul and Jain (1973) and follow-up papers
+    real cj_log_norm(real lambda, real delta) {
+        int truncpoint = 10; // Larger than this errors are negligible
+        real logc;
+        if (delta >= 0) {
+            // If delta is positive series sums to 1 as expected
+            logc = 0;
+        } else {
+            real m = -lambda/delta;
+            if (m > truncpoint) {
+                // If truncation is large enough, series sums to 1 as expected
+                logc = 0;
+            } else { // Just sum up all the terms
+                int x;
+                real lprob;
+                real lfac = 0;
+                logc = -log(lambda); // x=0 term
+                x = 1;
+                while (x < m) {
+                    lfac += log(x);
+                    lprob =  (x - 1) * log(lambda + x * delta) - x * delta - lfac;
+                    logc = log_sum_exp(logc, lprob);
+                    x += 1;
+                }
+                logc += log(lambda) - lambda; // factored out components w/ no x
+            }
+        }
+        return logc;
+    }
     // Log PMF function for the Consul-Jain generalized Poisson distribution
     // See Consul and Jain (1973)
-    real consuljain_lpmf(int[] x, vector mu, real theta) {
-        // how many elements do we have?
-        int n = num_elements(x);
-        vector[n] xv; // vectorized x for math
-        // comverted parameters
+    real consuljain_lpmf(int x, real mu, real theta) {
+        // converted parameters
         real delta;
-        vector[n] lambda;
+        real lambda;
         // convenient precomputation
-        vector[n] lxd;
-        // the gamut of integrity checks on parameters, etc
-        if (!(min(x) >= 0)) {
+        real lxd;
+        // the gamut of integrity checks on parameters
+        if (!(x >= 0)) {
             reject("consuljain_lpmf: x must be positive. ",
-                   "(found x=", min(x), ")");
+                   "(found x=", x, ")");
         }
-        if (!(min(mu) > 0)) {
+        if (!(mu > 0)) {
             reject("consuljain_lpmf: mu must be positive. ",
-                   "(found mu=", min(mu), ")");
+                   "(found mu=", mu, ")");
         }
         if (!(theta > 0.25)) {
             reject("consuljain_lpmf: theta must be greater than 0.25. ",
                    " (found theta=", theta, ")");
         }
-        // calculate and return log pmf
-        xv = to_vector(x);
+        // Calculate and return log pmf
         delta = 1 - 1 / sqrt(theta);
         lambda = mu / sqrt(theta);
-        lxd = lambda + xv * delta;
-        if (min(lxd) <= 0) {
-            // Any x's such that this condition holds have probability zero
+        lxd = lambda + x * delta;
+        if (lxd <= 0) {
+            // Any x's such that this is negative have probability zero
             return negative_infinity();
         } else {
-            return sum(-lxd + log(lambda) - lgamma(xv + 1)) + dot_product((xv - 1), log(lxd));
+            return -lxd + log(lambda) + (x - 1) * log(lxd) - lgamma(x + 1) - cj_log_norm(lambda, delta);
         }
     }
     // Generate random numbers from the Consul-Jain generalized Poisson distribution
     int consuljain_rng(real mu, real theta) {
         real lu; // log of Uniform random variable
-        real lcdf = negative_infinity(); // Keep track of total probability
+        real lcdf; // Keep track of total probability
         int x = 0; // Value that will eventually be returned
         real delta = 1 - 1 / sqrt(theta); // Standard second parameter
         real lambda = mu * (1 - delta); // Standard first parameter
+        real logc = cj_log_norm(lambda, delta); // Log of normalizing constant
         real m = positive_infinity(); // Maximum allowable x value
         // Draw from uniform
         lu = log(uniform_rng(0.0,1.0));
@@ -54,7 +82,7 @@ functions {
         // Accumulate probability until we're above u, then we stop
         {
             real lfac = 0.0; // log factorial tracker
-            while ((lcdf < lu) && (x + 1 < m)) {
+            while ((lcdf - logc < lu) && (x + 1 < m)) {
                 real lprob;
                 x += 1; 
                 lfac += log(x);
@@ -137,8 +165,10 @@ model {
         vector[nGames] mu_away;
         mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
         mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
-        homegoals ~ consuljain(mu_home, dispersion);
-        awaygoals ~ consuljain(mu_away, dispersion);
+        for (i in 1:nGames) {
+            homegoals[i] ~ consuljain(mu_home[i], dispersion);
+            awaygoals[i] ~ consuljain(mu_away[i], dispersion);
+        }
     }
 }
 generated quantities {
