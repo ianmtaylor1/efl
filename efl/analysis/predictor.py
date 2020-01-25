@@ -425,6 +425,9 @@ class Predictor(object):
                                  yname:self._stat_values[ystat]})
         ax.scatter(data[xname], data[yname], marker=".", alpha=0.25)
         ctrs = util.contour2d(ax, data.to_numpy().T, colors="k")
+        ax.set_title(title)
+        ax.set_xlabel(xname)
+        ax.set_ylabel(yname)
         return ctrs
         
     def _plot_num_cat(self, title, xstat, xname, ystat, yname, ax):

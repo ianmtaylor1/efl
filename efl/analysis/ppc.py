@@ -108,4 +108,14 @@ class PPC(predictor.Predictor):
         # Return the original value
         return bars
     
+    def _plot_num_num(self, title, xstat, xname, ystat, yname, ax):
+        # Draw the base scatterplot and contours
+        ctrs = super()._plot_num_num(title, xstat, xname, ystat, yname, ax)
+        # Put a marker at the observed value with a legend
+        ax.plot(self._observed_values[xstat], self._observed_values[ystat],
+                'rx', markeredgewidth=2, label="Observed Value")
+        ax.legend()
+        # Return the original value
+        return ctrs
+    
     
