@@ -420,7 +420,12 @@ class Predictor(object):
             return self._plot_cat_cat(title, xstat, xname, ystat, yname, ax)
     
     def _plot_num_num(self, title, xstat, xname, ystat, yname, ax):
-        raise NotImplementedError()
+        """Plot two numeric statistics as a scatterplot and contours."""
+        data = pandas.DataFrame({xname:self._stat_values[xstat],
+                                 yname:self._stat_values[ystat]})
+        ax.scatter(data[xname], data[yname], marker=".", alpha=0.25)
+        ctrs = util.contour2d(ax, data.to_numpy().T, colors="k")
+        return ctrs
         
     def _plot_num_cat(self, title, xstat, xname, ystat, yname, ax):
         raise NotImplementedError()

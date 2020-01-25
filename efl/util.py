@@ -68,6 +68,69 @@ def draw_densplot(ax, data, nout=220, scale_height=1.0, **kwargs):
     return ax.plot(x, y, **kwargs)
 
 
+def _find_level(Z, quantile, tol=.001, maxiter=50):
+    """Find thresholds for contours that enclose the given quantile as
+    a highest-density set. Works as a binary search, narrowing in on the
+    right value. Used for contour2d"""
+    total = Z.sum()
+    # Initial values
+    low = 0
+    high = Z.max()
+    current = (low + high) / 2
+    lowp = Z[Z >= low].sum() / total
+    highp = Z[Z >= high].sum() / total
+    currentp = Z[Z >= current].sum() / total
+    i = 0 # Iteration counter
+    while (i < maxiter) and (lowp - highp >= tol):
+        i += 1
+        if currentp > quantile: # Need to move the threshold up (enclose less)
+            low = current
+            lowp = currentp
+            current = (current + high) / 2
+        elif currentp < quantile: # Need to move the thresh down (enclose more)
+            high = current
+            highp = currentp
+            current = (current + low) / 2
+        currentp = Z[Z >= current].sum() / total
+    # We are either within tolerance or have exceeded iteration cap
+    return current
+
+
+def contour2d(ax, data, res=110, credsets=[0.5, 0.95], **kwargs):
+    """Draw 2d contours based on the KDE of the given data on the axes
+    provided.
+    Parameters:
+        ax - the axes to draw on
+        data - a numpy array of dimension (2,n)
+        res - the "resolution" in each dimension of the grid on which the KDE
+            will be computed
+        credsets - draw contours enclosing these proportions of the kernel
+            densty estimate (credible set levels)
+        **kwargs - passed to ax.contour()
+    """
+    # Make the density estimator
+    density = kde.gaussian_kde(data, bw_method="scott")
+    # Create the grid on which to evaluate the density
+    xlow = min(data[0]) - 0.05*(max(data[0]) - min(data[0]))
+    xhigh = max(data[0]) + 0.05*(max(data[0]) - min(data[0]))
+    ylow = min(data[1]) - 0.05*(max(data[1]) - min(data[1]))
+    yhigh = max(data[1]) + 0.05*(max(data[1]) - min(data[1]))
+    xgrid = numpy.arange(xlow, xhigh, (xhigh - xlow)/res)
+    ygrid = numpy.arange(ylow, yhigh, (yhigh - ylow)/res)
+    # Evaluate the density
+    evalx = numpy.tile(xgrid, len(ygrid))
+    evaly = numpy.repeat(ygrid, len(xgrid))
+    flatZ = density(numpy.array([evalx, evaly]))
+    Z = numpy.reshape(flatZ, (len(ygrid), len(xgrid)))
+    # Compute and draw the contours
+    credsets = sorted(credsets, key=lambda x: -x) # Reverse sort
+    levels = [_find_level(Z, p) for p in credsets]
+    ctrs = ax.contour(xgrid, ygrid, Z, levels=levels, **kwargs)
+    ax.clabel(ctrs, fmt={lv:'{:.0%}'.format(t) for lv,t in zip(levels,credsets)})
+    # Return the contours, I guess?
+    return ctrs
+
+
 # The following function was -stolen- borrowed from
 # https://matplotlib.org/3.1.0/gallery/images_contours_and_fields/image_annotated_heatmap.html
 # And then modified to fit my use case.
