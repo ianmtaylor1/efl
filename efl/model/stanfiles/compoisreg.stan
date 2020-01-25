@@ -37,26 +37,29 @@ functions {
         }
         // nu == 0 or Inf will fail in this parameterization
         if (nu <= 0) {
-            reject("nu must be positive");
+            reject("log_Z_com_poisson: nu must be positive. ",
+                   "(found nu=", nu, ")");
         }
         if (nu == positive_infinity()) {
-            reject("nu must be finite")
-        }
-        if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
-            return log_Z_com_poisson_approx(log_mu, nu);
+            reject("log_Z_com_poisson: nu must be finite")
         }
         // direct computation of the truncated series
-        M = 10000;
-        log_thres = log(1e-16);
+        M = 1000;
+        log_thres = log(1e-8);
         // check if the Mth term of the series is small enough
+        if (log_mu > log(M/2)) {
+            reject("log_Z_com_poisson: log_mu is too large. ",
+                   "(found log_mu=", log_mu, ")")
+        }
         if (nu * (M * log_mu - lgamma(M + 1)) > log_thres) {
-            reject("nu is too close to zero.")
+            reject("log_Z_com_poisson: nu is too close to zero. ",
+                   "(found nu=", nu, ")");
         }
         log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
         lfac = 0;
         term = 0;
         k = 2;
-        while (term > log_thres) { 
+        while ((log(k) < log_mu) || (term > log_thres)) { 
             lfac += log(k);
             term = nu * (k * log_mu - lfac);
             log_Z = log_sum_exp(log_Z, term);
@@ -69,12 +72,19 @@ functions {
     //   y: the response value 
     //   log_mu: log location parameter
     //   nu: positive shape parameter
-    real com_poisson_log_lpmf(int y, real log_mu, real nu) {
+    real com_poisson_log_lpmf(int[] y, vector log_mu, real nu) {
+        int n = num_elements(y);
+        vector[n] yvec;
+        vector[n] log_Z;
         if (nu == 1) return poisson_log_lpmf(y | log_mu);
-        return nu * (y * log_mu - lgamma(y + 1)) - log_Z_com_poisson(log_mu, nu);
+        yvec = to_vector(y);
+        for (i in 1:n) {
+            log_Z[i] = log_Z_com_poisson(log_mu[i], nu);
+        }
+        return nu * dot_product(yvec, log_mu) - sum(nu * lgamma(yvec + 1) + log_Z);
     }
     // Random number generator for COM Poisson
-    int com_posson_log_rng(real log_mu, real nu) {
+    int com_poisson_log_rng(real log_mu, real nu) {
         real log_num;  // log numerator
         real log_Z;  // log denominator
         int x;  // number that will eventually be returned
@@ -174,10 +184,8 @@ model {
         vector[nGames] lmu_away;
         lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
         lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
-        for (i in 1:nGames) {
-            homegoals[i] ~ com_poisson_log(lmu_home[i], nu);
-            awaygoals[i] ~ com_poisson_log(lmu_away[i], nu);
-        }
+        homegoals ~ com_poisson_log(lmu_home, nu);
+        awaygoals ~ com_poisson_log(lmu_away, nu);
     }
 }
 generated quantities {

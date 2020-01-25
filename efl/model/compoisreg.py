@@ -163,7 +163,7 @@ class COMPoisReg_Prior(object):
                    log_home_goals_prior_sd = 1,
                    log_away_goals_prior_mean = 0,
                    log_away_goals_prior_sd = 1,
-                   nu_prior_sigma = 0,
+                   nu_prior_mu = 0,
                    nu_prior_sigma = 0.5)
         
     @classmethod
