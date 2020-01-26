@@ -8,8 +8,8 @@
         int truncpoint = 10; // Larger than this errors are negligible
         real logc;
         real m = positive_infinity();
+        // Is there a max to the support?
         if (delta < 0) {
-            // If delta is negative we need to calculate m
             m = -lambda/delta;
         }
         if (m > truncpoint) {
@@ -66,6 +66,61 @@
         } else {
             return -lxd + log(lambda) + (x - 1) * log(lxd) - lgamma(x + 1) - cj_log_norm(lambda, delta);
         }
+    }
+    
+    // Log CDF of Consul-Jain distribution
+    real consuljain_lcdf(int x, real mu, real theta) {
+        real lcdf; // Keep track of total probability
+        real delta; // Standard second parameter
+        real lambda; // Standard first parameter
+        real logc; // Log of normalizing constant
+        real m = positive_infinity(); // Maximum allowable x value
+        // the gamut of integrity checks on parameters
+        if (!(x >= 0)) {
+            reject("consuljain_lcdf: x must be positive. ",
+                   "(found x=", x, ")");
+        }
+        if (!(mu > 0)) {
+            reject("consuljain_lcdf: mu must be positive. ",
+                   "(found mu=", mu, ")");
+        }
+        if (!(theta > 0.25)) {
+            reject("consuljain_lcdf: theta must be greater than 0.25. ",
+                   " (found theta=", theta, ")");
+        }
+        delta = 1 - 1 / sqrt(theta); // Standard second parameter
+        lambda = mu * (1 - delta); // Standard first parameter
+        logc = cj_log_norm(lambda, delta);
+        // Is there a max to the support?
+        if (delta < 0) {
+            m = -lambda/delta;
+        }
+        // If x is high enough, probability is one
+        if (x >= m) {
+            lcdf = 0;
+        } else {
+            // Calculate probabilities for i = 0, ..., x and sum
+            real lprob[x+1]; // array of log probabilities
+            real lfac = 0;
+            lprob[1] = -log(lambda);  // i = 0 term
+            for (i in 1:x) {  // from i = 1 ...
+                lfac += log(i);
+                lprob[i+1] = (i - 1) * log(lambda + delta * i) - delta * i - lfac;
+            }
+            // reduce and add factored-out components
+            lcdf = log_sum_exp(lprob) + log(lambda) - lambda;
+        }
+        return lcdf - logc;  // normalize and return
+    }
+    
+    // Log Complementary CDF of Consul-Jain distribution
+    real consuljain_lccdf(int x, real mu, real theta) {
+        return log1m_exp(consuljain_lcdf(x | mu, theta));
+    }
+    
+    // CDF of Consul-Jain distribution
+    real consuljain_cdf(int x, real mu, real theta) {
+        return exp(consuljain_lcdf(x | mu, theta));
     }
     
     // Generate random numbers from the Consul-Jain distribution
