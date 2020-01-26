@@ -73,7 +73,6 @@
         real lcdf; // Keep track of total probability
         real delta; // Standard second parameter
         real lambda; // Standard first parameter
-        real logc; // Log of normalizing constant
         real m = positive_infinity(); // Maximum allowable x value
         // the gamut of integrity checks on parameters
         if (!(x >= 0)) {
@@ -90,7 +89,6 @@
         }
         delta = 1 - 1 / sqrt(theta); // Standard second parameter
         lambda = mu * (1 - delta); // Standard first parameter
-        logc = cj_log_norm(lambda, delta);
         // Is there a max to the support?
         if (delta < 0) {
             m = -lambda/delta;
@@ -100,17 +98,19 @@
             lcdf = 0;
         } else {
             // Calculate probabilities for i = 0, ..., x and sum
+            real logc; // Log of normalizing constant
             real lprob[x+1]; // array of log probabilities
             real lfac = 0;
+            logc = cj_log_norm(lambda, delta);
             lprob[1] = -log(lambda);  // i = 0 term
             for (i in 1:x) {  // from i = 1 ...
                 lfac += log(i);
                 lprob[i+1] = (i - 1) * log(lambda + delta * i) - delta * i - lfac;
             }
-            // reduce and add factored-out components
-            lcdf = log_sum_exp(lprob) + log(lambda) - lambda;
+            // reduce, add factored-out components, normalize
+            lcdf = log_sum_exp(lprob) + log(lambda) - lambda - logc;
         }
-        return lcdf - logc;  // normalize and return
+        return lcdf;
     }
     
     // Log Complementary CDF of Consul-Jain distribution
