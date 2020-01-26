@@ -1,11 +1,28 @@
 import pystan
 import importlib.resources as resources
+import contextlib
+import tempfile
 import os
 import pickle
 import argparse
 
 from . import stanfiles
 from .. import config
+
+@contextlib.contextmanager
+def _include_path():
+    """Extracts all includes into a temporary directory for use as
+    include_paths in pystan.stanc. yeilds the absolute path of the directory
+    in which they are (temporarily) stored."""
+    # Create temporary directory. Context manager here handles cleanup
+    with tempfile.TemporaryDirectory() as tempdir:
+        # Copy all resources from stanfiles.includes to temporary directory
+        for r in resources.contents(stanfiles.includes):
+            if resources.is_resource(stanfiles.includes, r):
+                with open(os.path.join(tempdir, r),'w') as f:
+                    f.write(resources.read_text(stanfiles.includes, r))
+        yield tempdir
+        # The context manager of tempdir handles cleanup/exceptions
 
 
 def get_model(model_name):
@@ -18,11 +35,12 @@ def get_model(model_name):
         raise Exception(
                 "Model {} is not an available Stan model.".format(model_name)
                 )
-    model_stanc = pystan.stanc(
-            model_code    = resources.read_text(stanfiles, modelfile),
-            include_paths = [os.path.join(stanfiles.__path__[0], "include")],
-            model_name    = model_name
-            )
+    with _include_path() as incpth:
+        model_stanc = pystan.stanc(
+                model_code    = resources.read_text(stanfiles, modelfile),
+                include_paths = [incpth],
+                model_name    = model_name
+                )
     # Check if cached file exists and load it
     model = None
     if os.path.isfile(cachefile):
