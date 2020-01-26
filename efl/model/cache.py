@@ -18,7 +18,11 @@ def get_model(model_name):
         raise Exception(
                 "Model {} is not an available Stan model.".format(model_name)
                 )
-    modelcode = resources.read_text(stanfiles, modelfile)
+    model_stanc = pystan.stanc(
+            model_code    = resources.read_text(stanfiles, modelfile),
+            include_paths = [os.path.join(stanfiles.__path__[0], "include")],
+            model_name    = model_name
+            )
     # Check if cached file exists and load it
     model = None
     if os.path.isfile(cachefile):
@@ -28,11 +32,11 @@ def get_model(model_name):
         except pickle.UnpicklingError:
             os.remove(cachefile) # Bad file, remove
     # If cache file did not exist or is from an old model, recompile and cache
-    if (model is None) or (model.model_code != modelcode):
-        model = pystan.StanModel(model_code=modelcode, model_name=model_name)
+    if (model is None) or (model.model_cppcode != model_stanc['cppcode']):
+        model = pystan.StanModel(stanc_ret=model_stanc)
         os.makedirs(config.modelcache, exist_ok=True)
         with open(cachefile, 'wb') as f:
-            pickle.dump(model, f, protocol=pickle.HIGHEST_PROTOCOL)    
+            pickle.dump(model, f, protocol=pickle.HIGHEST_PROTOCOL)
     return model 
 
 
