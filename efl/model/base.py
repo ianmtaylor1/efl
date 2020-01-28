@@ -422,6 +422,37 @@ class Model(object):
                 ax.bar(ac.index, ac[p])
             yield fig
         
+    def scatterplot(self, pars=None, credsets=[0.25, 0.5, 0.75, 0.95], 
+                    nrows=2, ncols=2, figsize=None):
+        """Create scatterplots of posterior samples for each pair of the
+        supplied pars, along with HPD credible sets.
+        Parameters:
+            pars - the parameters to make scatterplots for. Default all.
+            credsets - draw contours representing the HPD credible sets for
+                these confidence levels.
+            nrows, ncols - the number of rows and columns to use to arrange
+                the axes in each figure.
+        """
+        # Get the data for plotting
+        samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
+        # Find the number of pairs we will need to plot
+        numplots = len(eflpars) * (len(eflpars) - 1) // 2
+        # An iterator over the pairs
+        pairs = itertools.combinations(eflpars, 2)
+        # Create figures
+        figs = util.make_axes(numplots, nrows, ncols, figsize,
+                              "Scatterplot")
+        for fig in figs:
+            # Draw scatterplot on each axes in each figure
+            for ax, (p1, p2) in zip(fig.axes, pairs):
+                ax.scatter(samples[p1], samples[p2], marker=".", alpha=0.25)
+                util.contour2d(ax, samples[[p1,p2]].to_numpy().T, colors="k",
+                               credsets=credsets)
+                ax.set_title("{} vs {}".format(p2, p1))
+                ax.set_xlabel(p1)
+                ax.set_ylabel(p2)
+            yield fig
 
 
 ###############################################################################
