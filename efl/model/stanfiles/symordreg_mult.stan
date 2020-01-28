@@ -16,9 +16,8 @@ data {
     real home_prior_mean;
     real<lower=0> home_prior_sd;
     
-    // Prior parameters for lognormal matchup_scale
-    vector[nTeams] matchup_scale_prior_mu;
-    vector<lower=0>[nTeams] matchup_scale_prior_sigma;
+    // Scale applied to multiplicative effect magnitudes
+    real<lower=0> uvscale;
 }
 transformed data {
     // Cholesky decomposition of prior teams variance
@@ -36,7 +35,11 @@ parameters {
     cholesky_factor_corr[uvdim] U_tri; // "offense styles" sort of
     unit_vector[uvdim] U_vec[nTeams - uvdim];
     unit_vector[uvdim] V_vec[nTeams]; // "defense styles" sort of
-    vector<lower=0>[nTeams] matchup_scale; // scale for each team
+    // Scale of multiplicative effects: hierarchically combine to create
+    // horseshoe-like distribution (hopefully shrinking multiplicative effects
+    // to near zero when not necessary)
+    vector<lower=0>[nTeams] sigma;
+    vector<lower=0>[nTeams] mult_var;
 }
 transformed parameters {
     // Full team strengths, constrained to sum to zero
@@ -56,7 +59,7 @@ transformed parameters {
         }
         V[i] = V_vec[i]';
     }
-    matchup = quad_form_diag((U * V') - (V * U'), matchup_scale);
+    matchup = quad_form_diag(tcrossprod(U,V) - tcrossprod(V,U), sqrt(mult_var));
 }
 model {
     vector[nGames] apply_matchup;
@@ -68,8 +71,8 @@ model {
     // LKJ(0.5) results in the same distribution of 'angles' as would have
     // from just uniformly distributed unit vectors
     U_tri ~ lkj_corr_cholesky(0.5);
-    // Give matchup_scale half-cauchy distributions
-    matchup_scale ~ lognormal(matchup_scale_prior_mu, matchup_scale_prior_sigma);
+    sigma ~ cauchy(0, uvscale/sqrt(uvdim)) T[0,];
+    mult_var ~ gamma(uvdim/2, 1/(2 * sigma^2)); // scaled chi-square given sigma
     // Model
     for (i in 1:nGames) {
         apply_matchup[i] = matchup[hometeamidx[i], awayteamidx[i]];
