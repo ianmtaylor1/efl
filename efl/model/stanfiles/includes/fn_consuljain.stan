@@ -25,15 +25,15 @@
             int x;
             real lprob;
             real lfac = 0;
-            logc = -log(lambda); // x=0 term
+            real log_lambda = log(lambda);
+            logc = -lambda; // x=0 term
             x = 1;
             while (x < m) {
                 lfac += log(x);
-                lprob =  (x - 1) * log(lambda + x * delta) - x * delta - lfac;
+                lprob =  log_lambda + (x - 1) * log(lambda + x * delta) - lambda - x * delta - lfac;
                 logc = log_sum_exp(logc, lprob);
                 x += 1;
             }
-            logc += log(lambda) - lambda; // factored out components w/ no x
         }
         return logc;
     }
@@ -69,7 +69,7 @@
             // Any x's such that this is negative have probability zero
             return negative_infinity();
         } else {
-            return -lxd + log(lambda) + (x - 1) * log(lxd) - lgamma(x + 1) - cj_log_norm(lambda, delta);
+            return log(lambda) + (x - 1) * log(lxd) - lxd - lgamma(x + 1) - cj_log_norm(lambda, delta);
         }
     }
     
@@ -106,14 +106,15 @@
             real logc; // Log of normalizing constant
             real lprob[x+1]; // array of log probabilities
             real lfac = 0;
+            real log_lambda = log(lambda);
             logc = cj_log_norm(lambda, delta);
-            lprob[1] = -log(lambda);  // i = 0 term
+            lprob[1] = -lambda;  // i = 0 term
             for (i in 1:x) {  // from i = 1 ...
                 lfac += log(i);
-                lprob[i+1] = (i - 1) * log(lambda + delta * i) - delta * i - lfac;
+                lprob[i+1] = log_lambda + (i - 1) * log(lambda + delta * i) - lambda - delta * i - lfac;
             }
-            // reduce, add factored-out components, normalize
-            lcdf = log_sum_exp(lprob) + log(lambda) - lambda - logc;
+            // reduce, normalize
+            lcdf = log_sum_exp(lprob) - logc;
         }
         return lcdf;
     }
@@ -148,12 +149,12 @@
         // Accumulate probability until we're above u, then we stop
         {
             real log_lambda = log(lambda);
-            real lfac = 0.0; // log factorial tracker
+            real lfac = 0; // log factorial tracker
             while ((lcdf - logc < lu) && (x + 1 < m)) {
                 real lprob;
                 x += 1; 
                 lfac += log(x);
-                lprob = -lambda - delta*x + log_lambda + (x-1) * log(lambda + delta*x) - lfac;
+                lprob = log_lambda + (x - 1) * log(lambda + delta*x) - lambda - delta * x - lfac;
                 lcdf = log_sum_exp(lcdf, lprob);
             }
         }
