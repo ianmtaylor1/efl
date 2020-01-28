@@ -5,9 +5,14 @@
     // Log normalizing constant for the Consul-Jain generalized Poisson
     // distribution, due to truncation when delta < 0
     real cj_log_norm(real lambda, real delta) {
-        int truncpoint = 10; // Larger than this errors are negligible
         real logc;
         real m = positive_infinity();
+        // Larger than truncpoint, errors are negligible. Found empirically
+        // By looking at absolute truncation error when delta = -1 for various
+        // lambdas and the resulting m. log(error) had an approximate linear
+        // trend with m (slope = -1.531610 and and intercept = 0). I think
+        // this works out to truncpoint ~= 24.
+        real truncpoint = -log(machine_precision())/1.531610;
         // Is there a max to the support?
         if (delta < 0) {
             m = -lambda/delta;
