@@ -159,28 +159,41 @@
         return exp(consuljain_lcdf(x | mu, theta));
     }
     
-    // Generate random numbers from the Consul-Jain distribution
-    int consuljain_rng(real mu, real theta) {
-        real lu; // log of Uniform random variable
-        real lcdf; // Keep track of total probability
-        int x = 0; // Value that will eventually be returned
-        real delta = 1 - 1 / sqrt(theta); // Standard second parameter
-        real lambda = mu * (1 - delta); // Standard first parameter
-        real logc = cj_log_norm(lambda, delta); // Log of normalizing constant
-        real m = positive_infinity(); // Maximum allowable x value
-        // Draw from uniform
-        lu = log(uniform_rng(0.0,1.0));
-        // Do we have a max?
-        if (delta < 0) {
-            m = -lambda/delta;
+    // Inverse CDF of Consul-Jain distribution
+    int consuljain_icdf(real u, real mu, real theta) {
+        int x; // Value that will eventually be returned
+        // Check inputs
+        if (!((u <= 1) && (u >= 0))) {
+            reject("consuljain_icdf: u must be between 0 and 1. ",
+                   "(found u=", u, ")");
         }
-        // Term for x=0
-        lcdf = -lambda;
+        if (!(mu > 0)) {
+            reject("consuljain_lcdf: mu must be positive. ",
+                   "(found mu=", mu, ")");
+        }
+        if (!(theta > 0.25)) {
+            reject("consuljain_lcdf: theta must be greater than 0.25. ",
+                   " (found theta=", theta, ")");
+        }
         // Accumulate probability until we're above u, then we stop
         {
-            real log_lambda = log(lambda);
+            real log_u = log(u);
             real lfac = 0; // log factorial tracker
-            while ((lcdf - logc < lu) && (x + 1 < m)) {
+            real lcdf; // Keep track of total probability
+            real delta = 1 - 1 / sqrt(theta); // Standard second parameter
+            real lambda = mu * (1 - delta); // Standard first parameter
+            real log_lambda = log(lambda);
+            real log_c = cj_log_norm(lambda, delta); // Log of normalizing constant
+            real m = positive_infinity(); // Maximum allowable x value
+            // Do we have a max?
+            if (delta < 0) {
+                m = -lambda/delta;
+            }
+            // Term for x=0
+            lcdf = -lambda;
+            x = 0;
+            // Terms for x>0
+            while ((lcdf - log_c < log_u) && (x + 1 < m)) {
                 real lprob;
                 x += 1; 
                 lfac += log(x);
@@ -190,4 +203,12 @@
         }
         // Return the value
         return x;
+    }
+    
+    // Generate random numbers from the Consul-Jain distribution
+    int consuljain_rng(real mu, real theta) {
+        // draw from a uniform distribution
+        real u = uniform_rng(0.0,1.0);
+        // Find inverse cdf of u
+        return consuljain_icdf(u, mu, theta);
     }
