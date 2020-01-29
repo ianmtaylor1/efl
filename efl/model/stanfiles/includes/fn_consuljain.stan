@@ -2,17 +2,47 @@
     // OF CONSUL AND JAIN (1973)
     // TO BE INCLUDED IN THE functions BLOCK
     
+    // Based on a given delta, return an approximate value t such that if
+    // The Generalized Poisson distribution is truncated at a value larger
+    // than t, then the truncation error is negligible. Everything in this 
+    // function is very empirical and approximate, with absolutely no
+    // theoretical backing.
+    real cj_min_noerr_trunc(real delta) {
+        if (!(fabs(delta) <= 1)) {
+            reject("cj_min_noerr_trunc: delta must be between -1 and 1 ",
+                   "(found delta=", delta, ")")
+        }
+        if (delta >= 0) {
+            // There's never error for nonnegative delta, so truncate anywhere
+            // There's also never truncation for nonnegative delta, so this
+            // doesn't matter. But returning zero is sensible.
+            return 0;
+        } else {
+            // For a given delta, there relationship between truncation
+            // point (m) and log absolute error is approximately linear.
+            // The intercept of this relationship is zero (if truncated at
+            // zero, the distribution has no mass, so log(abs(error)) == 0).
+            // The slope of the relationship depends on delta. The relationship
+            // between log(-delta) and the slope of the above linear
+            // relationship is also approximately linear (woohoo!) with
+            // intercept -1.491123 and slope 1.089328.
+            // So to make sure the truncation error is less than machine eps...
+            return log(machine_precision()) / (-1.491123 + 1.089328 * log(-delta));
+        }
+    }
+    
     // Log normalizing constant for the Consul-Jain generalized Poisson
     // distribution, due to truncation when delta < 0
     real cj_log_norm(real lambda, real delta) {
         real logc;
         real m = positive_infinity();
-        // Larger than truncpoint, errors are negligible. Found empirically
-        // By looking at absolute truncation error when delta = -1 for various
-        // lambdas and the resulting m. log(error) had an approximate linear
-        // trend with m (slope = -1.531610 and and intercept = 0). I think
-        // this works out to truncpoint ~= 24.
-        real truncpoint = -log(machine_precision())/1.531610;
+        // Larger than truncpoint, errors are negligible.
+        real truncpoint = cj_min_noerr_trunc(delta);
+        // Check that lambda is valid (truncpoint function checks delta)
+        if (!(lambda > 0)) {
+            reject("cj_log_norm: lambda must be positive. ",
+                   "(found lambda=", lambda, ")")
+        }
         // Is there a max to the support?
         if (delta < 0) {
             m = -lambda/delta;
