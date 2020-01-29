@@ -660,6 +660,13 @@ def max_goals(df):
     return max(df['homegoals'].max(), df['awaygoals'].max())
 
 
+@stat(type_='ordinal')
+def highest_score(df):
+    """Calculates the maximum number of goals scored by both teams in a match.
+    """
+    return (df['homegoals'] + df['awaygoals']).max()
+
+
 @stat(type_='numeric')
 def pct_clean_sheets(df):
     """Calculates the percent of scores which were zero."""
