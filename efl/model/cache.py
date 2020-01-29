@@ -24,20 +24,31 @@ def _include_path():
         yield tempdir
         # The context manager of tempdir handles cleanup/exceptions
 
+@contextlib.contextmanager
+def _model_file(name):
+    """Extracts the desired model file into a temporary directory for use as
+    the model file argument to pystan.stanc. yields the absolute path of the
+    file."""
+    # Create temporary directory. Context manager here handles cleanup
+    with tempfile.TemporaryDirectory() as tempdir:
+        modelfile = '{}.stan'.format(name)
+        if not resources.is_resource(stanfiles, modelfile):
+            raise Exception(
+                    "Model {} is not an available Stan model.".format(name)
+                    )
+        with open(os.path.join(tempdir, modelfile),'w') as f:
+            f.write(resources.read_text(stanfiles, modelfile))
+        yield os.path.join(tempdir, modelfile)
+        # The context manager of tempdir handles cleanup/exceptions
 
 def get_model(model_name):
     """Get a StanModel object, checking first in local cache and recompiling
     if necessary."""
-    modelfile = '{}.stan'.format(model_name)
     cachefile = os.path.join(config.modelcache, '{}.pkl'.format(model_name))
     # Check if package exists, get model code.
-    if not resources.is_resource(stanfiles, modelfile):
-        raise Exception(
-                "Model {} is not an available Stan model.".format(model_name)
-                )
-    with _include_path() as incpth:
+    with _include_path() as incpth, _model_file(model_name) as modelfile:
         model_stanc = pystan.stanc(
-                model_code    = resources.read_text(stanfiles, modelfile),
+                file          = modelfile,
                 include_paths = [incpth],
                 model_name    = model_name
                 )
