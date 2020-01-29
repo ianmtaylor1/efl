@@ -3,7 +3,7 @@
     // TO BE INCLUDED IN THE functions BLOCK
     
     // Based on a given delta, return an approximate value t such that if
-    // The Generalized Poisson distribution is truncated at a value larger
+    // the Generalized Poisson distribution is truncated at a value larger
     // than t, then the truncation error is negligible. Everything in this 
     // function is very empirical and approximate, with absolutely no
     // theoretical backing.
@@ -18,7 +18,7 @@
             // doesn't matter. But returning zero is sensible.
             return 0;
         } else {
-            // For a given delta, there relationship between truncation
+            // For a given delta, the relationship between truncation
             // point (m) and log absolute error is approximately linear.
             // The intercept of this relationship is zero (if truncated at
             // zero, the distribution has no mass, so log(abs(error)) == 0).
