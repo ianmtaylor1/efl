@@ -56,7 +56,7 @@ class Model(object):
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
                  gamedata, efl2stan, pargroups={},
-                 chains=4, iter=12000, warmup=2000, thin=4, n_jobs=1,
+                 chains=4, samples=10000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
         Parameters:
@@ -76,8 +76,11 @@ class Model(object):
                 values that are lists of the human-readable parameter names in
                 that group. (i.e. values are lists containing some of the keys
                 of efl2stan.)
-            chains, iter, warmup, thin, n_jobs - same as pystan options.
-                Passed to sampling()
+            chains, warmup, thin, n_jobs - same as pystan options. Passed to 
+                sampling()
+            samples - number of desired posterior samples, total from all
+                chains, after warmup and thinning. Used to calculate iter, and
+                then pass iter to sampling()
             **kwargs - any additional keyword arguments to pass to sampling()
         """
         # Get model from compiled model cache
@@ -92,10 +95,12 @@ class Model(object):
         self._efl2stan = efl2stan
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         self._pargroups = pargroups
+        # Calculate the total iterations needed
+        iter_ = warmup + numpy.ceil(samples*thin/chains)
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
-            chains=chains, iter=iter, warmup=warmup, thin=thin, n_jobs=n_jobs,
+            chains=chains, iter=iter_, warmup=warmup, thin=thin, n_jobs=n_jobs,
             **kwargs)
     
     # Stubs for methods that should be implemented by subclasses
