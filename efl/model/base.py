@@ -11,6 +11,7 @@ from . import cache
 from .. import util
 
 import numpy
+import math
 import pandas
 import itertools
 import re
@@ -96,7 +97,7 @@ class Model(object):
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         self._pargroups = pargroups
         # Calculate the total iterations needed
-        iter_ = warmup + numpy.ceil(samples*thin/chains)
+        iter_ = warmup + math.ceil(samples * thin / chains)
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=self._stan_inits,
