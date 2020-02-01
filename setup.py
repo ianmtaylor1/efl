@@ -13,7 +13,7 @@ setuptools.setup(
         version="0.0.1a1",
         author="Ian Taylor",
         author_email="ian@iantaylor.xyz",
-        description="Data and Models for EFL games and teams",
+        description="Data and Models for EFL games",
         long_description=long_description,
         long_description_content_type="text/markdown",
         url="https://github.com/ianmtaylor1",
@@ -26,7 +26,6 @@ setuptools.setup(
         install_requires=[
             'appdirs>=1.4.3',
             'beautifulsoup4>=4.8.1',
-            'configparser>=3.7.4',
             'matplotlib>=3.1.0',
             'pandas>=0.25.0',
             'pystan>=2.19.0.0',
