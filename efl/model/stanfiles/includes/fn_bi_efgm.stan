@@ -29,6 +29,11 @@
     
     // Log CDF for the bivariate EFGM copula
     real bi_efgm_lcdf(real[] x, real phi) {
+        return log(bi_efgm_cdf(x, phi));
+    }
+    
+    // CDF for the bivariate EFGM copula
+    real bi_efgm_cdf(real[] x, real phi) {
         real u;
         real v;
         if (!(num_elements(x) == 2)) {
@@ -45,12 +50,7 @@
             reject("bi_efgm_lcdf: x must have components between 0 and 1. ",
                    "(found x=(", u, ",", v, ") )");
         }
-        return log(u) + log(v) + log1p(phi * (1 - u) * (1 - v));
-    }
-    
-    // CDF for the bivariate EFGM copula
-    real bi_efgm_cdf(real[] x, real phi) {
-        return exp(bi_efgm_lcdf(x | phi));
+        return u * v * (1 + phi * (1 - u) * (1 - v));
     }
     
     // RNG for the bivariate EFGM copula

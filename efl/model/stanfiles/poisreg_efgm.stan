@@ -6,7 +6,7 @@ functions {
         // functions
         real low[2];
         real high[2];
-        real lprob;
+        real corners[4];
         // CDF at low endpoints
         if (x[1] == 0) {
             low[1] = 0;
@@ -22,17 +22,11 @@ functions {
         high[1] = low[1] + exp(poisson_log_lpmf(x[1] | log_lambda[1]));
         high[2] = low[2] + exp(poisson_log_lpmf(x[2] | log_lambda[2]));
         // compute CDF of EFGM copula in bound area
-        lprob = bi_efgm_lcdf(high | phi);
-        if ((low[1] > 0) && (low[2] > 0)) {
-            lprob = log_sum_exp(lprob, bi_efgm_lcdf(low | phi));
-        }
-        if (low[1] > 0) {
-            lprob = log_diff_exp(lprob, bi_efgm_lcdf({low[1], high[2]} | phi));
-        }
-        if (low[2] > 0) {
-            lprob = log_diff_exp(lprob, bi_efgm_lcdf({high[1], low[2]} | phi));
-        }
-        return lprob;
+        corners[1] = bi_efgm_cdf(low, phi);
+        corners[2] = -bi_efgm_cdf({low[1], high[2]}, phi);
+        corners[3] = -bi_efgm_cdf({high[1], low[2]}, phi);
+        corners[4] = bi_efgm_cdf(high, phi);
+        return log(sum(corners));
     }
     
     // Inverse CDF for Poisson (log parameterization)
