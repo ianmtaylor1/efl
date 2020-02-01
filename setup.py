@@ -28,7 +28,7 @@ setuptools.setup(
             'beautifulsoup4>=4.8.1',
             'matplotlib>=3.1.0',
             'pandas>=0.25.0',
-            'pystan>=2.19.0.0',
+            'pystan>=2.19.0.0,<3',
             'requests>=2.22.0',
             'scipy>=1.3.1',
             'sqlalchemy>=1.3.5',
