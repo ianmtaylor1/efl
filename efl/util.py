@@ -154,8 +154,9 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
         annotate - A bool. If true, annotate each square with its value.
         maxtextlen - if the total length of the x-labels exceeds this value,
             they will be rotated to avoid overlap.
-        valfmt - A format string to use formatting both the annotated values
-            (if any) and the colorbar ticks (if any)
+        valfmt - A format string, function, or Formatter instance to use
+            formatting both the annotated values (if any) and the colorbar
+            ticks (if any)
         textcolors - A length-2 list-like with color names for the 
             annotations on low and high values, respectively.
         **kwargs - any remaining arguments passed to imshow()
@@ -174,7 +175,12 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     im = ax.imshow(data_array, origin="lower", **kwargs)
     
     # Make the formatter for colorbar labels and annotations
-    formatter = matplotlib.ticker.StrMethodFormatter(valfmt)
+    if type(valfmt) == str:
+        formatter = matplotlib.ticker.StrMethodFormatter(valfmt)
+    elif callable(valfmt):
+        formatter = matplotlib.ticker.FuncFormatter(valfmt)
+    else:
+        formatter = valfmt
     
     # Make the colorbar, if required
     if include_cbar:
@@ -194,8 +200,11 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     
     # Rotate the tick labels and set their alignment.
     total_xlab_len = sum(len(str(lb)) for lb in col_labels)
-    if total_xlab_len > maxtextlen:
-        plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
+    if total_xlab_len > 2*maxtextlen:
+        plt.setp(ax.get_xticklabels(), rotation=90, ha="right", va="center",
+                 rotation_mode="anchor")
+    elif total_xlab_len > maxtextlen:
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", va="top",
                  rotation_mode="anchor")
 
     # Turn spines off and create white grid.
@@ -211,7 +220,7 @@ def heatmap(data, ax, row_labels=None, col_labels=None,
     # Annotate, if required
     if annotate:
         # Normalize the threshold to the images color range.
-        threshold = im.norm(data_array.max())/2
+        threshold = (im.norm(data_array.min()) + im.norm(data_array.max()))/2
         # Annotate each cell
         for i in range(data_array.shape[0]):
             for j in range(data_array.shape[1]):

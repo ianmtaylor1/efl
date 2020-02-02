@@ -15,6 +15,7 @@ import math
 import pandas
 import itertools
 import re
+import matplotlib
 
 
 ###############################################################################
@@ -309,6 +310,19 @@ class Model(object):
                 ac.loc[n,p] = samples[p].autocorr(n)
         return ac
     
+    def corr(self, pars=None):
+        """Computes the correlation for all supplied parameters from the
+        posterior samples.
+        Parameters:
+            pars - parameters for which to compute correlations
+        Returns:
+            A pandas.DataFrame with parameters as columns and row indices.
+            Values are correlation between row and column parameters.
+        """
+        samples = self.to_dataframe(pars, diagnostics=False, permuted=False)
+        eflpars = [c for c in samples.columns if c in self.parameters]
+        return samples[eflpars].corr()
+    
     def traceplot(self, pars=None, combine_chains=False, 
                   nrows=2, ncols=2, figsize=None):
         """Create a traceplot of the samples from this model.
@@ -427,7 +441,46 @@ class Model(object):
                 ax.set_title(p)
                 ax.bar(ac.index, ac[p])
             yield fig
-        
+    
+    def corrplot(self, pars=None, fixscale=True, annotate=False, figsize=None):
+        """Plot a correlation matrix of the supplied parameters, as calculated
+        by corr()
+        Parameters:
+            pars - parameters for which to compute correlations
+            fixscale - If True, the color scale is fixed to (-1, 1). If false,
+                it is rescaled to the observed correlation range.
+            annotate - If True, annotate the plot with the calculated
+                correlations.
+        Returns:
+            A matplotlib figure showing the correlation plot.
+        """
+        # Calculate correlation matrix
+        cmat = self.corr(pars)
+        data = cmat.to_numpy()
+        rlab = list(cmat.index)
+        clab = list(cmat.columns)
+        # Create figure and axis
+        fig = next(util.make_axes(1, 1, 1, figsize, None))
+        ax = fig.axes[0]
+        # Plot matrix on axis
+        # Fill the diagonal with an out-of-range value, then adjust cmap and
+        # norm accordingly.
+        numpy.fill_diagonal(data, 0)
+        lim = 1.0 if fixscale else min(abs(data).max()*1.1, 1.0)
+        numpy.fill_diagonal(data, 1.01)
+        cmap = matplotlib.pyplot.get_cmap('RdBu')
+        cmap.set_over('black')
+        norm = matplotlib.colors.Normalize(vmin=-lim, vmax=lim)
+        # Format values to remove leading zeros and the out-of-range value
+        def fmat(val, pos):
+            return '{:.2f}'.format(val).replace("0.",".").replace("1.01","")
+        # Draw the heatmap
+        util.heatmap(data, ax, row_labels=rlab, col_labels=clab,
+                     cbarlabel="Correlation Coefficient", norm=norm,
+                     valfmt=fmat, textcolors=['black','black'], cmap=cmap,
+                     annotate=annotate)
+        return fig
+    
     def scatterplot(self, pars=None, credsets=[0.25, 0.5, 0.75, 0.95], 
                     nrows=2, ncols=2, figsize=None):
         """Create scatterplots of posterior samples for each pair of the
