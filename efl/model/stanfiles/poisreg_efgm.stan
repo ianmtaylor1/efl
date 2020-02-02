@@ -70,8 +70,8 @@ data {
     cov_matrix[nTeams] defense_prior_var;
     
     // Prior parameters for the EFGM correlation parameter
-    real<lower=-1, upper=1> phi_prior_mean;
-    real<lower=0> phi_prior_sd;
+    real<lower=-1.0/3, upper=1.0/3> rho_prior_mean;
+    real<lower=0> rho_prior_sd;
 }
 transformed data {
     cholesky_factor_cov[nTeams] offense_prior_var_chol;
@@ -88,16 +88,22 @@ parameters {
     real log_home_goals;
     real log_away_goals;
     // EFGM copula parameter
-    real<lower=-1, upper=1> phi;
+    real<lower=-1.0/3, upper=1.0/3> rho;
 }
 transformed parameters {
     // Transformed team modifiers, including nTeams'th component to add to 0
-    vector[nTeams] offense = append_row(offense_raw, -sum(offense_raw));
-    vector[nTeams] defense = append_row(defense_raw, -sum(defense_raw));
+    vector[nTeams] offense;
+    vector[nTeams] defense;
+    // Scale the correlation up to the EFGM parameter
+    real phi;
+    
+    offense = append_row(offense_raw, -sum(offense_raw));
+    defense = append_row(defense_raw, -sum(defense_raw));
+    phi = 3*rho;
 }
 model {
     // Prior EFGM
-    phi ~ normal(phi_prior_mean, phi_prior_sd) T[-1, 1];
+    rho ~ normal(rho_prior_mean, rho_prior_sd) T[-1.0/3, 1.0/3];
     // Prior contribution from home/away goals
     log_home_goals ~ normal(log_home_goals_prior_mean, log_home_goals_prior_sd);
     log_away_goals ~ normal(log_away_goals_prior_mean, log_away_goals_prior_sd);
