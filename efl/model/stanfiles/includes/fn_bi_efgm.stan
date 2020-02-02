@@ -27,11 +27,6 @@
         return log1p(phi * (1 - 2*v) * (1 - 2*u));
     }
     
-    // Log CDF for the bivariate EFGM copula
-    real bi_efgm_lcdf(real[] x, real phi) {
-        return log(bi_efgm_cdf(x, phi));
-    }
-    
     // CDF for the bivariate EFGM copula
     real bi_efgm_cdf(real[] x, real phi) {
         real u;
@@ -51,6 +46,11 @@
                    "(found x=(", u, ",", v, ") )");
         }
         return u * v * (1 + phi * (1 - u) * (1 - v));
+    }
+    
+    // Log CDF for the bivariate EFGM copula
+    real bi_efgm_lcdf(real[] x, real phi) {
+        return log(bi_efgm_cdf(x, phi));
     }
     
     // RNG for the bivariate EFGM copula

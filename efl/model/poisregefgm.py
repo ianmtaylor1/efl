@@ -65,7 +65,8 @@ class PoisRegEFGM(base.GoalModel):
                 self._modeldata['defense_prior_var'])
         offense_raw = (offense - offense.mean())[:(P-1)]
         defense_raw = (defense - defense.mean())[:(P-1)]
-        phi = numpy.random.uniform(low=-1, high=1)
+        #phi = numpy.random.uniform(low=-1, high=1)
+        phi = 0.0
         return {'log_home_goals':log_home_goals, 
                 'log_away_goals':log_away_goals,
                 'offense_raw':offense_raw,
