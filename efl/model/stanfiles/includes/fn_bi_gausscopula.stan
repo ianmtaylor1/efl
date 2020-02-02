@@ -30,7 +30,7 @@
             reject("bi_gausscopula_lpdf: phi must be between -1 and 1. ",
                    "(found phi=", phi, ")");
         }
-        if (!((u[1] > 0) && (u[1] < 1) && (u[2] > 0) && (u[2]< 1))) {
+        if (!((u[1] > 0) && (u[1] < 1) && (u[2] > 0) && (u[2] < 1))) {
             reject("bi_gausscopula_lpdf: u must have components between 0 and 1. ",
                    "(found x=(", u[1], ",", u[2], ") )");
         }
@@ -52,9 +52,17 @@
             reject("bi_gausscopula_lpdf: phi must be between -1 and 1. ",
                    "(found phi=", phi, ")");
         }
-        if (!((u[1] > 0) && (u[1] < 1) && (u[2] > 0) && (u[2]< 1))) {
+        if (!((u[1] >= 0) && (u[1] <= 1) && (u[2] >= 0) && (u[2] <= 1))) {
             reject("bi_gausscopula_lpdf: u must have components between 0 and 1. ",
                    "(found x=(", u[1], ",", u[2], ") )");
+        }
+        // Edge cases to avoid passing infinity to binormal_cdf
+        if ((u[1] == 0) || (u[2] == 0)) {
+            return 0;
+        } else if (u[1] == 1) {  // This works if u[1] == u[2] == 1
+            return u[2];
+        } else if (u[2] == 1) {
+            return u[1];
         }
         return binormal_cdf(inv_Phi(u[1]), inv_Phi(u[2]), rho);
     }
