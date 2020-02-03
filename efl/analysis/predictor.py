@@ -7,6 +7,7 @@ predictive samples of game outcomes
 """
 
 from .. import util
+from . import stats
 
 import pandas
 import warnings
@@ -85,6 +86,10 @@ class Predictor(object):
             # For each posterior draw, take the predicted results and append
             # the observed results, if any
             self._samples_save = [self._modeldf.loc[i,:].append(self._gamesdf) for i in self._indices]
+            # Save a reference to the same list in the _stat_values, for use
+            # in stats that require the games dataframe *and* another stat
+            # as precomputes
+            self._stat_values[stats.games] = self._samples_save
         return self._samples_save
     
     # Property that lists the stats that have been added

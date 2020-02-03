@@ -224,13 +224,12 @@ def matrix(df):
     return mat
 
 
-def df_passthrough(df):
-    """Do nothing. Just return the df as is. Why would I want to do this? This
-    makes the dataframe accessible as a stat, which means that it can be passed
-    to stats that also have other precomputes. In reality, this is an ugly
-    hack and should probably be done away with in favor of something else. But
-    whatever."""
-    return df
+# This variable references the basic games dataframe format. Why is this
+# necessary? This makes the dataframe accessible as a stat, which means that
+# it can be passed to stats that also have other precomputes. The actual
+# value of this doesn't matter, it just needs to be hashable.
+games = 'games_df'
+
 
 ###########################################################
 ## DERIVED STAT CLASSES AND FUNCTIONS #####################
@@ -541,7 +540,7 @@ def numtriangles(M):
     return M3.diagonal().sum() / 3
 
 
-@stat(type_='numeric', precompute=(rankings, df_passthrough))
+@stat(type_='numeric', precompute=(rankings, games))
 def uptable_wins(r, df):
     """Compute the number of wins 'up table', i.e. a lower team beat a higher
     team."""
@@ -551,7 +550,7 @@ def uptable_wins(r, df):
                | ((homerank < awayrank) & (df.loc[:,'result']=='A')))
 
 
-@stat(type_='numeric', precompute=(rankings, df_passthrough))
+@stat(type_='numeric', precompute=(rankings, games))
 def uptable_wins_weighted(r, df):
     """Compute the weighted number of wins 'up table', i.e. a lower team beat
     a higher team. The larger the difference in their rank, the more it counts.
