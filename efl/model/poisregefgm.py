@@ -166,9 +166,9 @@ class PoisRegEFGM_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous PoisRegSimple fit.
+        """Create a prior from the posterior of a previous PoisRegEFGM fit.
         Parameters:
-            fit - the previous instance of PoisRegSimple
+            fit - the previous instance of PoisRegEFGM
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
