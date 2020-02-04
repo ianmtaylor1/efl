@@ -6,7 +6,7 @@ poisregsimple.py
 Contains the PoisRegSimple model and associated other classes.
 """
 
-from . import base
+from .. import base
 
 import numpy
 

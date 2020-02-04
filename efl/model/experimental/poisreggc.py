@@ -1,28 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-compoisreg.py
+poisreggc.py
 
-Contains the COMPoisReg model and associated other classes.
+Contains the PoisRegGC model and associated other classes.
 """
 
-from . import base
+from .. import base
 
 import numpy
 
 
-class COMPoisReg(base.GoalModel):
-    """Generalized Poisson Regression model using the Conway-Maxwell-Poisson
-    distribution for goals. 
-    https://en.wikipedia.org/wiki/Conway%E2%80%93Maxwell%E2%80%93Poisson_distribution
-    No separate homefield advantage effects (more similar to PoisRegSimple
-    than PoisRegNumberphile)
+class PoisRegGC(base.GoalModel):
+    """Poisson Regression model with a Gaussian copula between homegoals and
+    awaygoals to allow correlation.
     """
     
     def __init__(self, eflgames, prior=None, **kwargs):
         """Parameters:
-            eflgames - a Games instance
-            prior - instance of COMPoisReg_Prior, or None for a diffuse 
+            eflgames - an EFLGames instance
+            prior - instance of PoisRegEFGM_Prior, or None for a diffuse 
                 prior (default)
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
@@ -30,61 +27,62 @@ class COMPoisReg(base.GoalModel):
         team_names = [t.shortname for t in eflgames.teams]
         # Create priors
         if prior is None:
-            prior = COMPoisReg_Prior.default_prior(team_names)
+            prior = PoisRegGC_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'HomeGoals':'log_home_goals', 'AwayGoals':'log_away_goals',
-                    'GoalDecayFactor':'nu'}
+                    'GoalsCorr':'rho'}
         for i,t in enumerate(team_names):
             efl2stan[t+' Off'] = 'offense[{}]'.format(i+1)
             efl2stan[t+' Def'] = 'defense[{}]'.format(i+1)
-        pargroups = {'goals':['HomeGoals','AwayGoals','GoalDecayFactor'],
+        pargroups = {'goals':['HomeGoals','AwayGoals','GoalsCorr'],
                      'offense':[t+' Off' for t in team_names],
                      'defense':[t+' Def' for t in team_names]}
         for t in team_names:
             pargroups[t] = [t+' Off', t+' Def']
+        # Will this work?
+        self._stan_inits = 'random'
         # Call super init
         super().__init__(
-                modelfile      = 'compoisreg',
+                modelfile      = 'poisreg_gc',
                 eflgames       = eflgames,
                 extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
                 **kwargs)
     
-    def _stan_inits(self, chain_id=None):
-        """Sample from the prior to produce initial values for each chain."""
-        P = self._modeldata['offense_prior_mean'].shape[0]
-        log_home_goals = numpy.random.normal(
-                self._modeldata['log_home_goals_prior_mean'],
-                self._modeldata['log_home_goals_prior_sd'])
-        log_away_goals = numpy.random.normal(
-                self._modeldata['log_away_goals_prior_mean'],
-                self._modeldata['log_away_goals_prior_sd'])
-        nu = numpy.random.lognormal(self._modeldata['nu_prior_mu'],
-                                    self._modeldata['nu_prior_sigma'])
-        offense = numpy.random.multivariate_normal(
-                self._modeldata['offense_prior_mean'],
-                self._modeldata['offense_prior_var'])
-        defense = numpy.random.multivariate_normal(
-                self._modeldata['defense_prior_mean'],
-                self._modeldata['defense_prior_var'])
-        offense_raw = (offense - offense.mean())[:(P-1)]
-        defense_raw = (defense - defense.mean())[:(P-1)]
-        return {'log_home_goals':log_home_goals, 
-                'log_away_goals':log_away_goals,
-                'offense_raw':offense_raw,
-                'defense_raw':defense_raw,
-                'nu':nu}
+#    def _stan_inits(self, chain_id=None):
+#        """Sample from the prior to produce initial values for each chain."""
+#        P = self._modeldata['offense_prior_mean'].shape[0]
+#        log_home_goals = numpy.random.normal(
+#                self._modeldata['log_home_goals_prior_mean'],
+#                self._modeldata['log_home_goals_prior_sd'])
+#        log_away_goals = numpy.random.normal(
+#                self._modeldata['log_away_goals_prior_mean'],
+#                self._modeldata['log_away_goals_prior_sd'])
+#        offense = numpy.random.multivariate_normal(
+#                self._modeldata['offense_prior_mean'],
+#                self._modeldata['offense_prior_var'])
+#        defense = numpy.random.multivariate_normal(
+#                self._modeldata['defense_prior_mean'],
+#                self._modeldata['defense_prior_var'])
+#        offense_raw = (offense - offense.mean())[:(P-1)]
+#        defense_raw = (defense - defense.mean())[:(P-1)]
+#        rho = 0.0
+#        return {'log_home_goals':log_home_goals, 
+#                'log_away_goals':log_away_goals,
+#                'offense_raw':offense_raw,
+#                'defense_raw':defense_raw,
+#                'rho':rho}
 
 
-class COMPoisReg_Prior(object):
-    """A class holding a prior for the COMPoisReg model."""
+class PoisRegGC_Prior(object):
+    """A class holding a prior for the EFLPoisRegGC model."""
     
     def __init__(self, offense_prior_mean, offense_prior_var, 
                  defense_prior_mean, defense_prior_var, team_names,
                  log_home_goals_prior_mean, log_home_goals_prior_sd,
                  log_away_goals_prior_mean, log_away_goals_prior_sd,
-                 nu_prior_mu, nu_prior_sigma):
+                 rho_prior_mean, rho_prior_sd):
         """This constructor is pretty much never called in most typical uses.
         Parameters:
             offense_prior_mean - a 1d numpy array containing prior means of
@@ -106,8 +104,8 @@ class COMPoisReg_Prior(object):
                 parameters for the home goals scored parameter
             log_away_goals_prior_mean, log_away_goals_prior_sd - prior
                 parameters for the away goals scored parameter
-            nu_prior_mu, nu_prior_sigma - prior parameters for
-                the goals dispersion/decay parameter.
+            rho_prior_mean, rho_prior_sd - prior parameters for the Gaussian
+                copula correlation parameter.
         """
         # Center mean around zero (due to the model's parameter centering)
         self._offense_prior_mean = offense_prior_mean - offense_prior_mean.mean()
@@ -117,14 +115,13 @@ class COMPoisReg_Prior(object):
         self._defense_prior_var = defense_prior_var
         # Turn the list into a dict of indices
         self._team_map = {t:i for i,t in enumerate(team_names)}
-        # Copy all the log baseline goals parameters
+        # Copy all the other parameters
         self._log_home_goals_prior_mean = log_home_goals_prior_mean
         self._log_home_goals_prior_sd = log_home_goals_prior_sd
         self._log_away_goals_prior_mean = log_away_goals_prior_mean
         self._log_away_goals_prior_sd = log_away_goals_prior_sd
-        # Copy the dispersion parameters
-        self._nu_prior_mu = nu_prior_mu
-        self._nu_prior_sigma = nu_prior_sigma
+        self._rho_prior_mean = rho_prior_mean
+        self._rho_prior_sd= rho_prior_sd
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -145,8 +142,8 @@ class COMPoisReg_Prior(object):
                 'log_home_goals_prior_sd':self._log_home_goals_prior_sd,
                 'log_away_goals_prior_mean':self._log_away_goals_prior_mean,
                 'log_away_goals_prior_sd':self._log_away_goals_prior_sd,
-                'nu_prior_mu':self._nu_prior_mu,
-                'nu_prior_sigma':self._nu_prior_sigma}
+                'rho_prior_mean':self._rho_prior_mean,
+                'rho_prior_sd':self._rho_prior_sd}
         
     # Class methods for creating instances through various methods
     
@@ -163,16 +160,16 @@ class COMPoisReg_Prior(object):
                    log_home_goals_prior_sd = 1,
                    log_away_goals_prior_mean = 0,
                    log_away_goals_prior_sd = 1,
-                   nu_prior_mu = 0,
-                   nu_prior_sigma = 0.5)
+                   rho_prior_mean = 0,
+                   rho_prior_sd = 2)
         
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous ConsulJainReg fit.
+        """Create a prior from the posterior of a previous PoisRegGC fit.
         Parameters:
-            fit - the previous instance of ConsulJainReg
+            fit - the previous instance of PoisRegGC
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
@@ -202,9 +199,9 @@ class COMPoisReg_Prior(object):
         log_home_goals_prior_sd = df['HomeGoals'].std() * numpy.sqrt(spread)
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
-        # Dispersion parameter
-        nu_prior_mu = numpy.log(df['GoalDispersion']).mean()
-        nu_prior_sigma = numpy.log(df['GoalDispersion']).std() * numpy.sqrt(spread)
+        # EFGM parameters
+        rho_prior_mean = df['GoalsCorr'].mean()
+        rho_prior_sd = df['GoalsCorr'].std() * numpy.sqrt(spread)
         # Build parameter names for promoted/relegated teams
         promoted_out_off = [t+' Off' for t in promoted_out]
         promoted_out_def = [t+' Def' for t in promoted_out]
@@ -252,6 +249,6 @@ class COMPoisReg_Prior(object):
                    log_home_goals_prior_sd = log_home_goals_prior_sd,
                    log_away_goals_prior_mean = log_away_goals_prior_mean,
                    log_away_goals_prior_sd = log_away_goals_prior_sd,
-                   nu_prior_mu = nu_prior_mu,
-                   nu_prior_sigma = nu_prior_sigma)
+                   rho_prior_mean = rho_prior_mean,
+                   rho_prior_sd = rho_prior_sd)
 
