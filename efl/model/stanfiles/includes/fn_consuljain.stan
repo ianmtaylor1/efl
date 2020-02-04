@@ -74,6 +74,7 @@
     // theta > 0.25 : index of dispersion
     real consuljain_lpmf(int x, real mu, real theta) {
         // converted parameters
+        real isqrt_theta;
         real delta;
         real lambda;
         // convenient precomputation
@@ -92,8 +93,9 @@
                    " (found theta=", theta, ")");
         }
         // Calculate and return log pmf
-        delta = 1 - 1 / sqrt(theta);
-        lambda = mu / sqrt(theta);
+        isqrt_theta = inv_sqrt(theta);
+        delta = 1 - isqrt_theta;
+        lambda = mu * isqrt_theta;
         lxd = lambda + x * delta;
         if (lxd <= 0) {
             // Any x's such that this is negative have probability zero
@@ -106,6 +108,7 @@
     // Log CDF of Consul-Jain distribution
     real consuljain_lcdf(int x, real mu, real theta) {
         real lcdf; // Keep track of total probability
+        real isqrt_theta;
         real delta; // Standard second parameter
         real lambda; // Standard first parameter
         real m = positive_infinity(); // Maximum allowable x value
@@ -122,8 +125,9 @@
             reject("consuljain_lcdf: theta must be greater than 0.25. ",
                    " (found theta=", theta, ")");
         }
-        delta = 1 - 1 / sqrt(theta); // Standard second parameter
-        lambda = mu * (1 - delta); // Standard first parameter
+        isqrt_theta = inv_sqrt(theta);
+        delta = 1 - isqrt_theta; // Standard second parameter
+        lambda = mu * isqrt_theta; // Standard first parameter
         // Is there a max to the support?
         if (delta < 0) {
             m = -lambda/delta;
@@ -180,8 +184,9 @@
             real log_u = log(u);
             real lfac = 0; // log factorial tracker
             real lcdf; // Keep track of total probability
-            real delta = 1 - 1 / sqrt(theta); // Standard second parameter
-            real lambda = mu * (1 - delta); // Standard first parameter
+            real isqrt_theta = inv_sqrt(theta);
+            real delta = 1 - isqrt_theta; // Standard second parameter
+            real lambda = mu * isqrt_theta; // Standard first parameter
             real log_lambda = log(lambda);
             real log_c = cj_log_norm(lambda, delta); // Log of normalizing constant
             real m = positive_infinity(); // Maximum allowable x value
