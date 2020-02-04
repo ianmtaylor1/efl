@@ -224,11 +224,14 @@ def matrix(df):
     return mat
 
 
-# This variable references the basic games dataframe format. Why is this
-# necessary? This makes the dataframe accessible as a stat, which means that
-# it can be passed to stats that also have other precomputes. The actual
-# value of this doesn't matter, it just needs to be hashable.
-games = 'games_df'
+def games(x):
+    """This function references the basic games dataframe format. Why is this
+    necessary? This makes the dataframe accessible as a stat, which means that
+    it can be passed to stats that also have other precomputes. It is defined
+    as the identity function so that it will technically work if called as a
+    stat.
+    """
+    return x
 
 
 ###########################################################
