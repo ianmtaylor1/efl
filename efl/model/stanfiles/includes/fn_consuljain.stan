@@ -129,7 +129,7 @@
             m = -lambda/delta;
         }
         // If x is high enough, probability is one
-        if (x >= m) {
+        if (x + 1 >= m) {
             lcdf = 0;
         } else {
             // Calculate probabilities for i = 0, ..., x and sum
