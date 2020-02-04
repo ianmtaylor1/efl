@@ -27,7 +27,7 @@
             // relationship is also approximately linear (woohoo!) with
             // intercept -1.491123 and slope 1.089328.
             // So to make sure the truncation error is less than machine eps...
-            return log(machine_precision()) / (-1.491123 + 1.089328 * log(-delta));
+            return log(machine_precision()) / fma(1.089328, log(-delta), -1.491123);
         }
     }
     
@@ -60,7 +60,7 @@
             x = 1;
             while (x < m) {
                 lfac += log(x);
-                lprob =  log_lambda + lmultiply(x - 1, lambda + x * delta) - lambda - x * delta - lfac;
+                lprob =  log_lambda + lmultiply(x - 1, fma(x, delta, lambda)) - fma(x, delta, lambda) - lfac;
                 logc = log_sum_exp(logc, lprob);
                 x += 1;
             }
@@ -96,7 +96,7 @@
         isqrt_theta = inv_sqrt(theta);
         delta = 1 - isqrt_theta;
         lambda = mu * isqrt_theta;
-        lxd = lambda + x * delta;
+        lxd = fma(x, delta, lambda);
         if (lxd <= 0) {
             // Any x's such that this is negative have probability zero
             return negative_infinity();
@@ -145,7 +145,7 @@
             lprob[1] = -lambda;  // i = 0 term
             for (i in 1:x) {  // from i = 1 ...
                 lfac += log(i);
-                lprob[i+1] = log_lambda + lmultiply(i - 1, lambda + delta * i) - lambda - delta * i - lfac;
+                lprob[i+1] = log_lambda + lmultiply(i - 1, fma(i, delta, lambda)) - fma(i, delta, lambda) - lfac;
             }
             // reduce, normalize
             lcdf = log_sum_exp(lprob) - logc;
@@ -202,7 +202,7 @@
                 real lprob;
                 x += 1; 
                 lfac += log(x);
-                lprob = log_lambda + lmultiply(x - 1, lambda + delta * x) - lambda - delta * x - lfac;
+                lprob = log_lambda + lmultiply(x - 1, fma(x, delta, lambda)) - fma(x, delta, lambda) - lfac;
                 lcdf = log_sum_exp(lcdf, lprob);
             }
         }
