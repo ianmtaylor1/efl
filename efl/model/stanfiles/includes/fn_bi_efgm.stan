@@ -71,7 +71,11 @@
             // We know that -1 < A < 1, so B is always negative
             // Following the algorithm outlined here:
             // https://en.wikipedia.org/wiki/Loss_of_significance#A_better_algorithm
-            real sol1 = (-B + sqrt(B^2 - 4*A*x)) / (2 * A);
+            // Discriminant calculated according to this answer here:
+            // https://stackoverflow.com/a/50065711
+            real fourac = 4 * A * x;
+            real disc = fma(b, b, -fourac) + fma(-4*A, x, fourac);
+            real sol1 = (-B + sqrt(disc)) / (2 * A);
             v = x / (A * sol1);
         }
         return {u,v};
