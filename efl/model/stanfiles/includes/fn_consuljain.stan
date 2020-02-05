@@ -163,13 +163,13 @@
         return exp(consuljain_lcdf(x | mu, theta));
     }
     
-    // Inverse CDF of Consul-Jain distribution
-    int consuljain_icdf(real u, real mu, real theta) {
+    // Inverse Log CDF of Consul-Jain distribution
+    int consuljain_ilcdf(real log_u, real mu, real theta) {
         int x; // Value that will eventually be returned
         // Check inputs
-        if (!((u <= 1) && (u >= 0))) {
-            reject("consuljain_icdf: u must be between 0 and 1. ",
-                   "(found u=", u, ")");
+        if (!(log_u <= 0)) {
+            reject("consuljain_icdf: log_u must be non-positive. ",
+                   "(found log_u=", log_u, ")");
         }
         if (!(mu > 0)) {
             reject("consuljain_lcdf: mu must be positive. ",
@@ -181,7 +181,6 @@
         }
         // Accumulate probability until we're above u, then we stop
         {
-            real log_u = log(u);
             real lfac = 0; // log factorial tracker
             real lcdf; // Keep track of total probability
             real isqrt_theta = inv_sqrt(theta);
@@ -210,10 +209,15 @@
         return x;
     }
     
+    // Inverse CDF of Consul-Jain distribution
+    int consuljain_icdf(real u, real mu, real theta) {
+        return consuljain_ilcdf(log(u), mu, theta);
+    }
+    
     // Generate random numbers from the Consul-Jain distribution
     int consuljain_rng(real mu, real theta) {
         // draw from a uniform distribution
-        real u = uniform_rng(0.0,1.0);
+        real u = uniform_rng(0.0, 1.0);
         // Find inverse cdf of u
         return consuljain_icdf(u, mu, theta);
     }
