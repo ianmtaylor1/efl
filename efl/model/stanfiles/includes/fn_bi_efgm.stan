@@ -24,34 +24,7 @@
             reject("bi_efgm_lpdf: x must have components between 0 and 1. ",
                    "(found x=(", u, ",", v, ") )");
         }
-        return log1p(phi * fma(-2, v, 1) * fma(-2, u, 1));
-    }
-    
-    // Log PDF for the bivariate EFGM copula - with log probability arguments
-    real bi_efgm_log_lpdf(real[] log_x, real phi) {
-        real log_u;
-        real log_v;
-        if (!(num_elements(log_x) == 2)) {
-            reject("bi_efgm_log_lpdf: log_x must be length 2. ",
-                   "(found length ", num_elements(x), ")")
-        }
-        log_u = log_x[1];
-        log_v = log_x[2];
-        if (!(fabs(phi) <= 1)) {
-            reject("bi_efgm_lpdf: phi must be between -1 and 1. ",
-                   "(found phi=", phi, ")");
-        }
-        if (!((log_u <= 0) && (log_v <= 0))) {
-            reject("bi_efgm_log_lpdf: log_x must have non-positive components. ",
-                   "(found x=(", log_u, ",", log_v, ") )");
-        }
-        if (phi == 0) {
-            return log_u + log_v;
-        } else if (phi > 0) {
-            return log_u + log_v + log1p_exp(log(phi) + log1m_exp(log_u + log2()) + log1m_exp(log_v + log2()));
-        } else {
-            return log_u + log_v + log1m_exp(log(-phi) + log1m_exp(log_u + log2()) + log1m_exp(log_v + log2()));
-        }
+        return log1p(phi * (1 - 2 * u) * (1 - 2 * v));
     }
     
     // CDF for the bivariate EFGM copula
@@ -80,38 +53,6 @@
     // Log CDF for the bivariate EFGM copula
     real bi_efgm_lcdf(real[] x, real phi) {
         return log(bi_efgm_cdf(x, phi));
-    }
-    
-    // Log CDF for the bivariate EFGM copula - with log probability arguments
-    real bi_efgm_log_lcdf(real[] log_x, real phi) {
-        real log_u;
-        real log_v;
-        if (!(num_elements(log_x) == 2)) {
-            reject("bi_efgm_log_lcdf: log_x must be length 2. ",
-                   "(found length ", num_elements(log_x), ")")
-        }
-        log_u = log_x[1];
-        log_v = log_x[2];
-        if (!(fabs(phi) <= 1)) {
-            reject("bi_efgm_log_lcdf: phi must be between -1 and 1. ",
-                   "(found phi=", phi, ")");
-        }
-        if (!((log_u <= 0) && (log_v <= 0))) {
-            reject("bi_efgm_log_lcdf: log_x must have non-positive components. ",
-                   "(found x=(", log_u, ",", log_v, ") )");
-        }
-        if (phi == 0) {
-            return log_u + log_v;
-        } else if (phi > 0) {
-            return log_u + log_v + log1p_exp(log(phi) + log1m_exp(log_u) + log1m_exp(log_v));
-        } else {
-            return log_u + log_v + log1m_exp(log(-phi) + log1m_exp(log_u) + log1m_exp(log_v));
-        }
-    }
-    
-    // CDF for the bivariate EFGM copula - with log probability arguments
-    real bi_efgm_log_cdf(real[] log_x, real phi) {
-        return exp(bi_efgm_log_lcdf(log_x | phi));
     }
     
     // RNG for the bivariate EFGM copula
