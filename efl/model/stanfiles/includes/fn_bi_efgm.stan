@@ -67,7 +67,12 @@
             v = x;
         } else {
             // Solve the quadratic for the conditional CDF to get v
-            v = (-B - sqrt(B^2 - 4*A*x)) / (2 * A);
+            // We want the "minus" solution to the quadratic equation
+            // We know that -1 < A < 1, so B is always negative
+            // Following the algorithm outlined here:
+            // https://en.wikipedia.org/wiki/Loss_of_significance#A_better_algorithm
+            real sol1 = (-B + sqrt(B^2 - 4*A*x)) / (2 * A);
+            v = x / (A * sol1);
         }
         return {u,v};
     }
