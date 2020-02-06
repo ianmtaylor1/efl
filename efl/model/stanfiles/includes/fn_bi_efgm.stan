@@ -35,19 +35,17 @@
             reject("bi_efgm_lcdf: x must be length 2. ",
                    "(found length ", num_elements(x), ")")
         }
-        // Knowing which one is larger helps bounds checks and numerical
-        // stability, and ensures symmetry of evaluation
-        u = min(x);
-        v = max(x);
+        u = x[1];
+        v = x[2];
         if (!(fabs(phi) <= 1)) {
             reject("bi_efgm_lcdf: phi must be between -1 and 1. ",
                    "(found phi=", phi, ")");
         }
-        if (!((u >= 0) && (v <= 1))) {
+        if (!((u >= 0) && (u <= 1) && (v >= 0) && (v <= 1))) {
             reject("bi_efgm_lcdf: x must have components between 0 and 1. ",
                    "(found x=(", x[1], ",", x[2], ") )");
         }
-        return u * v * fma(fma(phi, -u, phi), 1 - v, 1);
+        return u * v * (1 + phi * (1 - u) * (1 - v));
     }
     
     // Log CDF for the bivariate EFGM copula
@@ -61,7 +59,7 @@
         real u = uniform_rng(0.0, 1.0);
         real x = uniform_rng(0.0, 1.0);
         real v;
-        real A = phi * fma(-2, u, 1);
+        real A = phi * (1 - 2 * u);
         real B = - 1 - A;
         if (A == 0) {
             v = x;
@@ -78,5 +76,5 @@
             real sol1 = (-B + sqrt(disc)) / (2 * A);
             v = x / (A * sol1);
         }
-        return {u,v};
+        return {u, v};
     }
