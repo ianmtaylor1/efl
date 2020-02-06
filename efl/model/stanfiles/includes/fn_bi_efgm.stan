@@ -24,7 +24,7 @@
             reject("bi_efgm_lpdf: x must have components between 0 and 1. ",
                    "(found x=(", u, ",", v, ") )");
         }
-        return log1p(phi * fma(-2, v, 1) * fma(-2, u, 1));
+        return log1p(phi * (1 - 2 * u) * (1 - 2 * v));
     }
     
     // CDF for the bivariate EFGM copula
@@ -35,19 +35,17 @@
             reject("bi_efgm_lcdf: x must be length 2. ",
                    "(found length ", num_elements(x), ")")
         }
-        // Knowing which one is larger helps bounds checks and numerical
-        // stability, and ensures symmetry of evaluation
-        u = min(x);
-        v = max(x);
+        u = x[1];
+        v = x[2];
         if (!(fabs(phi) <= 1)) {
             reject("bi_efgm_lcdf: phi must be between -1 and 1. ",
                    "(found phi=", phi, ")");
         }
-        if (!((u >= 0) && (v <= 1))) {
+        if (!((u >= 0) && (u <= 1) && (v >= 0) && (v <= 1))) {
             reject("bi_efgm_lcdf: x must have components between 0 and 1. ",
                    "(found x=(", x[1], ",", x[2], ") )");
         }
-        return u * v * fma(fma(phi, -u, phi), 1 - v, 1);
+        return u * v * (1 + phi * (1 - u) * (1 - v));
     }
     
     // Log CDF for the bivariate EFGM copula
@@ -61,13 +59,22 @@
         real u = uniform_rng(0.0, 1.0);
         real x = uniform_rng(0.0, 1.0);
         real v;
-        real A = phi * fma(-2, u, 1);
+        real A = phi * (1 - 2 * u);
         real B = - 1 - A;
         if (A == 0) {
             v = x;
         } else {
             // Solve the quadratic for the conditional CDF to get v
-            v = (-B - sqrt(B^2 - 4*A*x)) / (2 * A);
+            // We want the "minus" solution to the quadratic equation
+            // We know that -1 < A < 1, so B is always negative
+            // Following the algorithm outlined here:
+            // https://en.wikipedia.org/wiki/Loss_of_significance#A_better_algorithm
+            // Discriminant calculated according to this answer here:
+            // https://stackoverflow.com/a/50065711
+            real fourac = 4 * A * x;
+            real disc = fma(B, B, -fourac) + fma(-4*A, x, fourac);
+            real sol1 = (-B + sqrt(disc)) / (2 * A);
+            v = x / (A * sol1);
         }
-        return {u,v};
+        return {u, v};
     }
