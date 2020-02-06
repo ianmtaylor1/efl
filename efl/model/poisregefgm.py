@@ -65,12 +65,12 @@ class PoisRegEFGM(base.GoalModel):
                 self._modeldata['defense_prior_var'])
         offense_raw = (offense - offense.mean())[:(P-1)]
         defense_raw = (defense - defense.mean())[:(P-1)]
-        rho = 0.0
+        phi = 0.0
         return {'log_home_goals':log_home_goals, 
                 'log_away_goals':log_away_goals,
                 'offense_raw':offense_raw,
                 'defense_raw':defense_raw,
-                'rho':rho}
+                'phi':phi}
 
 
 class PoisRegEFGM_Prior(object):
@@ -80,7 +80,7 @@ class PoisRegEFGM_Prior(object):
                  defense_prior_mean, defense_prior_var, team_names,
                  log_home_goals_prior_mean, log_home_goals_prior_sd,
                  log_away_goals_prior_mean, log_away_goals_prior_sd,
-                 rho_prior_mean, rho_prior_sd):
+                 phi_prior_mean, phi_prior_sd):
         """This constructor is pretty much never called in most typical uses.
         Parameters:
             offense_prior_mean - a 1d numpy array containing prior means of
@@ -102,9 +102,8 @@ class PoisRegEFGM_Prior(object):
                 parameters for the home goals scored parameter
             log_away_goals_prior_mean, log_away_goals_prior_sd - prior
                 parameters for the away goals scored parameter
-            rho_prior_mean, rho_prior_sd - prior parameters for the EFGM
-                copula correlation parameter (scaled by 1/3 to better represent
-                Pearson correlation).
+            phi_prior_mean, phi_prior_sd - prior parameters for the EFGM
+                copula correlation parameter.
         """
         # Center mean around zero (due to the model's parameter centering)
         self._offense_prior_mean = offense_prior_mean - offense_prior_mean.mean()
@@ -119,8 +118,8 @@ class PoisRegEFGM_Prior(object):
         self._log_home_goals_prior_sd = log_home_goals_prior_sd
         self._log_away_goals_prior_mean = log_away_goals_prior_mean
         self._log_away_goals_prior_sd = log_away_goals_prior_sd
-        self._rho_prior_mean = rho_prior_mean
-        self._rho_prior_sd= rho_prior_sd
+        self._phi_prior_mean = phi_prior_mean
+        self._phi_prior_sd= phi_prior_sd
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -141,8 +140,8 @@ class PoisRegEFGM_Prior(object):
                 'log_home_goals_prior_sd':self._log_home_goals_prior_sd,
                 'log_away_goals_prior_mean':self._log_away_goals_prior_mean,
                 'log_away_goals_prior_sd':self._log_away_goals_prior_sd,
-                'rho_prior_mean':self._rho_prior_mean,
-                'rho_prior_sd':self._rho_prior_sd}
+                'phi_prior_mean':self._phi_prior_mean,
+                'phi_prior_sd':self._phi_prior_sd}
         
     # Class methods for creating instances through various methods
     
@@ -159,8 +158,8 @@ class PoisRegEFGM_Prior(object):
                    log_home_goals_prior_sd = 1,
                    log_away_goals_prior_mean = 0,
                    log_away_goals_prior_sd = 1,
-                   rho_prior_mean = 0,
-                   rho_prior_sd = 1)
+                   phi_prior_mean = 0,
+                   phi_prior_sd = 3)
         
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
@@ -199,8 +198,8 @@ class PoisRegEFGM_Prior(object):
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
         # EFGM parameters
-        rho_prior_mean = df['GoalsCorr'].mean()
-        rho_prior_sd = df['GoalsCorr'].std() * numpy.sqrt(spread)
+        phi_prior_mean = df['GoalsCorr'].mean() * 3
+        phi_prior_sd = df['GoalsCorr'].std() * 3 * numpy.sqrt(spread)
         # Build parameter names for promoted/relegated teams
         promoted_out_off = [t+' Off' for t in promoted_out]
         promoted_out_def = [t+' Def' for t in promoted_out]
@@ -248,6 +247,6 @@ class PoisRegEFGM_Prior(object):
                    log_home_goals_prior_sd = log_home_goals_prior_sd,
                    log_away_goals_prior_mean = log_away_goals_prior_mean,
                    log_away_goals_prior_sd = log_away_goals_prior_sd,
-                   rho_prior_mean = rho_prior_mean,
-                   rho_prior_sd = rho_prior_sd)
+                   phi_prior_mean = phi_prior_mean,
+                   phi_prior_sd = phi_prior_sd)
 
