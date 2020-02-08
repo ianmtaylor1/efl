@@ -51,13 +51,16 @@ class Model(object):
         11. Plotting methods: traceplot, densplot, boxplot, acfplot
     
     Subclasses of EFLModel should:
+        1. Provide a method _predict() for predicting a single game outcome.
+    
+    Subclasses of EFLModel may:
         1. Implement _stan_inits() method for generating initial values 
-                from chain_id
-        2. Provide a method _predict() for predicting a single game outcome.
+                from chain_id. The method can be passed to the init argument
+                of the base constructor.
     """
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
-                 gamedata, efl2stan, pargroups={},
+                 gamedata, efl2stan, pargroups={}, init='random',
                  chains=4, samples=10000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
@@ -78,6 +81,10 @@ class Model(object):
                 values that are lists of the human-readable parameter names in
                 that group. (i.e. values are lists containing some of the keys
                 of efl2stan.)
+            init - argument passed to pystan sampling() method. Default is
+                'random'. A method of the model class can also be created and
+                passed in as this argument. It will be called for each chain,
+                per pystan docs.
             chains, warmup, thin, n_jobs - same as pystan options. Passed to 
                 sampling()
             samples - number of desired posterior samples, total from all
@@ -101,19 +108,10 @@ class Model(object):
         iter_ = warmup + math.ceil(samples * thin / chains)
         # Fit the model
         self.stanfit = self._model.sampling(
-            data=self._modeldata, init=self._stan_inits,
-            chains=chains, iter=iter_, warmup=warmup, thin=thin, n_jobs=n_jobs,
-            **kwargs)
+            data=self._modeldata, init=init, chains=chains, iter=iter_,
+            warmup=warmup, thin=thin, n_jobs=n_jobs, **kwargs)
     
     # Stubs for methods that should be implemented by subclasses
-    
-    def _stan_inits(self, chain_id=None):
-        """Produce initial values for MCMC. Should return a dict with keys
-        equal to Stan model parameters, and values equal to their initial
-        values."""
-        raise NotImplementedError(
-                "_stan_inits not implemented in {}".format(type(self))
-                )
     
     def _predict(self, gameid, **kwargs):
         """Predicts the outcome of a single game. Returns a pandas.DataFrame

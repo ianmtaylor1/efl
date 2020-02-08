@@ -46,6 +46,7 @@ class PoisRegSimple(base.GoalModel):
                 extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
+                init           = self._stan_inits,
                 **kwargs)
     
     def _stan_inits(self, chain_id=None):

@@ -48,6 +48,7 @@ class ConsulJainReg(base.GoalModel):
                 extramodeldata = prior.get_params(team_names),
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
+                init           = self._stan_inits,
                 **kwargs)
     
     def _stan_inits(self, chain_id=None):
@@ -59,11 +60,7 @@ class ConsulJainReg(base.GoalModel):
         log_away_goals = numpy.random.normal(
                 self._modeldata['log_away_goals_prior_mean'],
                 self._modeldata['log_away_goals_prior_sd'])
-        #dispersion = max(
-        #        numpy.random.normal(self._modeldata['dispersion_prior_mean'],
-        #                            self._modeldata['dispersion_prior_sd']),
-        #        0.26)
-        dispersion = 1.0
+        dispersion = numpy.random.uniform(low=0.9, high=1.1)
         offense = numpy.random.multivariate_normal(
                 self._modeldata['offense_prior_mean'],
                 self._modeldata['offense_prior_var'])
