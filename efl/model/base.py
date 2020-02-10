@@ -60,7 +60,7 @@ class Model(object):
     """
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
-                 gamedata, efl2stan, pargroups={}, init='random',
+                 gamedata, efl2stan, pargroups={}, init=None,
                  chains=4, samples=10000, warmup=2000, thin=4, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
