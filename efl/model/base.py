@@ -55,8 +55,8 @@ class Model(object):
     
     Subclasses of EFLModel may:
         1. Implement _stan_inits() method for generating initial values 
-                from chain_id. The method can be passed to the init argument
-                of the base constructor.
+                from chain_id. The method will be used as the default for the
+                init argument to sampling()
     """
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
@@ -81,10 +81,9 @@ class Model(object):
                 values that are lists of the human-readable parameter names in
                 that group. (i.e. values are lists containing some of the keys
                 of efl2stan.)
-            init - argument passed to pystan sampling() method. Default is
-                'random'. A method of the model class can also be created and
-                passed in as this argument. It will be called for each chain,
-                per pystan docs.
+            init - argument passed to pystan sampling() method. If None, this
+                checks for an attribute named _stan_inits to use. If that does
+                not exist, the keyword "random" is used instead.
             chains, warmup, thin, n_jobs - same as pystan options. Passed to 
                 sampling()
             samples - number of desired posterior samples, total from all
@@ -106,6 +105,9 @@ class Model(object):
         self._pargroups = pargroups
         # Calculate the total iterations needed
         iter_ = warmup + math.ceil(samples * thin / chains)
+        # Get the inits if none provided, with random as default
+        if init is None:
+            init = getattr(self, '_stan_inits', 'random')
         # Fit the model
         self.stanfit = self._model.sampling(
             data=self._modeldata, init=init, chains=chains, iter=iter_,
