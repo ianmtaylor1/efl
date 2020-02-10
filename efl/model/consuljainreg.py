@@ -60,7 +60,7 @@ class ConsulJainReg(base.GoalModel):
         log_away_goals = numpy.random.normal(
                 self._modeldata['log_away_goals_prior_mean'],
                 self._modeldata['log_away_goals_prior_sd'])
-        dispersion = numpy.random.uniform(low=0.9, high=1.1)
+        dispersion = 1.0
         offense = numpy.random.multivariate_normal(
                 self._modeldata['offense_prior_mean'],
                 self._modeldata['offense_prior_var'])
