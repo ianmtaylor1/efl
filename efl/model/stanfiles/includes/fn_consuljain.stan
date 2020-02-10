@@ -27,7 +27,7 @@
             // relationship is also approximately linear (woohoo!) with
             // intercept -1.491123 and slope 1.089328.
             // So to make sure the truncation error is less than machine eps...
-            return log(machine_precision()) / fma(1.089328, log(-delta), -1.491123);
+            return log(machine_precision()/2.0) / fma(1.089328, log(-delta), -1.491123);
         }
     }
     

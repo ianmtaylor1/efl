@@ -20,8 +20,8 @@ functions {
             low[2] = consuljain_cdf(x[2]-1, mu[2], theta);
         }
         // CDF at high endpoints
-        high[1] = low[1] + exp(consuljain_lpmf(x[1] | mu[1], theta));
-        high[2] = low[2] + exp(consuljain_lpmf(x[2] | mu[2], theta));
+        high[1] = fmin(low[1] + exp(consuljain_lpmf(x[1] | mu[1], theta)), 1.0);
+        high[2] = fmin(low[2] + exp(consuljain_lpmf(x[2] | mu[2], theta)), 1.0);
         // compute CDF of EFGM copula in bound area
         corners[1] = bi_efgm_cdf(low, phi);
         corners[2] = -bi_efgm_cdf({low[1], high[2]}, phi);
