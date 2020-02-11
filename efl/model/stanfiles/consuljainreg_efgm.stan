@@ -5,28 +5,28 @@ functions {
     real consuljain_efgm_lpmf(int[] x, real[] mu, real theta, real phi) {
         // All parameter checking done by the underlying distributional
         // functions
-        real low[2];
-        real high[2];
+        real u[2]; // Lower and upper cdf for x[1]
+        real v[2]; // Lower and upper cdf for x[2]
         real corners[4];
-        // CDF at low endpoints
+        // CDF for first x
         if (x[1] == 0) {
-            low[1] = 0;
+            u[1] = 0;
+            u[2] = consuljain_cdf(x[1], mu[1], theta);
         } else {
-            low[1] = consuljain_cdf(x[1]-1, mu[1], theta);
+            u = consuljain_cdf_array({x[1]-1, x[1]}, mu[1], theta);
         }
+        // CDF for second x
         if (x[2] == 0) {
-            low[2] = 0;
+            v[1] = 0;
+            v[2] = consuljain_cdf(x[2], mu[2], theta);
         } else {
-            low[2] = consuljain_cdf(x[2]-1, mu[2], theta);
+            v = consuljain_cdf_array({x[2]-1, x[2]}, mu[2], theta);
         }
-        // CDF at high endpoints
-        high[1] = fmin(low[1] + exp(consuljain_lpmf(x[1] | mu[1], theta)), 1.0);
-        high[2] = fmin(low[2] + exp(consuljain_lpmf(x[2] | mu[2], theta)), 1.0);
         // compute CDF of EFGM copula in bound area
-        corners[1] = bi_efgm_cdf(low, phi);
-        corners[2] = -bi_efgm_cdf({low[1], high[2]}, phi);
-        corners[3] = -bi_efgm_cdf({high[1], low[2]}, phi);
-        corners[4] = bi_efgm_cdf(high, phi);
+        corners[1] = bi_efgm_cdf({u[1], v[1]}, phi);
+        corners[2] = -bi_efgm_cdf({u[1], v[2]}, phi);
+        corners[3] = -bi_efgm_cdf({u[2], v[1]}, phi);
+        corners[4] = bi_efgm_cdf({u[2], v[2]}, phi);
         return log(sum(corners));
     }
     

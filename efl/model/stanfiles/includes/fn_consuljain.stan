@@ -105,24 +105,30 @@
         }
     }
     
-    // Log CDF of Consul-Jain distribution
-    real consuljain_lcdf(int x, real mu, real theta) {
-        real lcdf; // Keep track of total probability
+    // Log CDF of Consul-Jain distribution for multiple values. More efficient
+    // than calling separately as the normalizing constant and the log
+    // numerators for each value up to the max x only need to be calculated
+    // once. The only repeated calculation is log_sum_exp.
+    real[] consuljain_lcdf_array(int[] x, real mu, real theta) {
+        int n = num_elements(x);
+        int max_x = max(x);
+        int min_x = min(x);
+        real lcdf[n]; // Keep track of total probability
         real isqrt_theta;
         real delta; // Standard second parameter
         real lambda; // Standard first parameter
         real m = positive_infinity(); // Maximum allowable x value
         // the gamut of integrity checks on parameters
-        if (!(x >= 0)) {
-            reject("consuljain_lcdf: x must be positive. ",
-                   "(found x=", x, ")");
+        if (!(min_x >= 0)) {
+            reject("consuljain_lcdf_array: x must be positive. ",
+                   "(found x=", min_x, ")");
         }
         if (!(mu > 0)) {
-            reject("consuljain_lcdf: mu must be positive. ",
+            reject("consuljain_lcdf_array: mu must be positive. ",
                    "(found mu=", mu, ")");
         }
         if (!(theta > 0.25)) {
-            reject("consuljain_lcdf: theta must be greater than 0.25. ",
+            reject("consuljain_lcdf_array: theta must be greater than 0.25. ",
                    " (found theta=", theta, ")");
         }
         isqrt_theta = inv_sqrt(theta);
@@ -132,25 +138,44 @@
         if (delta < 0) {
             m = -lambda/delta;
         }
-        // If x is high enough, probability is one
-        if (x + 1 >= m) {
-            lcdf = 0;
+        // If all x's are high enough, probability is one
+        if (min_x + 1 >= m) {
+            lcdf = rep_array(0, n);
         } else {
-            // Calculate probabilities for i = 0, ..., x and sum
+            // Calculate the probabilities for i = 0, ..., max_x and sum
             real logc; // Log of normalizing constant
-            real lprob[x+1]; // array of log probabilities
+            real lprob[max_x+1]; // array of log probabilities
             real lfac = 0;
             real log_lambda = log(lambda);
+            int i; // Looping index
             logc = cj_log_norm(lambda, delta);
             lprob[1] = -lambda;  // i = 0 term
-            for (i in 1:x) {  // from i = 1 ...
+            i = 0;
+            while ((i < m) && (i < max_x)) {
+                i += 1;
                 lfac += log(i);
                 lprob[i+1] = log_lambda + lmultiply(i - 1, fma(i, delta, lambda)) - fma(i, delta, lambda) - lfac;
             }
-            // reduce, normalize
-            lcdf = log_sum_exp(lprob) - logc;
+            // Sum the first x[j]+1 terms of lprob for all elements j of x.
+            for (j in 1:n) {
+                if (x[j] + 1 >= m) {
+                    lcdf[j] = 0;
+                } else {
+                    lcdf[j] = fmin(log_sum_exp(lprob[1:(x[j]+1)]) - logc, 0.0);
+                }
+            }
         }
         return lcdf;
+    }
+    
+    // CDF of Consul-Jain distribution for multiple values
+    real[] consuljain_cdf_array(int[] x, real mu, real theta) {
+        return exp(consuljain_lcdf_array(x, mu, theta));
+    }
+    
+    // Log CDF of Consul-Jain distribution
+    real consuljain_lcdf(int x, real mu, real theta) {
+        return consuljain_lcdf_array({x}, mu, theta)[1];
     }
     
     // Log Complementary CDF of Consul-Jain distribution
