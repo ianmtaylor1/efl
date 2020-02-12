@@ -36,17 +36,11 @@
     
     // Log normalizing constant for the Consul-Jain generalized Poisson
     // distribution, due to truncation when delta < 0
-    real cj_log_norm(real mu, real delta) {
-        real logc;
+    real cj_log_norm(real log_mu, real delta) {
+        real mu = exp(log_mu);
+        real logc; // value to return
         // mu threshold
-        real mu_star;
-        // Check that mu is valid (truncpoint function checks delta)
-        if (!(mu > 0)) {
-            reject("cj_log_norm: mu must be positive. ",
-                   "(found mu=", mu, ")")
-        }
-        mu_star = cj_min_noerr_mu(delta);
-        if (mu > mu_star) {
+        if (mu > cj_min_noerr_mu(delta)) {
             // Large enough mu's result in negligible truncation error
             logc = 0;
         } else { // Just sum up all the terms
@@ -54,7 +48,7 @@
             int x;
             real lprob;
             real lfac = 0;
-            real log_pars = log(mu) + log1m(delta); // Appears in every term
+            real log_pars = log_mu + log1m(delta); // Appears in every term
             logc = -fma(-delta, mu, mu); // x=0 term
             x = 1;
             while (x < t) {
@@ -73,17 +67,14 @@
     // Mean and index of dispersion parameterization:
     // mu > 0 : mean, 
     // -1 < delta < 1 : index of dispersion
-    real consuljain_lpmf(int x, real mu, real delta) {
+    real consuljain_lpmf(int x, real log_mu, real delta) {
         // convenient precomputation: "lambda-like" value in pmf
         real rate;
+        real mu = exp(log_mu);
         // the gamut of integrity checks on parameters
         if (!(x >= 0)) {
             reject("consuljain_lpmf: x must be non-negative. ",
                    "(found x=", x, ")");
-        }
-        if (!(mu > 0)) {
-            reject("consuljain_lpmf: mu must be positive. ",
-                   "(found mu=", mu, ")");
         }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lpmf: delta must be between -1 and 1. ",
@@ -96,9 +87,9 @@
             return negative_infinity();
         } else if (x == 0) {
             // Zero can be computed easily
-            return -fma(-delta, mu, mu) - cj_log_norm(mu, delta);
+            return -fma(-delta, mu, mu) - cj_log_norm(log_mu, delta);
         } else {
-            return log(mu) + log1m(delta) + lmultiply(x - 1, rate) - rate - lgamma(x + 1) - cj_log_norm(mu, delta);
+            return log_mu + log1m(delta) + lmultiply(x - 1, rate) - rate - lgamma(x + 1) - cj_log_norm(log_mu, delta);
         }
     }
     
@@ -106,19 +97,16 @@
     // than calling separately as the normalizing constant and the log
     // numerators for each value up to the max x only need to be calculated
     // once. The only repeated calculation is log_sum_exp.
-    real[] consuljain_lcdf_array(int[] x, real mu, real delta) {
+    real[] consuljain_lcdf_array(int[] x, real log_mu, real delta) {
         int n = num_elements(x);
         int min_x = min(x);
         real lcdf[n]; // Keep track of total probability
         real t = positive_infinity(); // Maximum allowable x value
+        real mu = exp(log_mu);
         // the gamut of integrity checks on parameters
         if (!(min_x >= 0)) {
             reject("consuljain_lcdf_array: x must be positive. ",
                    "(found x=", min_x, ")");
-        }
-        if (!(mu > 0)) {
-            reject("consuljain_lcdf_array: mu must be positive. ",
-                   "(found mu=", mu, ")");
         }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lcdf_array: delta must be between -1 and 1. ",
@@ -145,9 +133,9 @@
                 real logc; // Log of normalizing constant
                 real lprob[max_x+1]; // array of log probabilities
                 real lfac = 0;
-                real log_pars = log(mu) + log1m(delta); // appears in every term
+                real log_pars = log_mu + log1m(delta); // appears in every term
                 int i; // Looping index
-                logc = cj_log_norm(mu, delta);
+                logc = cj_log_norm(log_mu, delta);
                 // i = 0 term
                 lprob[1] = -fma(-delta, mu, mu);
                 i = 0;
@@ -176,41 +164,38 @@
     }
     
     // CDF of Consul-Jain distribution for multiple values
-    real[] consuljain_cdf_array(int[] x, real mu, real delta) {
-        return exp(consuljain_lcdf_array(x, mu, delta));
+    real[] consuljain_cdf_array(int[] x, real log_mu, real delta) {
+        return exp(consuljain_lcdf_array(x, log_mu, delta));
     }
     
     // Log Complementary CDF of Consul-Jain distribution for multiple values
-    real[] consuljain_lccdf_array(int[] x, real mu, real delta) {
-        return log1m_exp(consuljain_lcdf_array(x, mu, delta));
+    real[] consuljain_lccdf_array(int[] x, real log_mu, real delta) {
+        return log1m_exp(consuljain_lcdf_array(x, log_mu, delta));
     }
     
     // Log CDF of Consul-Jain distribution
-    real consuljain_lcdf(int x, real mu, real delta) {
-        return consuljain_lcdf_array({x}, mu, delta)[1];
+    real consuljain_lcdf(int x, real log_mu, real delta) {
+        return consuljain_lcdf_array({x}, log_mu, delta)[1];
     }
     
     // Log Complementary CDF of Consul-Jain distribution
-    real consuljain_lccdf(int x, real mu, real delta) {
-        return log1m_exp(consuljain_lcdf(x | mu, delta));
+    real consuljain_lccdf(int x, real log_mu, real delta) {
+        return log1m_exp(consuljain_lcdf(x | log_mu, delta));
     }
     
     // CDF of Consul-Jain distribution
-    real consuljain_cdf(int x, real mu, real delta) {
-        return exp(consuljain_lcdf(x | mu, delta));
+    real consuljain_cdf(int x, real log_mu, real delta) {
+        return exp(consuljain_lcdf(x | log_mu, delta));
     }
     
     // Inverse Log CDF of Consul-Jain distribution
-    int consuljain_ilcdf(real log_u, real mu, real delta) {
+    int consuljain_ilcdf(real log_u, real log_mu, real delta) {
         int x; // Value that will eventually be returned
+        real mu = exp(log_mu);
         // Check inputs
         if (!(log_u <= 0)) {
             reject("consuljain_icdf: log_u must be non-positive. ",
                    "(found log_u=", log_u, ")");
-        }
-        if (!(mu > 0)) {
-            reject("consuljain_lcdf: mu must be positive. ",
-                   "(found mu=", mu, ")");
         }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lcdf: delta must be between -1 and 1. ",
@@ -220,8 +205,8 @@
         {
             real lfac = 0; // log factorial tracker
             real lcdf; // Keep track of total probability
-            real log_pars = log(mu) + log1m(delta); // appears in every term
-            real log_c = cj_log_norm(mu, delta); // Log of normalizing constant
+            real log_pars = log_mu + log1m(delta); // appears in every term
+            real log_c = cj_log_norm(log_mu, delta); // Log of normalizing constant
             real t = positive_infinity(); // Maximum allowable x value
             // Do we have a max?
             if (delta < 0) {
@@ -246,14 +231,14 @@
     }
     
     // Inverse CDF of Consul-Jain distribution
-    int consuljain_icdf(real u, real mu, real delta) {
-        return consuljain_ilcdf(log(u), mu, delta);
+    int consuljain_icdf(real u, real log_mu, real delta) {
+        return consuljain_ilcdf(log(u), log_mu, delta);
     }
     
     // Generate random numbers from the Consul-Jain distribution
-    int consuljain_rng(real mu, real delta) {
+    int consuljain_rng(real log_mu, real delta) {
         // draw from a uniform distribution
         real u = uniform_rng(0.0, 1.0);
         // Find inverse cdf of u
-        return consuljain_icdf(u, mu, delta);
+        return consuljain_icdf(u, log_mu, delta);
     }
