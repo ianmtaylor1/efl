@@ -8,10 +8,6 @@
     // empirical and approximate, with absolutely no
     // theoretical backing.
     real cj_min_noerr_mu(real delta) {
-        if (!(fabs(delta) <= 1)) {
-            reject("cj_min_noerr_mu: delta must be between -1 and 1 ",
-                   "(found delta=", delta, ")")
-        }
         if (delta >= 0) {
             // There's never truncation for nonnegative delta, so any value of
             // mu will result in zero truncation error.
@@ -36,6 +32,7 @@
     
     // Log normalizing constant for the Consul-Jain generalized Poisson
     // distribution, due to truncation when delta < 0
+    // Does *not* check parameters for validity
     real cj_log_norm(real log_mu, real delta) {
         real mu = exp(log_mu);
         real logc; // value to return
@@ -65,8 +62,8 @@
     
     // Log PMF function for the Consul-Jain generalized Poisson distribution
     // Mean and index of dispersion parameterization:
-    // mu > 0 : mean, 
-    // -1 < delta < 1 : index of dispersion
+    // log_mu : log mean, 
+    // -1 < delta < 1 : dispersion parameter
     real consuljain_lpmf(int x, real log_mu, real delta) {
         // convenient precomputation: "lambda-like" value in pmf
         real rate;
@@ -75,6 +72,10 @@
         if (!(x >= 0)) {
             reject("consuljain_lpmf: x must be non-negative. ",
                    "(found x=", x, ")");
+        }
+        if (!(mu > 0)) {
+            reject("consuljain_lpmf: mu must be positive. ",
+                   "(found mu=", mu, ")");
         }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lpmf: delta must be between -1 and 1. ",
@@ -108,6 +109,10 @@
             reject("consuljain_lcdf_array: x must be positive. ",
                    "(found x=", min_x, ")");
         }
+        if (!(mu > 0)) {
+            reject("consuljain_lcdf_array: mu must be positive. ",
+                   "(found mu=", mu, ")");
+        }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lcdf_array: delta must be between -1 and 1. ",
                    " (found delta=", delta, ")");
@@ -125,7 +130,7 @@
             int max_x = min_x;
             for (xi in x) {
                 if ((xi > max_x) && (xi + 1 < t)) {
-                    max_x_notrunc = xi;
+                    max_x = xi;
                 }
             }
             {
@@ -196,6 +201,10 @@
         if (!(log_u <= 0)) {
             reject("consuljain_icdf: log_u must be non-positive. ",
                    "(found log_u=", log_u, ")");
+        }
+        if (!(mu > 0)) {
+            reject("consuljain_ilcdf: mu must be positive. ",
+                   "(found mu=", mu, ")");
         }
         if (!(fabs(delta) <= 1)) {
             reject("consuljain_lcdf: delta must be between -1 and 1. ",
