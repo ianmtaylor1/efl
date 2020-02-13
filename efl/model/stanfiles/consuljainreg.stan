@@ -1,5 +1,5 @@
 functions {
-#include fn_consuljain.stan
+#include fn_consuljain2.stan
 }
 data {
 #include std_data_goal.stan
@@ -11,8 +11,8 @@ data {
     real<lower=0> log_away_goals_prior_sd;
     
     // Prior parameters for the index of dispersion parameter
-    real dispersion_prior_mean;
-    real<lower=0> dispersion_prior_sd;
+    real delta_prior_mean;
+    real<lower=0> delta_prior_sd;
     
     // Prior parameters for team modifiers
     vector[nTeams]     offense_prior_mean;
@@ -34,9 +34,8 @@ parameters {
     // Baseline goals for home and away teams
     real log_home_goals;
     real log_away_goals;
-    // Index of dispersion for goals
-    // Has a theoretical lower bound of 0.25 (corresponds to delta = -1)
-    real<lower=0.25> dispersion;
+    // Dispersion parameter for goals
+    real<lower=-1, upper=1> delta;
 }
 transformed parameters {
     // Transformed team modifiers, including nTeams'th component to add to 0
@@ -50,18 +49,18 @@ model {
     // Prior contribution from team modifiers
     offense ~ multi_normal_cholesky(offense_prior_mean, offense_prior_var_chol);
     defense ~ multi_normal_cholesky(defense_prior_mean, defense_prior_var_chol);
-    // Prior index of dispersion
-    dispersion ~ normal(dispersion_prior_mean, dispersion_prior_sd) T[0.25,];
+    // Prior dispersion
+    delta ~ normal(delta_prior_mean, delta_prior_sd) T[-1, 1];
     // Model, goals follow Consul-Jain generalized Poisson distribution
     if (nGames > 0) {
         // local variables to hold means
-        vector[nGames] mu_home;
-        vector[nGames] mu_away;
-        mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
-        mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
+        vector[nGames] lmu_home;
+        vector[nGames] lmu_away;
+        lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
+        lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
         for (i in 1:nGames) {
-            homegoals[i] ~ consuljain(mu_home[i], dispersion);
-            awaygoals[i] ~ consuljain(mu_away[i], dispersion);
+            homegoals[i] ~ consuljain(lmu_home[i], delta);
+            awaygoals[i] ~ consuljain(lmu_away[i], delta);
         }
     }
 }
@@ -70,21 +69,22 @@ generated quantities {
     int<lower=0> awaygoals_pred[nGames];
     int<lower=0> homegoals_new_pred[nGames_new];
     int<lower=0> awaygoals_new_pred[nGames_new];
+    real dispersion; // index of dispersion based on delta
     {
-        vector[nGames] mu_home = exp(offense[hometeamidx] - defense[awayteamidx] + log_home_goals);
-        vector[nGames] mu_away = exp(offense[awayteamidx] - defense[hometeamidx] + log_away_goals);
-        vector[nGames_new] mu_home_new = exp(offense[hometeamidx_new] - defense[awayteamidx_new] + log_home_goals);
-        vector[nGames_new] mu_away_new = exp(offense[awayteamidx_new] - defense[hometeamidx_new] + log_away_goals);
+        vector[nGames] lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
+        vector[nGames] lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
+        vector[nGames_new] lmu_home_new = offense[hometeamidx_new] - defense[awayteamidx_new] + log_home_goals;
+        vector[nGames_new] lmu_away_new = offense[awayteamidx_new] - defense[hometeamidx_new] + log_away_goals;
         // Generate home/away scores for observed games
         for (i in 1:nGames) {
-            homegoals_pred[i] = consuljain_rng(mu_home[i], dispersion);
-            awaygoals_pred[i] = consuljain_rng(mu_away[i], dispersion);
+            homegoals_pred[i] = consuljain_rng(lmu_home[i], delta);
+            awaygoals_pred[i] = consuljain_rng(lmu_away[i], delta);
         }
         // Generate home/away scores for unobserved games
         for (i in 1:nGames_new) {
-            homegoals_new_pred[i] = consuljain_rng(mu_home_new[i], dispersion);
-            awaygoals_new_pred[i] = consuljain_rng(mu_away_new[i], dispersion);
+            homegoals_new_pred[i] = consuljain_rng(lmu_home_new[i], delta);
+            awaygoals_new_pred[i] = consuljain_rng(lmu_away_new[i], delta);
         }
     }
-    
+    dispersion = inv_square(1 - delta);
 }

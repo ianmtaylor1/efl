@@ -59,7 +59,7 @@ class ConsulJainReg(base.GoalModel):
         log_away_goals = numpy.random.normal(
                 self._modeldata['log_away_goals_prior_mean'],
                 self._modeldata['log_away_goals_prior_sd'])
-        dispersion = 1.0
+        delta = 0.0
         offense = numpy.random.multivariate_normal(
                 self._modeldata['offense_prior_mean'],
                 self._modeldata['offense_prior_var'])
@@ -72,7 +72,7 @@ class ConsulJainReg(base.GoalModel):
                 'log_away_goals':log_away_goals,
                 'offense_raw':offense_raw,
                 'defense_raw':defense_raw,
-                'dispersion':dispersion}
+                'delta':delta}
 
 
 class ConsulJainReg_Prior(object):
@@ -82,7 +82,7 @@ class ConsulJainReg_Prior(object):
                  defense_prior_mean, defense_prior_var, team_names,
                  log_home_goals_prior_mean, log_home_goals_prior_sd,
                  log_away_goals_prior_mean, log_away_goals_prior_sd,
-                 dispersion_prior_mean, dispersion_prior_sd):
+                 delta_prior_mean, delta_prior_sd):
         """This constructor is pretty much never called in most typical uses.
         Parameters:
             offense_prior_mean - a 1d numpy array containing prior means of
@@ -104,8 +104,8 @@ class ConsulJainReg_Prior(object):
                 parameters for the home goals scored parameter
             log_away_goals_prior_mean, log_away_goals_prior_sd - prior
                 parameters for the away goals scored parameter
-            dispersion_prior_mean, dispersion_prior_sd - prior parameters for
-                the goals index of dispersion parameter.
+            delta_prior_mean, delta_prior_sd - prior parameters for
+                the goals dispersion parameter.
         """
         # Center mean around zero (due to the model's parameter centering)
         self._offense_prior_mean = offense_prior_mean - offense_prior_mean.mean()
@@ -121,8 +121,8 @@ class ConsulJainReg_Prior(object):
         self._log_away_goals_prior_mean = log_away_goals_prior_mean
         self._log_away_goals_prior_sd = log_away_goals_prior_sd
         # Copy the index of dispersion parameters
-        self._dispersion_prior_mean = dispersion_prior_mean
-        self._dispersion_prior_sd = dispersion_prior_sd
+        self._delta_prior_mean = delta_prior_mean
+        self._delta_prior_sd = delta_prior_sd
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -143,8 +143,8 @@ class ConsulJainReg_Prior(object):
                 'log_home_goals_prior_sd':self._log_home_goals_prior_sd,
                 'log_away_goals_prior_mean':self._log_away_goals_prior_mean,
                 'log_away_goals_prior_sd':self._log_away_goals_prior_sd,
-                'dispersion_prior_mean':self._dispersion_prior_mean,
-                'dispersion_prior_sd':self._dispersion_prior_sd}
+                'delta_prior_mean':self._delta_prior_mean,
+                'delta_prior_sd':self._delta_prior_sd}
         
     # Class methods for creating instances through various methods
     
@@ -161,8 +161,8 @@ class ConsulJainReg_Prior(object):
                    log_home_goals_prior_sd = 1,
                    log_away_goals_prior_mean = 0,
                    log_away_goals_prior_sd = 1,
-                   dispersion_prior_mean = 1,
-                   dispersion_prior_sd = 0.1)
+                   delta_prior_mean = 0,
+                   delta_prior_sd = 0.1)
         
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
@@ -201,8 +201,9 @@ class ConsulJainReg_Prior(object):
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
         # Dispersion parameter
-        dispersion_prior_mean = df['GoalDispersion'].mean()
-        dispersion_prior_sd = df['GoalDispersion'].std() * numpy.sqrt(spread)
+        delta_samples = 1 - 1 / numpy.sqrt(df['GoalDispersion'])
+        delta_prior_mean = delta_samples.mean()
+        delta_prior_sd = delta_samples.std() * numpy.sqrt(spread)
         # Build parameter names for promoted/relegated teams
         promoted_out_off = [t+' Off' for t in promoted_out]
         promoted_out_def = [t+' Def' for t in promoted_out]
@@ -250,6 +251,6 @@ class ConsulJainReg_Prior(object):
                    log_home_goals_prior_sd = log_home_goals_prior_sd,
                    log_away_goals_prior_mean = log_away_goals_prior_mean,
                    log_away_goals_prior_sd = log_away_goals_prior_sd,
-                   dispersion_prior_mean = dispersion_prior_mean,
-                   dispersion_prior_sd = dispersion_prior_sd)
+                   delta_prior_mean = delta_prior_mean,
+                   delta_prior_sd = delta_prior_sd)
 
