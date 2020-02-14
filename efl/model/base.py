@@ -61,7 +61,7 @@ class Model(object):
     
     def __init__(self, modelfile, modeldata, fitgameids, predictgameids,
                  gamedata, efl2stan, pargroups={}, init=None,
-                 chains=4, samples=10000, warmup=2000, thin=4, n_jobs=1,
+                 chains=4, samples=10000, warmup=None, thin=1, n_jobs=1,
                  **kwargs):
         """Initialize the base properties of this model.
         Parameters:
@@ -84,8 +84,10 @@ class Model(object):
             init - argument passed to pystan sampling() method. If None, this
                 checks for an attribute named _stan_inits to use. If that does
                 not exist, the keyword "random" is used instead.
-            chains, warmup, thin, n_jobs - same as pystan options. Passed to 
+            chains, thin, n_jobs - same as pystan options. Passed to 
                 sampling()
+            warmup - will also be passed directly to sampling(). If None,
+                defaults to 50% of total iterations.
             samples - number of desired posterior samples, total from all
                 chains, after warmup and thinning. Used to calculate iter, and
                 then pass iter to sampling()
@@ -103,14 +105,17 @@ class Model(object):
         self._efl2stan = efl2stan
         self._stan2efl = dict(reversed(i) for i in self._efl2stan.items())
         self._pargroups = pargroups
-        # Calculate the total iterations needed
-        iter_ = warmup + math.ceil(samples * thin / chains)
+        # Calculate the post-warmup iterations needed in each chain
+        iter_ = math.ceil(samples * thin / chains)
+        # If warmup was not specified, let it be 50% of the total iterations
+        if warmup is None:
+            warmup = iter_
         # Get the inits if none provided, with random as default
         if init is None:
             init = getattr(self, '_stan_inits', 'random')
         # Fit the model
         self.stanfit = self._model.sampling(
-            data=self._modeldata, init=init, chains=chains, iter=iter_,
+            data=self._modeldata, init=init, chains=chains, iter=warmup+iter_,
             warmup=warmup, thin=thin, n_jobs=n_jobs, **kwargs)
     
     # Stubs for methods that should be implemented by subclasses
