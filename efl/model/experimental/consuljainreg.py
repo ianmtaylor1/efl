@@ -6,7 +6,7 @@ consuljainreg.py
 Contains the ConsulJainReg model and associated other classes.
 """
 
-from . import base
+from .. import base
 
 import numpy
 

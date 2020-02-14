@@ -6,7 +6,7 @@ compoisreg.py
 Contains the COMPoisReg model and associated other classes.
 """
 
-from .. import base
+from . import base
 
 import numpy
 

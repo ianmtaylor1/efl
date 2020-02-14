@@ -6,7 +6,7 @@ consuljainregefgm.py
 Contains the ConsulJainRegEFGM model and associated other classes.
 """
 
-from . import base
+from .. import base
 
 import numpy
 
