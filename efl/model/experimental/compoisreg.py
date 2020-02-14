@@ -33,11 +33,11 @@ class COMPoisReg(base.GoalModel):
             prior = COMPoisReg_Prior.default_prior(team_names)
         # Create parameter mapping
         efl2stan = {'HomeGoals':'log_home_goals', 'AwayGoals':'log_away_goals',
-                    'GoalDecayFactor':'nu'}
+                    'GoalsConcentration':'nu'}
         for i,t in enumerate(team_names):
             efl2stan[t+' Off'] = 'offense[{}]'.format(i+1)
             efl2stan[t+' Def'] = 'defense[{}]'.format(i+1)
-        pargroups = {'goals':['HomeGoals','AwayGoals','GoalDecayFactor'],
+        pargroups = {'goals':['HomeGoals','AwayGoals','GoalsConcentration'],
                      'offense':[t+' Off' for t in team_names],
                      'defense':[t+' Def' for t in team_names]}
         for t in team_names:
@@ -50,31 +50,6 @@ class COMPoisReg(base.GoalModel):
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
                 **kwargs)
-    
-    def _stan_inits(self, chain_id=None):
-        """Sample from the prior to produce initial values for each chain."""
-        P = self._modeldata['offense_prior_mean'].shape[0]
-        log_home_goals = numpy.random.normal(
-                self._modeldata['log_home_goals_prior_mean'],
-                self._modeldata['log_home_goals_prior_sd'])
-        log_away_goals = numpy.random.normal(
-                self._modeldata['log_away_goals_prior_mean'],
-                self._modeldata['log_away_goals_prior_sd'])
-        nu = numpy.random.lognormal(self._modeldata['nu_prior_mu'],
-                                    self._modeldata['nu_prior_sigma'])
-        offense = numpy.random.multivariate_normal(
-                self._modeldata['offense_prior_mean'],
-                self._modeldata['offense_prior_var'])
-        defense = numpy.random.multivariate_normal(
-                self._modeldata['defense_prior_mean'],
-                self._modeldata['defense_prior_var'])
-        offense_raw = (offense - offense.mean())[:(P-1)]
-        defense_raw = (defense - defense.mean())[:(P-1)]
-        return {'log_home_goals':log_home_goals, 
-                'log_away_goals':log_away_goals,
-                'offense_raw':offense_raw,
-                'defense_raw':defense_raw,
-                'nu':nu}
 
 
 class COMPoisReg_Prior(object):
@@ -170,7 +145,7 @@ class COMPoisReg_Prior(object):
     def from_fit(cls, fit, spread=1.0, regression=1.0,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
-        """Create a prior from the posterior of a previous ConsulJainReg fit.
+        """Create a prior from the posterior of a previous COMPoisReg fit.
         Parameters:
             fit - the previous instance of ConsulJainReg
             spread - factor by which to inflate variances of all parameters
@@ -203,8 +178,8 @@ class COMPoisReg_Prior(object):
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
         # Dispersion parameter
-        nu_prior_mu = numpy.log(df['GoalDispersion']).mean()
-        nu_prior_sigma = numpy.log(df['GoalDispersion']).std() * numpy.sqrt(spread)
+        nu_prior_mu = numpy.log(df['GoalsConcentration']).mean()
+        nu_prior_sigma = numpy.log(df['GoalsConcentration']).std() * numpy.sqrt(spread)
         # Build parameter names for promoted/relegated teams
         promoted_out_off = [t+' Off' for t in promoted_out]
         promoted_out_def = [t+' Def' for t in promoted_out]

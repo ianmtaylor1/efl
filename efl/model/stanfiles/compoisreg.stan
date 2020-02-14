@@ -60,8 +60,10 @@ model {
         vector[nGames] lmu_away;
         lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
         lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
-        homegoals ~ com_poisson_log(lmu_home, nu);
-        awaygoals ~ com_poisson_log(lmu_away, nu);
+        for (i in 1:nGames) {
+            homegoals[i] ~ com_poisson_log(lmu_home[i], nu);
+            awaygoals[i] ~ com_poisson_log(lmu_away[i], nu);
+        }
     }
 }
 generated quantities {
