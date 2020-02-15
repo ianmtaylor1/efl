@@ -61,7 +61,7 @@ class PPC(predictor.Predictor):
                 obsdata[(n,'')] = [self._observed_values[self._name2stat[n]]]
             elif n in self._groups:
                 for sn,ss in self._groups[n].items():
-                    obsdata[(n,sn)] = [self._stat_values[ss]]
+                    obsdata[(n,sn)] = [self._observed_values[ss]]
         obsrow = pandas.DataFrame(obsdata).set_index(['chain','draw'])
         # Add it to the data frame and return it
         return pandas.concat([obsrow, df], sort=True)
