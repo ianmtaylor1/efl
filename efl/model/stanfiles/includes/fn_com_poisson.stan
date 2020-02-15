@@ -8,22 +8,6 @@
     // https://discourse.mc-stan.org/t/conway-maxwell-poisson-distribution/2370
     // They have since been modified by me to fit my use case here.
     
-    // log approximate normalizing constant of the COM poisson distribuion
-    // approximation based on doi:10.1007/s10463-017-0629-6
-    // Args: see log_Z_com_poisson()
-    real log_Z_com_poisson_approx(real log_mu, real nu) {
-        real nu_mu = nu * exp(log_mu); 
-        real nu2 = nu^2;
-        // first 4 terms of the residual series
-        real log_sum_resid = log(
-            1 + nu_mu^(-1) * (nu2 - 1) / 24 + 
-            nu_mu^(-2) * (nu2 - 1) / 1152 * (nu2 + 23) +
-            nu_mu^(-3) * (nu2 - 1) / 414720 * (5 * nu2^2 - 298 * nu2 + 11237)
-        );
-        return nu_mu + log_sum_resid  - 
-            ((log(2 * pi()) + log_mu) * (nu - 1) / 2 + log(nu) / 2);
-    }
-    
     // log normalizing constant of the COM Poisson distribution
     // implementation inspired by code of Ben Goodrich
     // Args:
@@ -48,26 +32,17 @@
         if (is_inf(nu)) {
             reject("log_Z_com_poisson: nu must be finite")
         }
-        // Approximate normalizing constant if conditions met
-        // (I don't know where these thresholds come from)
-        if (log_mu * nu >= log(1.5) && log_mu >= log(1.5)) {
-            return log_Z_com_poisson_approx(log_mu, nu);
-        }
         // direct computation of the truncated series
         M = 10000;
         log_thres = log(machine_precision());
         // check if the Mth term of the series is small enough
-        if (log_mu > log(M/2)) {
-            reject("log_Z_com_poisson: log_mu is too large. ",
-                   "(found log_mu=", log_mu, ")")
-        }
-        if (nu * (M * log_mu - lgamma(M + 1)) > log_thres) {
-            reject("log_Z_com_poisson: nu is too close to zero. ",
-                   "(found nu=", nu, ")");
+        if ((nu * (M * log_mu - lgamma(M + 1)) > log_thres) || (log_mu > log(M))) {
+            reject("log_Z_com_poisson: effective domain too large. ",
+                   "(found log_mu=", log_mu, ", nu=", nu, ")");
         }
         log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
         lfac = 0;
-        term = 0;
+        term = nu * log_mu; // x=1 term
         k = 2;
         while ((term > log_thres) || (log(k) <= log_mu)) { 
             lfac += log(k);
@@ -107,9 +82,8 @@
         }
         // Simplify to poisson, if possible
         if (nu == 1) {
-            real mu = exp(log_mu);
             for (j in 1:n) {
-                lcdf[j] = poisson_lcdf(y[j] | mu);
+                lcdf[j] = poisson_lcdf(y[j] | exp(log_mu));
             }
             return lcdf;
         }
