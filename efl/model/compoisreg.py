@@ -46,7 +46,8 @@ class COMPoisReg(base.GoalModel):
         super().__init__(
                 modelfile      = 'compoisreg',
                 eflgames       = eflgames,
-                extramodeldata = prior.get_params(team_names),
+                extramodeldata = {'nu_lower_limit':0.1, 
+                                  **prior.get_params(team_names)},
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
                 **kwargs)

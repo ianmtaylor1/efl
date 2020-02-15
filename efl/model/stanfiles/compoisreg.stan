@@ -13,6 +13,7 @@ data {
     // Prior parameters for the dispersion/decay parameter
     real<lower=0> nu_prior_mu;
     real<lower=0> nu_prior_sigma;
+    real<lower=0> nu_lower_limit;
     
     // Prior parameters for team modifiers
     vector[nTeams]     offense_prior_mean;
@@ -37,7 +38,7 @@ parameters {
     // Dispersion-controlling parameter for goals
     // nu=1 -> Poisson distribution. Higher = lower dispersion
     // controls the "rate of decay" in the COM-Poisson distribution
-    real<lower=0> nu;
+    real<lower=nu_lower_limit> nu;
 }
 transformed parameters {
     // Transformed team modifiers, including nTeams'th component to add to 0
@@ -52,7 +53,7 @@ model {
     offense ~ multi_normal_cholesky(offense_prior_mean, offense_prior_var_chol);
     defense ~ multi_normal_cholesky(defense_prior_mean, defense_prior_var_chol);
     // Prior dispersion/decay parameter
-    nu ~ lognormal(nu_prior_mu, nu_prior_sigma);
+    nu ~ lognormal(nu_prior_mu, nu_prior_sigma) T[nu_lower_limit,];
     // Model, goals follow Consul-Jain generalized Poisson distribution
     if (nGames > 0) {
         // local variables to hold means
