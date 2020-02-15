@@ -11,8 +11,8 @@ data {
     real<lower=0> log_away_goals_prior_sd;
     
     // Prior parameters for the dispersion/decay parameter
-    real<lower=0> nu_prior_mu;
-    real<lower=0> nu_prior_sigma;
+    real<lower=0> nu_prior_mean;
+    real<lower=0> nu_prior_sd;
     real<lower=0> nu_lower_limit;
     
     // Prior parameters for team modifiers
@@ -56,7 +56,7 @@ model {
     offense ~ multi_normal_cholesky(offense_prior_mean, offense_prior_var_chol);
     defense ~ multi_normal_cholesky(defense_prior_mean, defense_prior_var_chol);
     // Prior dispersion/decay parameter
-    nu ~ lognormal(nu_prior_mu, nu_prior_sigma) T[nu_lower_limit,];
+    nu ~ normal(nu_prior_mean, nu_prior_sd) T[nu_lower_limit,];
     // Model, goals follow Consul-Jain generalized Poisson distribution
     if (nGames > 0) {
         // local variables to hold means

@@ -20,7 +20,7 @@ class COMPoisReg(base.GoalModel):
     """
     
     def __init__(self, eflgames, prior=None,
-                 nu_lower_limit=0.1, truncpoint=5000, **kwargs):
+                 nu_lower_limit=0.0, truncpoint=5000, **kwargs):
         """Parameters:
             eflgames - a Games instance
             prior - instance of COMPoisReg_Prior, or None for a diffuse 
@@ -68,7 +68,7 @@ class COMPoisReg_Prior(object):
                  defense_prior_mean, defense_prior_var, team_names,
                  log_home_goals_prior_mean, log_home_goals_prior_sd,
                  log_away_goals_prior_mean, log_away_goals_prior_sd,
-                 nu_prior_mu, nu_prior_sigma):
+                 nu_prior_mean, nu_prior_sd):
         """This constructor is pretty much never called in most typical uses.
         Parameters:
             offense_prior_mean - a 1d numpy array containing prior means of
@@ -90,7 +90,7 @@ class COMPoisReg_Prior(object):
                 parameters for the home goals scored parameter
             log_away_goals_prior_mean, log_away_goals_prior_sd - prior
                 parameters for the away goals scored parameter
-            nu_prior_mu, nu_prior_sigma - prior parameters for
+            nu_prior_mean, nu_prior_sd - prior parameters for
                 the goals dispersion/decay parameter.
         """
         # Center mean around zero (due to the model's parameter centering)
@@ -107,8 +107,8 @@ class COMPoisReg_Prior(object):
         self._log_away_goals_prior_mean = log_away_goals_prior_mean
         self._log_away_goals_prior_sd = log_away_goals_prior_sd
         # Copy the dispersion parameters
-        self._nu_prior_mu = nu_prior_mu
-        self._nu_prior_sigma = nu_prior_sigma
+        self._nu_prior_mean = nu_prior_mean
+        self._nu_prior_sd = nu_prior_sd
         
     def get_params(self, teams):
         """Get the stored prior parameters, but reordered by the order of the
@@ -129,8 +129,8 @@ class COMPoisReg_Prior(object):
                 'log_home_goals_prior_sd':self._log_home_goals_prior_sd,
                 'log_away_goals_prior_mean':self._log_away_goals_prior_mean,
                 'log_away_goals_prior_sd':self._log_away_goals_prior_sd,
-                'nu_prior_mu':self._nu_prior_mu,
-                'nu_prior_sigma':self._nu_prior_sigma}
+                'nu_prior_mean':self._nu_prior_mean,
+                'nu_prior_sd':self._nu_prior_sd}
         
     # Class methods for creating instances through various methods
     
@@ -147,8 +147,8 @@ class COMPoisReg_Prior(object):
                    log_home_goals_prior_sd = 1,
                    log_away_goals_prior_mean = 0,
                    log_away_goals_prior_sd = 1,
-                   nu_prior_mu = 0,
-                   nu_prior_sigma = 0.5)
+                   nu_prior_mean = 1,
+                   nu_prior_sd = 0.25)
         
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
@@ -187,8 +187,8 @@ class COMPoisReg_Prior(object):
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
         # Dispersion parameter
-        nu_prior_mu = numpy.log(df['GoalsConcentration']).mean()
-        nu_prior_sigma = numpy.log(df['GoalsConcentration']).std() * numpy.sqrt(spread)
+        nu_prior_mean = df['GoalsConcentration'].mean()
+        nu_prior_sd = df['GoalsConcentration'].std() * numpy.sqrt(spread)
         # Build parameter names for promoted/relegated teams
         promoted_out_off = [t+' Off' for t in promoted_out]
         promoted_out_def = [t+' Def' for t in promoted_out]
@@ -236,6 +236,6 @@ class COMPoisReg_Prior(object):
                    log_home_goals_prior_sd = log_home_goals_prior_sd,
                    log_away_goals_prior_mean = log_away_goals_prior_mean,
                    log_away_goals_prior_sd = log_away_goals_prior_sd,
-                   nu_prior_mu = nu_prior_mu,
-                   nu_prior_sigma = nu_prior_sigma)
+                   nu_prior_mean = nu_prior_mean,
+                   nu_prior_sd = nu_prior_sd)
 
