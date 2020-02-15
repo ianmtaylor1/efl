@@ -19,7 +19,7 @@
         real lfac;
         real term;
         int x;
-        real log_thres;
+        real log_eps;
         // Approximate by Poisson if possible
         if (nu == 1) {
             return exp(log_mu);
@@ -33,13 +33,13 @@
             reject("log_Z_com_poisson: nu must be finite");
         }
         // direct computation of the truncated series
-        log_thres = log(machine_precision()/2);
+        log_eps = log(machine_precision()/2);
         log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
         lfac = 0;
         term = nu * log_mu; // x=1 term
         x = 1;
         // relative tolerance threshold of last term
-        while ((x < tp) && (term - log_Z > log_thres)) {
+        while ((x < tp) && (term - log_Z > log_eps)) {
             x += 1;
             lfac += log(x);
             term = nu * (x * log_mu - lfac);
@@ -50,7 +50,10 @@
     }
     
     // Effective truncation point of the COM Poisson distribution. If it is
-    // equal to tp, then the distribution was force truncated
+    // equal to tp, then the distribution was force truncated. Effective
+    // truncation point is defined by where the normalizing constant stops
+    // being calculated. It is a relative tolerance. When
+    // P(X=x)/P(X<=x) <= epsilon, computation stops.
     // Args:
     //   log_mu: log location parameter
     //   nu: positive shape parameter
@@ -60,7 +63,7 @@
         real lfac;
         real term;
         int x;
-        real log_thres;
+        real log_eps;
         // nu == 0 or Inf will fail in this parameterization
         if (nu <= 0) {
             reject("log_Z_com_poisson: nu must be positive. ",
@@ -70,13 +73,13 @@
             reject("log_Z_com_poisson: nu must be finite");
         }
         // direct computation of the truncated series
-        log_thres = log(machine_precision()/2);
+        log_eps = log(machine_precision()/2);
         log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
         lfac = 0;
         term = nu * log_mu; // x=1 term
         x = 1;
         // relative tolerance threshold of last term
-        while ((x < tp) && (term - log_Z > log_thres)) {
+        while ((x < tp) && (term - log_Z > log_eps)) {
             x += 1;
             lfac += log(x);
             term = nu * (x * log_mu - lfac);
