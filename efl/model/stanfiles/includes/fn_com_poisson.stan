@@ -13,12 +13,12 @@
     // Args:
     //   log_mu: log location parameter
     //   nu: positive shape parameter
-    real log_Z_com_poisson(real log_mu, real nu) {
+    //   tp: truncation point of distribution
+    real log_Z_com_poisson(real log_mu, real nu, int tp) {
         real log_Z;
         real lfac;
         real term;
-        real k;
-        int M; // Maximum value of the distribution which we want to consider
+        int x;
         real log_thres;
         // Approximate by Poisson if possible
         if (nu == 1) {
@@ -30,27 +30,60 @@
                    "(found nu=", nu, ")");
         }
         if (is_inf(nu)) {
-            reject("log_Z_com_poisson: nu must be finite")
+            reject("log_Z_com_poisson: nu must be finite");
         }
         // direct computation of the truncated series
-        M = 10000;
-        log_thres = log(machine_precision());
-        // check if the Mth term of the series is small enough
-        if ((nu * (M * log_mu - lgamma(M + 1)) > log_thres) || (log_mu > log(M))) {
-            reject("log_Z_com_poisson: effective domain too large. ",
-                   "(found log_mu=", log_mu, ", nu=", nu, ")");
-        }
+        log_thres = log(machine_precision()/2);
         log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
         lfac = 0;
         term = nu * log_mu; // x=1 term
-        k = 2;
-        while ((term > log_thres) || (log(k) <= log_mu)) { 
-            lfac += log(k);
-            term = nu * (k * log_mu - lfac);
+        x = 1;
+        // relative tolerance threshold of last term
+        while ((x < tp) && (term - log_Z > log_thres)) {
+            x += 1;
+            lfac += log(x);
+            term = nu * (x * log_mu - lfac);
             log_Z = log_sum_exp(log_Z, term);
-            k += 1;
         }
+        // Return the accumulated log normalizing constant
         return log_Z;
+    }
+    
+    // Effective truncation point of the COM Poisson distribution. If it is
+    // equal to tp, then the distribution was force truncated
+    // Args:
+    //   log_mu: log location parameter
+    //   nu: positive shape parameter
+    //   tp: truncation point of distribution
+    int com_poisson_truncpoint(real log_mu, real nu, int tp) {
+        real log_Z;
+        real lfac;
+        real term;
+        int x;
+        real log_thres;
+        // nu == 0 or Inf will fail in this parameterization
+        if (nu <= 0) {
+            reject("log_Z_com_poisson: nu must be positive. ",
+                   "(found nu=", nu, ")");
+        }
+        if (is_inf(nu)) {
+            reject("log_Z_com_poisson: nu must be finite");
+        }
+        // direct computation of the truncated series
+        log_thres = log(machine_precision()/2);
+        log_Z = log1p_exp(nu * log_mu);  // first 2 terms of the series
+        lfac = 0;
+        term = nu * log_mu; // x=1 term
+        x = 1;
+        // relative tolerance threshold of last term
+        while ((x < tp) && (term - log_Z > log_thres)) {
+            x += 1;
+            lfac += log(x);
+            term = nu * (x * log_mu - lfac);
+            log_Z = log_sum_exp(log_Z, term);
+        }
+        // Return the last value calculated
+        return x;
     }
     
     // COM Poisson log-PMF for a single response (log parameterization)
@@ -58,18 +91,22 @@
     //   y: the response value 
     //   log_mu: log location parameter
     //   nu: positive shape parameter
-    real com_poisson_log_lpmf(int y, real log_mu, real nu) {
+    //   tp: truncation point of distribution
+    real com_poisson_log_lpmf(int y, real log_mu, real nu, int tp) {
         if (nu == 1) return poisson_log_lpmf(y | log_mu);
         if (!(y >= 0)) {
             reject("com_poisson_log_lpmf: y must be non-negative");
         }
-        return nu * (y * log_mu - lgamma(y + 1)) - log_Z_com_poisson(log_mu, nu);
+        if (!(y <= tp)) {
+            reject("com_poisson_log_lpmf: y must be less than truncation point");
+        }
+        return nu * (y * log_mu - lgamma(y + 1)) - log_Z_com_poisson(log_mu, nu, tp);
     }
     
     // COM Poisson log-CDF for an array of values y[], with the same parameters
     // At least as efficient as computing the cdf multiple times, since the
     // normalizing constant only needs to be calculated once
-    real[] com_poisson_log_lcdf_array(int[] y, real log_mu, real nu) {
+    real[] com_poisson_log_lcdf_array(int[] y, real log_mu, real nu, int tp) {
         int n = num_elements(y);
         int max_y = max(y); // the maximum value we need to calculate for
         real lprob[max_y+1]; // array to hold log probability (numerators)
@@ -80,6 +117,9 @@
         if (!(min(y) >= 0)) {
             reject("com_poisson_log_lcdf_array: y must be non-negative");
         }
+        if (!(max(y) <= tp)) {
+            reject("com_poisson_log_lpmf: y must be less than truncation point");
+        }
         // Simplify to poisson, if possible
         if (nu == 1) {
             for (j in 1:n) {
@@ -88,7 +128,7 @@
             return lcdf;
         }
         // Calculate normalizing constant (checks parameters)
-        log_Z = log_Z_com_poisson(log_mu, nu);
+        log_Z = log_Z_com_poisson(log_mu, nu, tp);
         // term for i=0
         lfac = 0;
         lprob[1] = 0;
@@ -105,26 +145,25 @@
     }
         
     // COM Poisson log-CDF for a single observation (log parametrization)
-    real com_poisson_log_lcdf(int y, real log_mu, real nu) {
-        return com_poisson_log_lcdf_array({y}, log_mu, nu)[1];
+    real com_poisson_log_lcdf(int y, real log_mu, real nu, int tp) {
+        return com_poisson_log_lcdf_array({y}, log_mu, nu, tp)[1];
     }
     
     // Inverse Log CDF of COM Poisson distribution (log parameterization)
     // log_u: log probability we want to invert
     // Returns the first x such that log(P(X <= x)) >= log_u
-    int com_poisson_log_ilcdf(real log_u, real log_mu, real nu) {
+    int com_poisson_log_ilcdf(real log_u, real log_mu, real nu, int tp) {
         real log_num;  // log numerator
         real log_Z;  // log denominator
         int x;  // number that will eventually be returned
-        int M = 10000;
         // Find the normalizing constant, Z
-        log_Z = log_Z_com_poisson(log_mu, nu);
+        log_Z = log_Z_com_poisson(log_mu, nu, tp);
         // Start at x=0, and set the appropriate log numerator
         x = 0;
         log_num = 0;
         {
             real lfac = 0.0; // log factorial tracker
-            while ((log_num - log_Z < log_u) && (x <= M)) {
+            while ((log_num - log_Z < log_u) && (x < tp)) {
                 // Keep incrementing the numerator until we exceed the random value
                 x += 1;
                 lfac += log(x);
@@ -135,7 +174,7 @@
     }
     
     // Random number generator for COM Poisson
-    int com_poisson_log_rng(real log_mu, real nu) {
+    int com_poisson_log_rng(real log_mu, real nu, int tp) {
         real lu;
         // Simplify to poisson, if possible
         if (nu == 1) {
@@ -144,5 +183,5 @@
         // Draw a uniform r.v. to transform via inverse cdf
         lu = log(uniform_rng(0.0, 1.0));
         // Call the inverse cdf to get the value
-        return com_poisson_log_ilcdf(lu, log_mu, nu);
+        return com_poisson_log_ilcdf(lu, log_mu, nu, tp);
     }
