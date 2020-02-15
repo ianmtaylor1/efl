@@ -20,15 +20,23 @@ data {
     cov_matrix[nTeams] offense_prior_var;
     vector[nTeams]     defense_prior_mean;
     cov_matrix[nTeams] defense_prior_var;
+    
+    // Maximum truncation point for distribution
+    int truncpoint;
 }
 transformed data {
     cholesky_factor_cov[nTeams] offense_prior_var_chol;
     cholesky_factor_cov[nTeams] defense_prior_var_chol;
-    int truncpoint;
+    int truncpoint_lowerbound;
     
     offense_prior_var_chol = cholesky_decompose(offense_prior_var);
     defense_prior_var_chol = cholesky_decompose(defense_prior_var);
-    truncpoint = max(append_array(homegoals,awaygoals)) * 1000;
+    truncpoint_lowerbound = max(append_array(homegoals,awaygoals)) * 100;
+    if (truncpoint < truncpoint_lowerbound) {
+        print("Info: com_poisson truncation point of ", truncpoint,
+              " is too low. Setting to ", truncpoint_lowerbound, ".");
+        truncpoint = truncpoint_lowerbound;
+    };
 }
 parameters {
     // "raw" team modifiers (i.e. only the first nTeams-1 teams)
