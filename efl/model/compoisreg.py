@@ -19,11 +19,18 @@ class COMPoisReg(base.GoalModel):
     than PoisRegNumberphile)
     """
     
-    def __init__(self, eflgames, prior=None, **kwargs):
+    def __init__(self, eflgames, prior=None,
+                 nu_lower_limit=0.1, truncpoint=5000, **kwargs):
         """Parameters:
             eflgames - a Games instance
             prior - instance of COMPoisReg_Prior, or None for a diffuse 
                 prior (default)
+            nu_lower_limit - lower bound to place on concentration parameter,
+                nu. A higher value limits overdispersion in the model. Minimum
+                of zero.
+            truncpoint - hard truncation point to apply to the COM-Poisson
+                distribution. Should be at least 100*(max + 1), where 'max' is
+                the maximum number of goals scored by any team in a match.
             **kwargs - extra arguments passed to base models (usually Stan
                 sampling options)
         """
@@ -46,7 +53,8 @@ class COMPoisReg(base.GoalModel):
         super().__init__(
                 modelfile      = 'compoisreg',
                 eflgames       = eflgames,
-                extramodeldata = {'nu_lower_limit':0.1, 'truncpoint':2000, 
+                extramodeldata = {'nu_lower_limit':nu_lower_limit,
+                                  'truncpoint':truncpoint, 
                                   **prior.get_params(team_names)},
                 efl2stan       = efl2stan,
                 pargroups      = pargroups,
