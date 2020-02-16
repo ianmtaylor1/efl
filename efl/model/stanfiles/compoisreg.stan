@@ -11,7 +11,7 @@ data {
     real<lower=0> log_away_goals_prior_sd;
     
     // Prior parameters for the dispersion/decay parameter
-    real<lower=0> nu_prior_mean;
+    real nu_prior_mean;
     real<lower=0> nu_prior_sd;
     real<lower=0> nu_lower_limit;
     

@@ -146,7 +146,12 @@
         }
         return lcdf;
     }
-        
+    
+    // COM Poisson CDF for an array of observations
+    real[] com_poisson_log_cdf_array(int[] y, real log_mu, real nu, int tp) {
+        return exp(com_poisson_log_lcdf_array(y, log_mu, nu, tp));
+    }
+    
     // COM Poisson log-CDF for a single observation (log parametrization)
     real com_poisson_log_lcdf(int y, real log_mu, real nu, int tp) {
         return com_poisson_log_lcdf_array({y}, log_mu, nu, tp)[1];
@@ -174,6 +179,11 @@
             }
         }
         return x;
+    }
+    
+    // Inverse CDF of COM Poisson distribution (log parameterization)
+    int com_poisson_log_icdf(real u, real log_mu, real nu, int tp) {
+        return com_poisson_log_ilcdf(log(u), log_mu, nu, tp);
     }
     
     // Random number generator for COM Poisson
