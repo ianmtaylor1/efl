@@ -122,36 +122,46 @@ generated quantities {
     int min_trunc; // Lowest effective truncation point for this sample
     real rho;
     
+    // Generate predictive samples for observed and unobserved games
     {
         vector[nGames] lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
         vector[nGames] lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
         vector[nGames_new] lmu_home_new = offense[hometeamidx_new] - defense[awayteamidx_new] + log_home_goals;
         vector[nGames_new] lmu_away_new = offense[awayteamidx_new] - defense[hometeamidx_new] + log_away_goals;
-        int eff_trunc_home[nGames+nGames_new]; // Effective truncation points for home scores
-        int eff_trunc_away[nGames+nGames_new]; // Same for away scores
         for (i in 1:nGames) {
             int gp[2] = com_poisson_efgm_rng({lmu_home[i], lmu_away[i]}, nu, truncpoint, phi);
             homegoals_pred[i] = gp[1];
             awaygoals_pred[i] = gp[2];
-            // Effective truncation point of distribution
-            eff_trunc_home[i] = com_poisson_truncpoint(lmu_home[i], nu, truncpoint);
-            eff_trunc_away[i] = com_poisson_truncpoint(lmu_away[i], nu, truncpoint);
         }
         for (i in 1:nGames_new) {
             int gp[2] = com_poisson_efgm_rng({lmu_home_new[i], lmu_away_new[i]}, nu, truncpoint, phi);
             homegoals_new_pred[i] = gp[1];
             awaygoals_new_pred[i] = gp[2];
-            // Effective truncation point of distribution
+        }
+    }
+    
+    // Check if the distribution has been force truncated at any point
+    {
+        int eff_trunc_home[nGames+nGames_new]; // Effective truncation points for home scores
+        int eff_trunc_away[nGames+nGames_new]; // Same for away scores
+        // Effective truncation point of distribution for observed games
+        for (i in 1:nGames) {
+            eff_trunc_home[i] = com_poisson_truncpoint(lmu_home[i], nu, truncpoint);
+            eff_trunc_away[i] = com_poisson_truncpoint(lmu_away[i], nu, truncpoint);
+        }
+        // Effective truncation point of distribution for unobserved games
+        for (i in 1:nGames_new) {
             eff_trunc_home[nGames + i] = com_poisson_truncpoint(lmu_home_new[i], nu, truncpoint);
             eff_trunc_away[nGames + i] = com_poisson_truncpoint(lmu_away_new[i], nu, truncpoint);
         }
         max_trunc = max(append_array(eff_trunc_home, eff_trunc_away));
         min_trunc = min(append_array(eff_trunc_home, eff_trunc_away));
-    }
-    // Alert for max_trunc == truncpoint
-    if (max_trunc >= truncpoint) {
-        print("Info: non-negligible probability at com_poisson truncation point.")
+        // Alert for max_trunc == truncpoint
+        if (max_trunc >= truncpoint) {
+            print("Info: non-negligible probability at com_poisson truncation point.")
+        }
     }
     
+    // Translate phi into linear correlation
     rho = phi / 3;
 }
