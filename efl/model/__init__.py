@@ -6,6 +6,7 @@ from .poisregsimple      import PoisRegSimple,      PoisRegSimple_Prior
 from .poisregnumberphile import PoisRegNumberphile, PoisRegNumberphile_Prior
 from .compoisreg         import COMPoisReg,         COMPoisReg_Prior
 from .poisregefgm        import PoisRegEFGM,        PoisRegEFGM_Prior
+from .compoisregefgm     import COMPoisRegEFGM,     COMPoisRegEFGM_Prior
 
 
 # Subpackage for experimental models (in development, interesting but slow,
