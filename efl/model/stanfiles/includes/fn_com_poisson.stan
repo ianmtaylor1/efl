@@ -142,7 +142,14 @@
         }
         // Sum up for all y's
         for (j in 1:n) {
-            lcdf[j] = log_sum_exp(lprob[1:(y[j]+1)]) - log_Z;
+            lcdf[j] = log_sum_exp(lprob[1:(y[j]+1)]);
+        }
+        // If max_y goes beyond the effective truncation point, log cdf will
+        // end up positive (problem!). This fixes that.
+        log_Z = fmax(log_Z, max(lcdf));
+        // Normalize all the log cdf's
+        for (j in 1:n) {
+            lcdf[j] -= log_Z;
         }
         return lcdf;
     }
