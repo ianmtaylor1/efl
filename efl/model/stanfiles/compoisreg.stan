@@ -57,7 +57,7 @@ model {
     defense ~ multi_normal_cholesky(defense_prior_mean, defense_prior_var_chol);
     // Prior dispersion/decay parameter
     nu ~ normal(nu_prior_mean, nu_prior_sd) T[nu_lower_limit,];
-    // Model, goals follow Consul-Jain generalized Poisson distribution
+    // Model, goals follow COM-Poisson distribution
     if (nGames > 0) {
         // local variables to hold means
         vector[nGames] lmu_home;
@@ -78,12 +78,13 @@ generated quantities {
     int max_trunc; // Highest effective truncation point for this sample
     int min_trunc; // Lowest effective truncation point for this sample
     
-    // Generate predictive samples for observed and unobserved games
     {
         vector[nGames] lmu_home = offense[hometeamidx] - defense[awayteamidx] + log_home_goals;
         vector[nGames] lmu_away = offense[awayteamidx] - defense[hometeamidx] + log_away_goals;
         vector[nGames_new] lmu_home_new = offense[hometeamidx_new] - defense[awayteamidx_new] + log_home_goals;
         vector[nGames_new] lmu_away_new = offense[awayteamidx_new] - defense[hometeamidx_new] + log_away_goals;
+        int eff_trunc_home[nGames+nGames_new]; // Effective truncation points for home scores
+        int eff_trunc_away[nGames+nGames_new]; // Same for away scores
         // Generate home/away scores for observed games
         for (i in 1:nGames) {
             homegoals_pred[i] = com_poisson_log_rng(lmu_home[i], nu, truncpoint);
@@ -94,12 +95,6 @@ generated quantities {
             homegoals_new_pred[i] = com_poisson_log_rng(lmu_home_new[i], nu, truncpoint);
             awaygoals_new_pred[i] = com_poisson_log_rng(lmu_away_new[i], nu, truncpoint);
         }
-    }
-    
-    // Check if the distribution has been force truncated at any point
-    {
-        int eff_trunc_home[nGames+nGames_new]; // Effective truncation points for home scores
-        int eff_trunc_away[nGames+nGames_new]; // Same for away scores
         // Effective truncation point of distribution for observed games
         for (i in 1:nGames) {
             eff_trunc_home[i] = com_poisson_truncpoint(lmu_home[i], nu, truncpoint);
@@ -114,7 +109,7 @@ generated quantities {
         min_trunc = min(append_array(eff_trunc_home, eff_trunc_away));
         // Alert for max_trunc == truncpoint
         if (max_trunc >= truncpoint) {
-            print("Info: non-negligible probability at com_poisson truncation point.")
-        }
+            print("*** Info: non-negligible probability at com_poisson truncation point.")
+        } 
     }
 }

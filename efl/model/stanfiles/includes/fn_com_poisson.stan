@@ -157,6 +157,11 @@
         return com_poisson_log_lcdf_array({y}, log_mu, nu, tp)[1];
     }
     
+    // COM Poisson CDF for a single observation
+    real com_poisson_log_cdf(int y, real log_mu, real nu, int tp) {
+        return com_poisson_log_cdf_array({y}, log_mu, nu, tp)[1];
+    }
+    
     // Inverse Log CDF of COM Poisson distribution (log parameterization)
     // log_u: log probability we want to invert
     // Returns the first x such that log(P(X <= x)) >= log_u
