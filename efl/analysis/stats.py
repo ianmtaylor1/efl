@@ -350,7 +350,11 @@ class GameScore(StatGroup):
             gamedf = games.to_dataframe(fit=True, predict=True)
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
-            name = '{} vs {} Score'.format(hometeam, awayteam)
+            try:
+                date = gamedf.loc[gameid, 'date'].strftime(' (%Y-%m-%d)')
+            except:
+                date = ''
+            name = '{} vs {} Score{}'.format(hometeam, awayteam, date)
         # Construct the StatGroup
         super().__init__(
                 name,
