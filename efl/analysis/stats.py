@@ -253,7 +253,12 @@ class GameResult(BaseStat):
             gamedf = games.to_dataframe(fit=True, predict=True)
             self._hometeam = gamedf.loc[gameid, 'hometeam']
             self._awayteam = gamedf.loc[gameid, 'awayteam']
-            name = '{} vs {} Result'.format(self._hometeam, self._awayteam)
+            try:
+                date = gamedf.loc[gameid, 'date'].strftime(' (%Y-%m-%d)')
+            except:
+                date = ''
+            name = '{} vs {} Result{}'.format(
+                    self._hometeam, self._awayteam, date)
         # Construct the BaseStat
         super().__init__(type_='ordinal', name=name)
         # Save the game id
