@@ -247,11 +247,13 @@ class GameResult(BaseStat):
         # Determine the name
         if games is None:
             name = "Result {}".format(gameid)
+            self._hometeam = 'Home'
+            self._awayteam = 'Away'
         else:
             gamedf = games.to_dataframe(fit=True, predict=True)
-            hometeam = gamedf.loc[gameid, 'hometeam']
-            awayteam = gamedf.loc[gameid, 'awayteam']
-            name = '{} vs {} Result'.format(hometeam, awayteam)
+            self._hometeam = gamedf.loc[gameid, 'hometeam']
+            self._awayteam = gamedf.loc[gameid, 'awayteam']
+            name = '{} vs {} Result'.format(self._hometeam, self._awayteam)
         # Construct the BaseStat
         super().__init__(type_='ordinal', name=name)
         # Save the game id
@@ -261,12 +263,24 @@ class GameResult(BaseStat):
         return self._gameid
     
     def __call__(self, df):
-        return df.loc[self._gameid, 'result']
+        res = df.loc[self._gameid, 'result']
+        if res == 'H':
+            return self._hometeam
+        elif res == 'A':
+            return self._awayteam
+        else:
+            return 'Draw'
     
-    @staticmethod
-    def sort(v):
+    def sort(self, v):
         # Sorts in the order H,D,A
-        return {'H':1, 'D':2, 'A':3}.get(v, 4)
+        if v == self._hometeam:
+            return 1
+        elif v == self._awayteam:
+            return 3
+        elif v == 'Draw':
+            return 2
+        else:
+            return 4
 
 
 class GameHomeGoals(BaseStat):
