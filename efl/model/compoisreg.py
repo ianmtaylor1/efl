@@ -7,6 +7,7 @@ Contains the COMPoisReg model and associated other classes.
 """
 
 from . import base
+from .. import util
 
 import numpy
 
@@ -156,7 +157,7 @@ class COMPoisReg_Prior(object):
                  promoted_in=[], relegated_out=[]):
         """Create a prior from the posterior of a previous COMPoisReg fit.
         Parameters:
-            fit - the previous instance of ConsulJainReg
+            fit - the previous instance of COMPoisReg
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
@@ -189,43 +190,25 @@ class COMPoisReg_Prior(object):
         # Dispersion parameter
         nu_prior_mean = df['GoalsConcentration'].mean()
         nu_prior_sd = df['GoalsConcentration'].std() * numpy.sqrt(spread)
-        # Build parameter names for promoted/relegated teams
-        promoted_out_off = [t+' Off' for t in promoted_out]
-        promoted_out_def = [t+' Def' for t in promoted_out]
-        relegated_out_off = [t+' Off' for t in relegated_out]
-        relegated_out_def = [t+' Def' for t in relegated_out]
-        promoted_in_off = [t+' Off' for t in promoted_in]
-        promoted_in_def = [t+' Def' for t in promoted_in]
-        relegated_in_off = [t+' Off' for t in relegated_in]
-        relegated_in_def = [t+' Def' for t in relegated_in]
-        # Shuffle promoted/relegated teams
-        for i in df.index:
-            df.loc[i,promoted_out_off] = numpy.random.permutation(df.loc[i,promoted_out_off])
-            df.loc[i,promoted_out_def] = numpy.random.permutation(df.loc[i,promoted_out_def])
-            df.loc[i,relegated_out_off] = numpy.random.permutation(df.loc[i,relegated_out_off])
-            df.loc[i,relegated_out_def] = numpy.random.permutation(df.loc[i,relegated_out_def])
-        colmap = {o:i for o,i in zip(promoted_out_off, relegated_in_off)}
-        colmap.update({o:i for o,i in zip(promoted_out_def, relegated_in_def)})
-        colmap.update({o:i for o,i in zip(relegated_out_off, promoted_in_off)})
-        colmap.update({o:i for o,i in zip(relegated_out_def, promoted_in_def)})
-        df = df.rename(columns=colmap)
+        # Relegation/Promotion
+        if len(promoted_out) > 0:
+            util.shuffle_rename(df, [t+' Off' for t in promoted_out],
+                                newnames=[t+' Off' for t in relegated_in])
+            util.shuffle_rename(df, [t+' Def' for t in promoted_out],
+                                newnames=[t+' Def' for t in relegated_in])
+        if len(relegated_out) > 0:
+            util.shuffle_rename(df, [t+' Off' for t in relegated_out],
+                                newnames=[t+' Off' for t in promoted_in])
+            util.shuffle_rename(df, [t+' Def' for t in relegated_out],
+                                newnames=[t+' Def' for t in promoted_in])
         # Team offense/defense priors
         team_names = [c[:-4] for c in df.columns if c[-4:]==' Off']
-        offense_pars = [t+' Off' for t in team_names]
-        defense_pars = [t+' Def' for t in team_names]
-        offense_prior_mean = numpy.array(df[offense_pars].mean()) * regression
-        offense_prior_var = numpy.cov(df[offense_pars].T)
-        defense_prior_mean = numpy.array(df[defense_pars].mean()) * regression
-        defense_prior_var = numpy.cov(df[defense_pars].T)
-        # Scale the variance by the spread factor, add small identity for 
-        # non-singularity
-        num_teams = len(team_names)
-        minvar_off = min(offense_prior_var.diagonal())
-        minvar_def = min(defense_prior_var.diagonal())
-        offense_prior_var = (offense_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_off * 0.01)
-        defense_prior_var = (defense_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_def * 0.01)
+        offense_prior_mean, offense_prior_var = util.mean_var(
+                df, cols=[t+' Off' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
+        defense_prior_mean, defense_prior_var = util.mean_var(
+                df, cols=[t+' Def' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
         # Assemble and return
         return cls(offense_prior_mean = offense_prior_mean,
                    offense_prior_var = offense_prior_var,

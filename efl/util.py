@@ -393,3 +393,66 @@ def df_trim_c_l(df, threshold, newcat=None):
 def df_trim_c_r(df, threshold, newcat=None):
     return df_trim_i_r(df.T, threshold, newcat=newcat).T
 
+
+###########################################################
+### PRIOR MAKING HELPER FUNCTIONS #########################
+###########################################################
+
+
+def suffle_rename(df, cols, newnames=None, replace=False, inplace=True):
+    """For each row of the given dataframe, shuffle the values in the
+    indicated columns. If newnames is not None, then also rename those columns.
+    If inplace is False, copy the dataframe first. Returnes the manipulated
+    DataFrame.
+    Parameters:
+        df - pandas DataFrame to operate on
+        cols - list of column names to shuffle
+        newnames - list of names to rename cols to
+        replace - if True, sample with replacement. If False, shuffle.
+        inplace - if False, copy df before operating and return the new copy.
+    """
+    # Do we need to copy?
+    if not inplace:
+        df = df.copy()
+    # Do the shuffling
+    rg = numpy.random.default_rng()
+    df.loc[:,cols] = numpy.apply_along_axis(
+            rg.choice, 1, df.loc[:,cols],
+            replace=replace, size=len(cols))
+    # Rename if necessary
+    if newnames is not None:
+        colmap = {old:new for old,new in zip(cols, newnames)}
+        df.rename(columns=colmap, inplace=True) # Always in place
+    # If we made a copy, return it
+    if not inplace:
+        return df
+
+
+def mean_var(df, cols=None, center=True, meanregress=1, varspread=1, ridge=0):
+    """Calculate a mean array and covariance matrix for the given columns
+    of the given dataframe.
+    Parameters:
+        df - pandas DataFrame to use
+        cols - columns of interest. If None, use all columns
+        center - if True, subtract overall mean to center means at zero.
+        meanregress - Shrink means towards overall mean by this factor.
+            mean = avg(mean) + meanregress * (mean - avg(mean))
+        varspread - multiply covariance matrix by this factor
+        ridge - add this value to all entries on the diagonal of the
+            covariance matrix (after any spread)
+    """
+    # Default: all columns
+    if cols is None:
+        cols = df.columns
+    # Basic mean and var
+    mean = numpy.array(df.loc[:,cols].mean())
+    var = numpy.cov(df.loc[:,cols].T)
+    # Transform mean as required
+    mean = mean.mean() + meanregress * (mean - mean.mean())
+    if center:
+        mean = mean - mean.mean()
+    # Transform variance as required
+    var = var * varspread + ridge * numpy.identity(len(cols))
+    # Return the results
+    return mean,var
+

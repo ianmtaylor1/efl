@@ -7,6 +7,7 @@ Contains the PoisRegNumberphile model and associated other classes.
 """
 
 from . import base
+from .. import util
 
 import numpy
 
@@ -224,71 +225,39 @@ class PoisRegNumberphile_Prior(object):
         log_home_goals_prior_sd = df['HomeGoals'].std() * numpy.sqrt(spread)
         log_away_goals_prior_mean = df['AwayGoals'].mean()
         log_away_goals_prior_sd = df['AwayGoals'].std() * numpy.sqrt(spread)
-        # Build parameter names for promoted/relegated teams
-        promoted_out_ho = [t+' HO' for t in promoted_out]
-        promoted_out_hd = [t+' HD' for t in promoted_out]
-        promoted_out_ao = [t+' AO' for t in promoted_out]
-        promoted_out_ad = [t+' AD' for t in promoted_out]
-        relegated_out_ho = [t+' HO' for t in relegated_out]
-        relegated_out_hd = [t+' HD' for t in relegated_out]
-        relegated_out_ao = [t+' AO' for t in relegated_out]
-        relegated_out_ad = [t+' AD' for t in relegated_out]
-        promoted_in_ho = [t+' HO' for t in promoted_in]
-        promoted_in_hd = [t+' HD' for t in promoted_in]
-        promoted_in_ao = [t+' AO' for t in promoted_in]
-        promoted_in_ad = [t+' AD' for t in promoted_in]
-        relegated_in_ho = [t+' HO' for t in relegated_in]
-        relegated_in_hd = [t+' HD' for t in relegated_in]
-        relegated_in_ao = [t+' AO' for t in relegated_in]
-        relegated_in_ad = [t+' AD' for t in relegated_in]
-        # Shuffle promoted/relegated teams
-        for i in df.index:
-            df.loc[i,promoted_out_ho] = numpy.random.permutation(df.loc[i,promoted_out_ho])
-            df.loc[i,promoted_out_hd] = numpy.random.permutation(df.loc[i,promoted_out_hd])
-            df.loc[i,promoted_out_ao] = numpy.random.permutation(df.loc[i,promoted_out_ao])
-            df.loc[i,promoted_out_ad] = numpy.random.permutation(df.loc[i,promoted_out_ad])
-            df.loc[i,relegated_out_ho] = numpy.random.permutation(df.loc[i,relegated_out_ho])
-            df.loc[i,relegated_out_hd] = numpy.random.permutation(df.loc[i,relegated_out_hd])
-            df.loc[i,relegated_out_ao] = numpy.random.permutation(df.loc[i,relegated_out_ao])
-            df.loc[i,relegated_out_ad] = numpy.random.permutation(df.loc[i,relegated_out_ad])
-        colmap = {o:i for o,i in zip(promoted_out_ho, relegated_in_ho)}
-        colmap.update({o:i for o,i in zip(promoted_out_hd, relegated_in_hd)})
-        colmap.update({o:i for o,i in zip(promoted_out_ao, relegated_in_ao)})
-        colmap.update({o:i for o,i in zip(promoted_out_ad, relegated_in_ad)})
-        colmap.update({o:i for o,i in zip(relegated_out_ho, promoted_in_ho)})
-        colmap.update({o:i for o,i in zip(relegated_out_hd, promoted_in_hd)})
-        colmap.update({o:i for o,i in zip(relegated_out_ao, promoted_in_ao)})
-        colmap.update({o:i for o,i in zip(relegated_out_ad, promoted_in_ad)})
-        df = df.rename(columns=colmap)
+        # Promotion/relegation
+        if len(promoted_out) > 0:
+            util.shuffle_rename(df, [t+' HO' for t in promoted_out],
+                                newnames=[t+' HO' for t in relegated_in])
+            util.shuffle_rename(df, [t+' HD' for t in promoted_out],
+                                newnames=[t+' HD' for t in relegated_in])
+            util.shuffle_rename(df, [t+' AO' for t in promoted_out],
+                                newnames=[t+' AO' for t in relegated_in])
+            util.shuffle_rename(df, [t+' AD' for t in promoted_out],
+                                newnames=[t+' AD' for t in relegated_in])
+        if len(relegated_out) > 0:
+            util.shuffle_rename(df, [t+' HO' for t in relegated_out],
+                                newnames=[t+' HO' for t in promoted_in])
+            util.shuffle_rename(df, [t+' HD' for t in relegated_out],
+                                newnames=[t+' HD' for t in promoted_in])
+            util.shuffle_rename(df, [t+' AO' for t in relegated_out],
+                                newnames=[t+' AO' for t in promoted_in])
+            util.shuffle_rename(df, [t+' AD' for t in relegated_out],
+                                newnames=[t+' AD' for t in promoted_in])
         # Team offense/defense priors
         team_names = [c[:-3] for c in df.columns if c[-3:]==' HO']
-        homeoff_pars = [t+' HO' for t in team_names]
-        homedef_pars = [t+' HD' for t in team_names]
-        awayoff_pars = [t+' AO' for t in team_names]
-        awaydef_pars = [t+' AD' for t in team_names]
-        homeoff_prior_mean = numpy.array(df[homeoff_pars].mean()) * regression
-        homeoff_prior_var = numpy.cov(df[homeoff_pars].T)
-        homedef_prior_mean = numpy.array(df[homedef_pars].mean()) * regression
-        homedef_prior_var = numpy.cov(df[homedef_pars].T)
-        awayoff_prior_mean = numpy.array(df[awayoff_pars].mean()) * regression
-        awayoff_prior_var = numpy.cov(df[awayoff_pars].T)
-        awaydef_prior_mean = numpy.array(df[awaydef_pars].mean()) * regression
-        awaydef_prior_var = numpy.cov(df[awaydef_pars].T)
-        # Scale the variance by the spread factor, add small identity for 
-        # non-singularity
-        num_teams = len(team_names)
-        minvar_ho = min(homeoff_prior_var.diagonal())
-        minvar_hd = min(homedef_prior_var.diagonal())
-        minvar_ao = min(awayoff_prior_var.diagonal())
-        minvar_ad = min(awaydef_prior_var.diagonal())
-        homeoff_prior_var = (homeoff_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_ho * 0.01)
-        homedef_prior_var = (homedef_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_hd * 0.01)
-        awayoff_prior_var = (awayoff_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_ao * 0.01)
-        awaydef_prior_var = (awaydef_prior_var * spread + 
-                             numpy.identity(num_teams) * minvar_ad * 0.01)
+        homeoff_prior_mean, homeoff_prior_var = util.mean_var(
+                df, cols=[t+' HO' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
+        homedef_prior_mean, homedef_prior_var = util.mean_var(
+                df, cols=[t+' HD' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
+        awayoff_prior_mean, awayoff_prior_var = util.mean_var(
+                df, cols=[t+' AO' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
+        awaydef_prior_mean, awaydef_prior_var = util.mean_var(
+                df, cols=[t+' AD' for t in team_names],
+                meanregress=regression, varspread=spread, ridge=0.0001)
         # Assemble and return
         return cls(homeoff_prior_mean = homeoff_prior_mean,
                    homeoff_prior_var = homeoff_prior_var,

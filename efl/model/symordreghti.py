@@ -7,6 +7,7 @@ Contains the SymOrdRegHTI model and associated other classes.
 """
 
 from . import base
+from .. import util
 
 import numpy
 
@@ -184,54 +185,32 @@ class SymOrdRegHTI_Prior(object):
         if len(set(relegated_in) & set(promoted_in)) > 0:
             raise Exception('promoted_in and relegated_in cannot have common teams')
         # Get the posterior samples from the fit
-        home_df = fit.to_dataframe('home', diagnostics=False)
-        away_df = fit.to_dataframe('away', diagnostics=False)
-        hdb_df = fit.to_dataframe(['HomeField','DrawBoundary'], diagnostics=False)
+        df = fit.to_dataframe(diagnostics=False)
         # Determine homefield advantage priors
-        homefield_prior_mean = hdb_df['HomeField'].mean()
-        homefield_prior_sd = hdb_df['HomeField'].std() * numpy.sqrt(spread)
+        homefield_prior_mean = df['HomeField'].mean()
+        homefield_prior_sd = df['HomeField'].std() * numpy.sqrt(spread)
         # Determine draw boundary priors
-        theta_prior_loc = hdb_df['DrawBoundary'].mean()
-        theta_prior_scale = hdb_df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
-        # Build parameter names for promoted/relegated teams
-        promoted_out_home = [t+' H' for t in promoted_out]
-        promoted_out_away = [t+' A' for t in promoted_out]
-        relegated_out_home = [t+' H' for t in relegated_out]
-        relegated_out_away = [t+' A' for t in relegated_out]
-        promoted_in_home = [t+' H' for t in promoted_in]
-        promoted_in_away = [t+' A' for t in promoted_in]
-        relegated_in_home = [t+' H' for t in relegated_in]
-        relegated_in_away = [t+' A' for t in relegated_in]
-        # Shuffle and rename the promoted/relegated teams
-        for i in home_df.index:
-            home_df.loc[i,relegated_out_home] = numpy.random.permutation(home_df.loc[i,relegated_out_home])
-            home_df.loc[i,promoted_out_home] = numpy.random.permutation(home_df.loc[i,promoted_out_home])
-        for i in away_df.index:
-            away_df.loc[i,relegated_out_away] = numpy.random.permutation(away_df.loc[i,relegated_out_away])
-            away_df.loc[i,promoted_out_away] = numpy.random.permutation(away_df.loc[i,promoted_out_away])
-        home_colmap = {o:i for o,i in zip(relegated_out_home, promoted_in_home)}
-        home_colmap.update({o:i for o,i in zip(promoted_out_home, relegated_in_home)})
-        away_colmap = {o:i for o,i in zip(relegated_out_away, promoted_in_away)}
-        away_colmap.update({o:i for o,i in zip(promoted_out_away, relegated_in_away)})
-        home_df = home_df.rename(columns=home_colmap)
-        away_df = away_df.rename(columns=away_colmap)
+        theta_prior_loc = df['DrawBoundary'].mean()
+        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
+        # Promotion/relegation
+        if len(promoted_out) > 0:
+            util.shuffle_rename(df, [t+' H' for t in promoted_out], 
+                                newnames=[t+' H' for t in relegated_in])
+            util.shuffle_rename(df, [t+' A' for t in promoted_out], 
+                                newnames=[t+' A' for t in relegated_in])
+        if len(relegated_out) > 0:
+            util.shuffle_rename(df, [t+' H' for t in relegated_out], 
+                                newnames=[t+' H' for t in promoted_in])
+            util.shuffle_rename(df, [t+' A' for t in relegated_out], 
+                                newnames=[t+' A' for t in promoted_in])
         # Teams priors
-        team_names = [c[:-2] for c in home_df.columns if c[-2:]==' H']
-        home_names = [t+' H' for t in team_names]
-        away_names = [t+' A' for t in team_names]
-        home_prior_mean = numpy.array(home_df[home_names].mean()) * regression
-        home_prior_var = numpy.cov(home_df[home_names].T)
-        away_prior_mean = numpy.array(away_df[away_names].mean()) * regression
-        away_prior_var = numpy.cov(away_df[away_names].T)
-        # Scale the variance by the spread factor, add small identity for 
-        # non-singularity
-        num_teams = len(team_names)
-        minvar_home = min(home_prior_var.diagonal())
-        home_prior_var = (home_prior_var * spread + 
-                           numpy.identity(num_teams) * minvar_home * 0.01)
-        minvar_away = min(away_prior_var.diagonal())
-        away_prior_var = (away_prior_var * spread + 
-                           numpy.identity(num_teams) * minvar_away * 0.01)
+        team_names = [c[:-2] for c in df.columns if c[-2:]==' H']
+        home_prior_mean, home_prior_var = util.mean_var(
+                df, cols=[t+' H' for t in team_names], 
+                meanregress=regression, varspread=spread, ridge=0.0001)
+        away_prior_mean, away_prior_var = util.mean_var(
+                df, cols=[t+' A' for t in team_names], 
+                meanregress=regression, varspread=spread, ridge=0.0001)
         # Assemble and return
         return cls(home_prior_mean = home_prior_mean,
                    home_prior_var = home_prior_var,
