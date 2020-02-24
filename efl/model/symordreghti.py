@@ -157,6 +157,7 @@ class SymOrdRegHTI_Prior(object):
     
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
+                 team_spread=None, other_spread=None,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
         """Create a prior from the posterior of a previous SymOrdRegHTI fit.
@@ -165,6 +166,9 @@ class SymOrdRegHTI_Prior(object):
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
+            team_spread, other_spread - variance inflation factors for team
+                strength (offense, defense) and other parameters, respectively.
+                If supplied, overrides default from spread.
             regression - is multiplied by team means
             relegated_in - list of team names who were relegated into this
                 league from a higher league between the season of 'fit' and now
@@ -184,14 +188,19 @@ class SymOrdRegHTI_Prior(object):
             raise Exception('promoted_out and relegated_out cannot have common teams')
         if len(set(relegated_in) & set(promoted_in)) > 0:
             raise Exception('promoted_in and relegated_in cannot have common teams')
+        # Default spreads
+        if team_spread is None:
+            team_spread = spread
+        if other_spread is None:
+            other_spread = spread
         # Get the posterior samples from the fit
         df = fit.to_dataframe(diagnostics=False)
         # Determine homefield advantage priors
         homefield_prior_mean = df['HomeField'].mean()
-        homefield_prior_sd = df['HomeField'].std() * numpy.sqrt(spread)
+        homefield_prior_sd = df['HomeField'].std() * numpy.sqrt(other_spread)
         # Determine draw boundary priors
         theta_prior_loc = df['DrawBoundary'].mean()
-        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
+        theta_prior_scale = df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(other_spread)
         # Promotion/relegation
         if len(promoted_out) > 0:
             util.shuffle_rename(df, [t+' H' for t in promoted_out], 
@@ -207,10 +216,10 @@ class SymOrdRegHTI_Prior(object):
         team_names = [c[:-2] for c in df.columns if c[-2:]==' H']
         home_prior_mean, home_prior_var = util.mean_var(
                 df, cols=[t+' H' for t in team_names], 
-                meanregress=regression, varspread=spread, ridge=0.0001)
+                meanregress=regression, varspread=team_spread, ridge=0.0001)
         away_prior_mean, away_prior_var = util.mean_var(
                 df, cols=[t+' A' for t in team_names], 
-                meanregress=regression, varspread=spread, ridge=0.0001)
+                meanregress=regression, varspread=team_spread, ridge=0.0001)
         # Assemble and return
         return cls(home_prior_mean = home_prior_mean,
                    home_prior_var = home_prior_var,

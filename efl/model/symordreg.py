@@ -135,6 +135,7 @@ class SymOrdReg_Prior(object):
     
     @classmethod
     def from_fit(cls, fit, spread=1.0, regression=1.0,
+                 team_spread=None, other_spread=None,
                  relegated_in=[], promoted_out=[],
                  promoted_in=[], relegated_out=[]):
         """Create a prior from the posterior of a previous SymOrdReg fit.
@@ -143,6 +144,9 @@ class SymOrdReg_Prior(object):
             spread - factor by which to inflate variances of all parameters
                 from the posterior of 'fit'. Think of this as season-to-season
                 uncertainty.
+            team_spread, other_spread - variance inflation factors for team
+                strength (offense, defense) and other parameters, respectively.
+                If supplied, overrides default from spread.
             regression - is multiplied by team means
             relegated_in - list of team names who were relegated into this
                 league from a higher league between the season of 'fit' and now
@@ -162,15 +166,20 @@ class SymOrdReg_Prior(object):
             raise Exception('promoted_out and relegated_out cannot have common teams')
         if len(set(relegated_in) & set(promoted_in)) > 0:
             raise Exception('promoted_in and relegated_in cannot have common teams')
+        # Default spreads
+        if team_spread is None:
+            team_spread = spread
+        if other_spread is None:
+            other_spread = spread
         # Get the posterior samples from the fit
         df = fit.to_dataframe('teams', diagnostics=False)
         hdb_df = fit.to_dataframe(['HomeField','DrawBoundary'], diagnostics=False)
         # Determine homefield advantage priors
         home_prior_mean = hdb_df['HomeField'].mean()
-        home_prior_sd = hdb_df['HomeField'].std() * numpy.sqrt(spread)
+        home_prior_sd = hdb_df['HomeField'].std() * numpy.sqrt(other_spread)
         # Determine draw boundary priors
         theta_prior_loc = hdb_df['DrawBoundary'].mean()
-        theta_prior_scale = hdb_df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(spread)
+        theta_prior_scale = hdb_df['DrawBoundary'].std() * 0.5513 * numpy.sqrt(other_spread)
         # Promotion/relegation
         if len(promoted_out) > 0:
             util.shuffle_rename(df, promoted_out, newnames=relegated_in)
@@ -179,8 +188,8 @@ class SymOrdReg_Prior(object):
         # Teams priors
         team_names = list(set(df.columns) - set(['chain','draw','warmup']))
         teams_prior_mean, teams_prior_var = util.mean_var(
-                df, cols=team_names, meanregress=regression, varspread=spread,
-                ridge=0.0001)
+                df, cols=team_names, meanregress=regression,
+                varspread=team_spread, ridge=0.0001)
         # Assemble and return
         return cls(teams_prior_mean = teams_prior_mean,
                    teams_prior_var = teams_prior_var,
