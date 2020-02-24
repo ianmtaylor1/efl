@@ -254,7 +254,7 @@ class GameResult(BaseStat):
             self._hometeam = gamedf.loc[gameid, 'hometeam']
             self._awayteam = gamedf.loc[gameid, 'awayteam']
             try:
-                date = gamedf.loc[gameid, 'date'].strftime(' (%Y-%m-%d)')
+                date = gamedf.loc[gameid, 'date'].strftime(' (%d %b %Y)')
             except:
                 date = ''
             name = '{} vs {} Result{}'.format(
@@ -351,7 +351,7 @@ class GameScore(StatGroup):
             hometeam = gamedf.loc[gameid, 'hometeam']
             awayteam = gamedf.loc[gameid, 'awayteam']
             try:
-                date = gamedf.loc[gameid, 'date'].strftime(' (%Y-%m-%d)')
+                date = gamedf.loc[gameid, 'date'].strftime(' (%d %b %Y)')
             except:
                 date = ''
             name = '{} vs {} Score{}'.format(hometeam, awayteam, date)
