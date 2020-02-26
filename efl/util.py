@@ -399,7 +399,7 @@ def df_trim_c_r(df, threshold, newcat=None):
 ###########################################################
 
 
-def suffle_rename(df, cols, newnames=None, replace=False, inplace=True):
+def shuffle_rename(df, cols, newnames=None, replace=False, inplace=True):
     """For each row of the given dataframe, shuffle the values in the
     indicated columns. If newnames is not None, then also rename those columns.
     If inplace is False, copy the dataframe first. Returnes the manipulated
