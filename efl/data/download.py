@@ -3,6 +3,7 @@
 from . import orm
 from . import footballdata
 from . import fixturedownload
+from . import footballwebpages
 from . import db
 
 import sqlalchemy
@@ -214,8 +215,13 @@ def console_download_games():
     print("\nGetting data from footballdata.co.uk")
     footballdata_games = footballdata.get_games(args.l, args.y, enddate=today)
     save_games(footballdata_games, sourcename='footballdata')
-    if (args.l in [1,2]) and (args.y >= (today - datetime.timedelta(days=180)).year):
-        print("\nGetting data from fixturedownload.com")
-        fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
-        save_games(fixturedownload_games, sourcename='fixturedownload')
+    if args.y >= (today - datetime.timedelta(days=180)).year:
+        if args.l in [1,2]:
+            print("\nGetting data from fixturedownload.com")
+            fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
+            save_games(fixturedownload_games, sourcename='fixturedownload')
+        elif args.l in [3,4]:
+            print("\nGetting data from footballwebpages.co.uk")
+            fwpco_games = footballwebpages.get_games(args.l, args.y, startdate=tomorrow)
+            save_games(fwpco_games, sourcename='footballwebpages')
 
