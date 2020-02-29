@@ -12,6 +12,7 @@ import difflib
 import numpy
 import datetime
 
+
 # Function to prompt for a missing team
 def _prompt_missing_team(session, name, sourcename):
     print("No team entries for '{}'".format(name))
@@ -41,6 +42,8 @@ def _prompt_missing_team(session, name, sourcename):
     stn.team = team
     return stn
 
+
+# Prompt for a missing league
 def _prompt_missing_league(session, name, sourcename):
     print("No league entries for '{}'".format(name))
     league = None
@@ -62,6 +65,33 @@ def _prompt_missing_league(session, name, sourcename):
     sln.league = league
     return sln
     
+
+# Ask the user about a disagreement between existing and downloaded results
+# If the user wants to change the result, modify the sqlalchemy object directly
+def _prompt_result_disagreement(game, row):
+    # Display status and conflicting results
+    print("Result disagreement for {} {} vs {}:".format(
+        game.date.strftime("%Y-%m-%d"),
+        game.hometeam.shortname,
+        game.awayteam.shortname))
+    print("  Existing: {} {}-{} {}".format(
+        game.hometeam.shortname,
+        game.result.homegoals,
+        game.result.awaygoals,
+        game.awayteam.shortname))
+    print("  New:      {} {}-{} {}".format(
+        game.hometeam.shortname,
+        int(row['HomePoints']),
+        int(row['AwayPoints']),
+        game.awayteam.shortname))
+    # Prompt the user for what to do
+    choice = None
+    while choice not in ['e','n']:
+        choice = input("Enter 'e' to keep existing result, 'n' to use new result: ").lower()
+    if choice == 'n':
+        game.result.homegoals = int(row['HomePoints'])
+        game.result.awaygoals = int(row['AwayPoints'])
+
 
 def _save_season(games, year, sourcename):
     """Save a dataframe representing games from a single season to the
@@ -158,6 +188,7 @@ def _save_season(games, year, sourcename):
                         orm.Game.awayteamid == teams[games.loc[i,'AwayTeam']].id
                         )
                 ).one_or_none()
+        # Add game if it doesn't exist
         if game is None:
             print("Adding {} {} vs {}".format(
                     games.loc[i,"Date"].strftime("%Y-%m-%d"),
@@ -168,23 +199,29 @@ def _save_season(games, year, sourcename):
             game.awayteam = teams[games.loc[i,"AwayTeam"]]
             game.season = season
             session.add(game)
-        if (game.result is None) \
-                and (not numpy.isnan(games.loc[i,"HomePoints"])) \
+        # If there is a result in downloaded data...
+        if (not numpy.isnan(games.loc[i,"HomePoints"])) \
                 and (not numpy.isnan(games.loc[i,"AwayPoints"])):
-            print("Adding {:.0f}-{:.0f} result to {} {} vs {}".format(
-                    games.loc[i,"HomePoints"], games.loc[i,"AwayPoints"],
-                    game.date.strftime("%Y-%m-%d"),
-                    game.hometeam.shortname, game.awayteam.shortname))
-            # BUG FIX: int(...) below fixes weird error where integers get stored
-            # in sqlite as BLOBs. Pandas problem, not reading in CSV as integer?
-            # Idk it works now though.
-            result = orm.GameResult(homegoals=int(games.loc[i,"HomePoints"]),
-                                    awaygoals=int(games.loc[i,"AwayPoints"]),
-                                    overtimes=0)
-            game.result = result
+            # If there is no result in db, create one
+            if (game.result is None):
+                print("Adding {:.0f}-{:.0f} result to {} {} vs {}".format(
+                        games.loc[i,"HomePoints"], games.loc[i,"AwayPoints"],
+                        game.date.strftime("%Y-%m-%d"),
+                        game.hometeam.shortname, game.awayteam.shortname))
+                # BUG FIX: int(...) below fixes weird error where integers get stored
+                # in sqlite as BLOBs. Pandas problem, not reading in CSV as integer?
+                # Idk it works now though.
+                result = orm.GameResult(homegoals=int(games.loc[i,"HomePoints"]),
+                                        awaygoals=int(games.loc[i,"AwayPoints"]),
+                                        overtimes=0)
+                game.result = result
+            elif (game.result.homegoals != int(games.loc[i,"HomePoints"])) \
+                    or (game.result.awaygoals != int(games.loc[i,"AwayPoints"])):
+                _prompt_result_disagreement(game, games.loc[i,:])
     
     session.commit()
     session.close()
+
 
 def save_games(games, sourcename):
     """Save a dataframe of EFL games in download format to the EFL games database."""
@@ -211,17 +248,12 @@ def console_download_games():
         config.parse(args.config)
     # Run the interactive data getting function
     today = datetime.date.today()
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
     print("\nGetting data from footballdata.co.uk")
     footballdata_games = footballdata.get_games(args.l, args.y, enddate=today)
     save_games(footballdata_games, sourcename='footballdata')
+    # If this is the current year, go to secondary source
     if args.y >= (today - datetime.timedelta(days=180)).year:
-        if args.l in [1,2]:
-            print("\nGetting data from fixturedownload.com")
-            fixturedownload_games = fixturedownload.get_games(args.l, args.y, startdate=tomorrow)
-            save_games(fixturedownload_games, sourcename='fixturedownload')
-        elif args.l in [3,4]:
-            print("\nGetting data from footballwebpages.co.uk")
-            fwpco_games = footballwebpages.get_games(args.l, args.y, startdate=tomorrow)
-            save_games(fwpco_games, sourcename='footballwebpages')
+        print("\nGetting data from footballwebpages.co.uk")
+        fwpco_games = footballwebpages.get_games(args.l, args.y)
+        save_games(fwpco_games, sourcename='footballwebpages')
 
