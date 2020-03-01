@@ -13,8 +13,7 @@ def _download_games(league, season):
     response = requests.get(url)
     data = pandas.read_csv(io.StringIO(response.text))
     data['Season'] = season
-    leaguename = {1:'Premiership', 2:'Championship', 3:'League One', 4:'League Two'}
-    data['League'] = 'comp{}'.format(leaguename[league])
+    data['League'] = 'comp={}'.format(league)
     return data[~data['Date'].isna()]
 
 # Extract only the columns we need and parse dates
