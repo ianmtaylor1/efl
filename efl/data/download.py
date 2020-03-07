@@ -256,4 +256,8 @@ def console_download_games():
         print("\nGetting data from footballwebpages.co.uk")
         fwpco_games = footballwebpages.get_games(args.l, args.y)
         save_games(fwpco_games, sourcename='footballwebpages')
-
+        # If in premier league or championship, go to tertiary source
+        if args.l in [1,2]:
+            print("\nGetting data from fixturedownload.com")
+            fixturedownload_games = fixturedownload.get_games(args.l, args.y)
+            save_games(fixturedownload_games, sourcename='fixturedownload')
