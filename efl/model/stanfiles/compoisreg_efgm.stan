@@ -57,7 +57,7 @@ data {
     real<lower=0> nu_lower_limit;
     
     // Maximum truncation point for distribution
-    int<lower=(max(append_array(homegoals,awaygoals))+1)*100> truncpoint;
+    int<lower=(max(append_array(append_array(homegoals, awaygoals), {0})) + 1) * 100> truncpoint;
     
     // Prior parameters for the inter-goals correlation
     real<lower=-1, upper=1> phi_prior_mean;
