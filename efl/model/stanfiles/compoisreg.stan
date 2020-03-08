@@ -22,7 +22,7 @@ data {
     cov_matrix[nTeams] defense_prior_var;
     
     // Maximum truncation point for distribution
-    int<lower=(max(append_array(homegoals,awaygoals))+1)*100> truncpoint;
+    int<lower=(max(append_array(append_array(homegoals, awaygoals), {0})) + 1) * 100> truncpoint;
 }
 transformed data {
     cholesky_factor_cov[nTeams] offense_prior_var_chol;
